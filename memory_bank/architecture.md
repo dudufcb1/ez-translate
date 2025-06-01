@@ -76,7 +76,7 @@ EZ Translate es un plugin WordPress que implementa un sistema multilingüe robus
 - Almacenamiento en `wp_options` con clave `ez_translate_languages`
 - Sistema de caché con transients de WordPress (1 hora de expiración)
 - Validación con expresiones regulares para códigos y slugs
-- Sanitización usando funciones nativas de WordPress
+- Sanitización robusta usando funciones nativas de WordPress + función `sanitize_boolean()` personalizada
 - Manejo de errores con `WP_Error` para consistencia
 - Métodos especializados para idiomas habilitados
 - Integración completa con sistema de logging
@@ -89,6 +89,40 @@ EZ Translate es un plugin WordPress que implementa un sistema multilingüe robus
 - `flag`: Emoji de bandera del país (opcional)
 - `rtl`: Dirección de texto derecha-izquierda (boolean, default false)
 - `enabled`: Estado activo del idioma (boolean, default true)
+
+### Sistema de Metadatos de Página: `includes/class-ez-translate-post-meta-manager.php`
+**Propósito**: Gestión completa de metadatos multilingües para páginas y posts
+**Responsabilidades**:
+- Operaciones CRUD para metadatos multilingües en `wp_postmeta`
+- Generación automática de UUIDs para grupos de traducción
+- Validación de integridad de datos y formatos
+- Gestión de landing pages con validación de unicidad por idioma
+- Consultas optimizadas de base de datos para relaciones multilingües
+- Hooks de WordPress para procesamiento automático de metadatos
+
+**Características Técnicas**:
+- Namespace `EZTranslate\PostMetaManager` con métodos estáticos
+- Almacenamiento en `wp_postmeta` con prefijo `_ez_translate_`
+- Hooks automáticos en `save_post` y `before_delete_post`
+- Generación de Group IDs con formato "tg_" + 16 caracteres alfanuméricos
+- Validación de códigos de idioma contra base de datos de idiomas
+- Consultas preparadas de `$wpdb` para seguridad y rendimiento
+- Logging comprensivo de todas las operaciones de metadatos
+
+**Estructura de Metadatos Multilingües**:
+- `_ez_translate_language`: Código de idioma (validado contra idiomas existentes)
+- `_ez_translate_group`: ID de grupo de traducción (formato UUID)
+- `_ez_translate_is_landing`: Boolean para páginas landing (único por idioma)
+- `_ez_translate_seo_title`: Título SEO específico para landing pages
+- `_ez_translate_seo_description`: Descripción SEO para landing pages
+
+**Funciones Helper Avanzadas**:
+- `set_post_language()`: Asignar idioma con validación
+- `set_post_group()`: Asignar/generar grupo de traducción
+- `set_post_landing_status()`: Marcar como landing page con validación de unicidad
+- `get_posts_by_language()`: Consultar páginas por idioma
+- `get_posts_in_group()`: Consultar páginas en grupo de traducción
+- `get_landing_page_for_language()`: Encontrar landing page específica
 
 ### Script de Desinstalación: `uninstall.php`
 **Propósito**: Limpieza completa al eliminar el plugin
@@ -237,19 +271,25 @@ La arquitectura actual está preparada para:
 - Validación y sanitización robusta
 - Sistema de caché optimizado
 - Suite de pruebas comprensiva
+- Sistema de metadatos multilingües completo
+- Generación automática de UUIDs para grupos de traducción
+- Hooks de WordPress para procesamiento automático
+- Consultas optimizadas de base de datos
 
 **🔄 En Preparación**:
 - REST API endpoints para Gutenberg
 - Integración con editor Gutenberg
-- Sistema de metadatos de página
+- Panel lateral de Gutenberg para metadatos
 - Optimizaciones SEO frontend
 
 **📊 Métricas de Implementación**:
-- **Archivos de código**: 16 archivos
-- **Clases implementadas**: 4 clases principales
-- **Líneas de código**: ~1,850 líneas
-- **Cobertura de tests**: 9 tests automatizados
+- **Archivos de código**: 19 archivos
+- **Clases implementadas**: 5 clases principales
+- **Líneas de código**: ~2,500 líneas
+- **Cobertura de tests**: 25 tests automatizados (9 Language Manager + 16 Post Meta Manager) - ✅ 25/25 PASANDO
 - **Idiomas soportados**: 70+ idiomas con códigos ISO
-- **Operaciones CRUD**: 100% implementadas y probadas
+- **Operaciones CRUD**: 100% implementadas y probadas (idiomas + metadatos)
+- **Metadatos multilingües**: 5 campos implementados con validación completa
+- **Grupos de traducción**: Sistema UUID automático implementado
 
-Esta base sólida permite el desarrollo incremental siguiendo el plan establecido, manteniendo la calidad del código y la facilidad de mantenimiento. El sistema de gestión de idiomas está completamente funcional y listo para la implementación de metadatos de página y integración con Gutenberg en las siguientes fases.
+Esta base sólida permite el desarrollo incremental siguiendo el plan establecido, manteniendo la calidad del código y la facilidad de mantenimiento. El sistema de gestión de idiomas y metadatos multilingües está completamente funcional y listo para la integración con Gutenberg y optimizaciones SEO en las siguientes fases. La arquitectura modular facilita la expansión con nuevas funcionalidades mientras mantiene la estabilidad y rendimiento del sistema.

@@ -395,12 +395,42 @@ class LanguageManager {
         // Optional fields
         $sanitized['native_name'] = isset($language_data['native_name']) ? sanitize_text_field($language_data['native_name']) : '';
         $sanitized['flag'] = isset($language_data['flag']) ? sanitize_text_field($language_data['flag']) : '';
-        $sanitized['rtl'] = isset($language_data['rtl']) ? (bool) $language_data['rtl'] : false;
-        $sanitized['enabled'] = isset($language_data['enabled']) ? (bool) $language_data['enabled'] : true;
+
+        // Handle boolean fields properly - convert string representations to actual booleans
+        $sanitized['rtl'] = isset($language_data['rtl']) ? self::sanitize_boolean($language_data['rtl']) : false;
+        $sanitized['enabled'] = isset($language_data['enabled']) ? self::sanitize_boolean($language_data['enabled']) : true;
 
         Logger::debug('Language data sanitized', array('original' => $language_data, 'sanitized' => $sanitized));
 
         return $sanitized;
+    }
+
+    /**
+     * Sanitize boolean values from various input types
+     *
+     * @param mixed $value Value to convert to boolean
+     * @return bool Sanitized boolean value
+     * @since 1.0.0
+     */
+    private static function sanitize_boolean($value) {
+        // Handle string representations
+        if (is_string($value)) {
+            $value = strtolower(trim($value));
+            if (in_array($value, array('false', '0', '', 'no', 'off'))) {
+                return false;
+            }
+            if (in_array($value, array('true', '1', 'yes', 'on'))) {
+                return true;
+            }
+        }
+
+        // Handle numeric values
+        if (is_numeric($value)) {
+            return (bool) intval($value);
+        }
+
+        // Default boolean conversion
+        return (bool) $value;
     }
 
     /**

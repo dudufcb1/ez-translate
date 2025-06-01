@@ -227,7 +227,25 @@ final class EZTranslate {
             $this->init_admin();
         }
 
+        // Initialize post meta manager for all contexts
+        $this->init_post_meta_manager();
+
         $this->log_message('Core components initialized', 'debug');
+    }
+
+    /**
+     * Initialize post meta manager
+     *
+     * @since 1.0.0
+     */
+    private function init_post_meta_manager() {
+        // Load post meta manager class
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-post-meta-manager.php';
+
+        // Initialize post meta manager
+        new \EZTranslate\PostMetaManager();
+
+        $this->log_message('Post meta manager initialized', 'debug');
     }
 
     /**

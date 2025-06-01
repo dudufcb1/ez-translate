@@ -531,6 +531,34 @@ class Admin {
                     </tr>
                 </table>
             </div>
+
+            <!-- Testing Section -->
+            <?php if (isset($_GET['run_ez_translate_tests']) && $_GET['run_ez_translate_tests'] === '1'): ?>
+                <div class="card">
+                    <h2><?php _e('Test Results', 'ez-translate'); ?></h2>
+                    <?php
+                    // Run Language Manager tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-language-manager.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-language-manager.php';
+                        \EZTranslateLanguageManagerTest::run_tests();
+                    }
+
+                    // Run Post Meta Manager tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-post-meta-manager.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-post-meta-manager.php';
+                        ez_translate_display_post_meta_tests();
+                    }
+                    ?>
+                </div>
+            <?php else: ?>
+                <div class="card">
+                    <h2><?php _e('Testing', 'ez-translate'); ?></h2>
+                    <p><?php _e('Run automated tests to verify plugin functionality.', 'ez-translate'); ?></p>
+                    <a href="<?php echo esc_url(add_query_arg('run_ez_translate_tests', '1')); ?>" class="button button-secondary">
+                        <?php _e('Run Tests', 'ez-translate'); ?>
+                    </a>
+                </div>
+            <?php endif; ?>
         </div>
 
         <!-- Edit Language Modal -->
