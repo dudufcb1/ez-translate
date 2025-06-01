@@ -222,8 +222,27 @@ final class EZTranslate {
      * @since 1.0.0
      */
     private function init_core_components() {
-        // This will be expanded in future steps
+        // Initialize admin components
+        if (is_admin()) {
+            $this->init_admin();
+        }
+
         $this->log_message('Core components initialized', 'debug');
+    }
+
+    /**
+     * Initialize admin components
+     *
+     * @since 1.0.0
+     */
+    private function init_admin() {
+        // Load admin class
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-admin.php';
+
+        // Initialize admin
+        new \EZTranslate\Admin();
+
+        $this->log_message('Admin components initialized', 'debug');
     }
 
     /**
