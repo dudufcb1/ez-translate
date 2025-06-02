@@ -505,29 +505,104 @@ Por esta razón, se procedió directamente al **Paso 2.2**.
 
 ---
 
+## ✅ PASO 4.1: Designación de Landing Pages - COMPLETADO
+**Fecha**: 2 de junio, 2025
+**Estado**: Implementado y validado por usuario - 7/7 tests pasando + UI completamente funcional
+
+#### Implementaciones Realizadas:
+
+**Panel de Landing Pages en Gutenberg (`assets/js/gutenberg-sidebar.js`)**:
+- Panel "Landing Page Settings" que aparece solo para páginas con idioma asignado
+- Toggle control para marcar/desmarcar páginas como landing pages
+- Campos SEO específicos (título y descripción) que aparecen solo para landing pages
+- Validación en tiempo real con mensajes de error específicos
+- Limpieza automática de campos SEO al desactivar landing page
+- Integración completa con WordPress data store y REST API
+
+**Funcionalidad Backend Avanzada**:
+- Método `PostMetaManager::is_post_landing_page()` para verificar status
+- Método `PostMetaManager::get_landing_page_for_language()` para consultas
+- Validación robusta para prevenir múltiples landing pages por idioma
+- Manejo de metadatos `_ez_translate_is_landing`, `_ez_translate_seo_title`, `_ez_translate_seo_description`
+- Logging comprensivo de todas las operaciones de landing pages
+
+**Validación REST API (`includes/class-ez-translate-rest-api.php`)**:
+- Endpoint `/ez-translate/v1/post-meta/{id}` con soporte para `is_landing` parameter
+- Validación automática que previene múltiples landing pages por idioma
+- Código de error específico `landing_page_exists` con HTTP 409
+- Manejo robusto de errores con mensajes contextuales
+- Integración con sistema de logging para debugging
+
+**Características de Seguridad y UX**:
+- Verificación de permisos de edición de posts
+- Sanitización completa de campos SEO
+- Validación de idiomas antes de permitir landing page
+- Toggle functionality con feedback visual inmediato
+- Prevención de estados inconsistentes en la base de datos
+
+**Suite de Pruebas Comprensiva (`tests/test-landing-pages.php`)**:
+- 7 tests automatizados cubriendo toda la funcionalidad de landing pages
+- Pruebas de funcionalidad básica (marcar/desmarcar landing pages)
+- Pruebas de validación de unicidad por idioma
+- Pruebas de REST API con validación de errores
+- Pruebas de campos SEO (título y descripción)
+- Pruebas de requerimiento de idioma para landing pages
+- Pruebas de toggle off con limpieza automática
+- Pruebas de múltiples idiomas con múltiples landing pages
+- Limpieza automática de datos de prueba
+
+#### Validaciones Completadas:
+- ✅ Panel Gutenberg aparece solo para páginas con idioma asignado
+- ✅ Toggle de landing page funciona correctamente con validación
+- ✅ Campos SEO aparecen solo para landing pages y se guardan correctamente
+- ✅ Validación previene múltiples landing pages por idioma
+- ✅ REST API retorna códigos de error apropiados (409 para duplicados)
+- ✅ Múltiples idiomas pueden tener sus propias landing pages
+- ✅ Toggle off limpia campos SEO automáticamente
+- ✅ Suite de pruebas pasando completamente (7/7)
+- ✅ Integración completa con sistema de logging
+- ✅ UX intuitiva con mensajes de error claros
+
+#### Debugging Estratégico Implementado:
+- Log de todas las operaciones de landing pages con contexto detallado
+- Tracking de validación de unicidad por idioma
+- Monitoreo de llamadas REST API con códigos de respuesta
+- Logging de operaciones de toggle on/off
+- Registro de limpieza automática de campos SEO
+- Logging de validación de permisos y errores de autorización
+
+---
+
 ## 🔄 Pasos Pendientes
 
-### Paso 4.1: Designación de Landing Pages
-- Implementar checkbox en panel Gutenberg para marcar como landing page
-- Validación para solo una landing page por idioma
-- Storage en metadatos de página
-- Campos adicionales SEO para landing pages
+### Paso 4.2: Metadatos SEO Avanzados
+- Inyección automática de metadatos SEO en frontend
+- Soporte para Open Graph y Twitter Cards
+- Metadatos estructurados (JSON-LD)
+- Optimización de títulos y descripciones
+
+### Paso 5.1: Inyección de Metadatos Frontend
+- Implementar hooks de WordPress para inyección en `<head>`
+- Sistema de detección de idioma de página actual
+- Inyección de metadatos multilingües
+- Soporte para hreflang básico
 
 ---
 
 ## 📊 Estadísticas del Proyecto
 
-- **Archivos creados**: 29
+- **Archivos creados**: 30
 - **Clases implementadas**: 7 (EZTranslate, EZTranslate\Logger, EZTranslate\Admin, EZTranslate\LanguageManager, EZTranslate\PostMetaManager, EZTranslate\RestAPI, EZTranslate\Gutenberg)
-- **Líneas de código**: ~5,000
-- **Cobertura de tests**: Suite completa implementada (40 tests: 9 Language Manager + 16 Post Meta Manager + 8 Gutenberg Integration + 7 Translation Creation) - ✅ 40/40 PASANDO
-- **Documentación**: Completa para Fase 1, Paso 2.2, Paso 3.1 y Paso 3.2 (Pasos 1.1, 1.2, 1.3, 2.2, 3.1, 3.2)
-- **Funcionalidades completadas**: Estructura base + Menú administrativo + Sistema de idiomas + Sistema de metadatos multilingües + Panel Gutenberg + Creación completa de traducciones
+- **Líneas de código**: ~5,500
+- **Cobertura de tests**: Suite completa implementada (47 tests: 9 Language Manager + 16 Post Meta Manager + 8 Gutenberg Integration + 7 Translation Creation + 7 Landing Pages) - ✅ 47/47 PASANDO
+- **Documentación**: Completa para Fase 1, Paso 2.2, Paso 3.1, Paso 3.2 y Paso 4.1 (Pasos 1.1, 1.2, 1.3, 2.2, 3.1, 3.2, 4.1)
+- **Funcionalidades completadas**: Estructura base + Menú administrativo + Sistema de idiomas + Sistema de metadatos multilingües + Panel Gutenberg + Creación completa de traducciones + Landing pages con SEO
 - **Idiomas soportados**: 70+ idiomas comunes con códigos ISO
-- **Operaciones CRUD**: Completamente implementadas y probadas (idiomas + metadatos + REST API + creación de traducciones)
+- **Operaciones CRUD**: Completamente implementadas y probadas (idiomas + metadatos + REST API + creación de traducciones + landing pages)
 - **Metadatos multilingües**: 5 campos implementados con validación completa
 - **Grupos de traducción**: Sistema UUID automático implementado y oculto del usuario
-- **REST API**: Endpoints públicos y administrativos implementados bajo `/wp-json/ez-translate/v1/` (incluyendo creación de traducciones)
-- **Gutenberg Integration**: Sidebar completo con flujo de traducción funcional y creación real de páginas
+- **REST API**: Endpoints públicos y administrativos implementados bajo `/wp-json/ez-translate/v1/` (incluyendo creación de traducciones y validación de landing pages)
+- **Gutenberg Integration**: Sidebar completo con flujo de traducción funcional, creación real de páginas y panel de landing pages
 - **Assets**: JavaScript y CSS para Gutenberg, sistema de dependencias WordPress
 - **Creación de Traducciones**: Sistema completo de duplicación inteligente de páginas con redirección automática
+- **Landing Pages**: Sistema completo con validación de unicidad por idioma, campos SEO y toggle functionality
