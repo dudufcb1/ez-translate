@@ -11,6 +11,9 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Include shared test utilities
+require_once __DIR__ . '/test-utilities.php';
+
 /**
  * Test Gutenberg Integration functionality
  */
@@ -291,97 +294,9 @@ function ez_translate_test_gutenberg_integration() {
     return $tests_passed === $total_tests;
 }
 
-/**
- * Check WordPress error logs for recent EZ Translate errors
- */
-function ez_translate_check_error_logs() {
-    echo '<h4>Recent Error Logs</h4>';
 
-    // Common log file locations
-    $log_files = [
-        ABSPATH . 'wp-content/debug.log',
-        ABSPATH . 'error_log',
-        ini_get('error_log'),
-        '/tmp/error_log'
-    ];
 
-    $found_logs = false;
 
-    foreach ($log_files as $log_file) {
-        if ($log_file && file_exists($log_file) && is_readable($log_file)) {
-            $found_logs = true;
-            echo '<p><strong>Checking:</strong> ' . $log_file . '</p>';
-
-            // Read last 50 lines
-            $lines = file($log_file);
-            if ($lines) {
-                $recent_lines = array_slice($lines, -50);
-                $ez_translate_errors = array_filter($recent_lines, function($line) {
-                    return strpos($line, 'EZ-Translate') !== false ||
-                           strpos($line, 'ez-translate') !== false ||
-                           strpos($line, 'RestAPI') !== false;
-                });
-
-                if (!empty($ez_translate_errors)) {
-                    echo '<p style="color: orange;">Found ' . count($ez_translate_errors) . ' EZ Translate related log entries:</p>';
-                    echo '<pre style="background: #f0f0f0; padding: 10px; font-size: 11px; max-height: 200px; overflow: auto;">';
-                    foreach (array_slice($ez_translate_errors, -10) as $error) {
-                        echo esc_html($error);
-                    }
-                    echo '</pre>';
-                } else {
-                    echo '<p style="color: green;">No EZ Translate errors found in this log</p>';
-                }
-            }
-            break; // Only check the first available log file
-        }
-    }
-
-    if (!$found_logs) {
-        echo '<p style="color: orange;">No accessible log files found. Check your WordPress debug settings.</p>';
-        echo '<p>To enable logging, add this to wp-config.php:</p>';
-        echo '<pre>define(\'WP_DEBUG\', true);
-define(\'WP_DEBUG_LOG\', true);
-define(\'WP_DEBUG_DISPLAY\', false);</pre>';
-    }
-}
-
-/**
- * Ensure test languages exist for API testing
- */
-function ez_translate_ensure_test_languages() {
-    $existing_languages = \EZTranslate\LanguageManager::get_languages();
-
-    // If no languages exist, add some test languages
-    if (empty($existing_languages)) {
-        $test_languages = [
-            [
-                'code' => 'en',
-                'name' => 'English',
-                'slug' => 'english',
-                'native_name' => 'English',
-                'flag' => '🇺🇸',
-                'rtl' => false,
-                'enabled' => true
-            ],
-            [
-                'code' => 'es',
-                'name' => 'Spanish',
-                'slug' => 'spanish',
-                'native_name' => 'Español',
-                'flag' => '🇪🇸',
-                'rtl' => false,
-                'enabled' => true
-            ]
-        ];
-
-        foreach ($test_languages as $language) {
-            \EZTranslate\LanguageManager::add_language($language);
-        }
-
-        echo '<p style="color: blue;">ℹ️ Added test languages for API testing</p>';
-    }
-}
 
 /**
  * Display Gutenberg integration tests in admin

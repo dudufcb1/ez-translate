@@ -11,6 +11,9 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Include shared test utilities
+require_once __DIR__ . '/test-utilities.php';
+
 /**
  * Landing Pages Test Class
  *
@@ -25,11 +28,12 @@ class EZ_Translate_Landing_Pages_Tests {
      */
     public static function run_tests() {
         echo "<h2>EZ Translate Landing Pages Tests (Step 4.1)</h2>\n";
-        
-        // Load required classes
-        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-manager.php';
-        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-post-meta-manager.php';
-        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-rest-api.php';
+
+        // Setup test environment
+        ez_translate_setup_test_environment();
+
+        // Clean up any existing test data before starting
+        self::cleanup_test_data();
         
         $tests = array(
             'test_landing_page_basic_functionality',
@@ -47,13 +51,19 @@ class EZ_Translate_Landing_Pages_Tests {
         foreach ($tests as $test) {
             $total_tests++;
             echo "<h3>Test {$total_tests}: " . str_replace('test_', '', $test) . "</h3>\n";
-            
+
+            // Clean up before each test to ensure clean state
+            self::cleanup_test_data();
+
             if (self::$test()) {
                 echo '<p style="color: green;">✅ PASSED</p>';
                 $tests_passed++;
             } else {
                 echo '<p style="color: red;">❌ FAILED</p>';
             }
+
+            // Clean up after each test
+            self::cleanup_test_data();
             echo "<hr>\n";
         }
         
@@ -419,6 +429,9 @@ class EZ_Translate_Landing_Pages_Tests {
      * @since 1.0.0
      */
     private static function test_multiple_languages_multiple_landing_pages() {
+        // Ensure required languages exist
+        self::ensure_test_languages_exist();
+
         // Create test posts for different languages
         $post_en = wp_insert_post([
             'post_title' => 'English Landing Page',
@@ -464,13 +477,32 @@ class EZ_Translate_Landing_Pages_Tests {
             return false;
         }
 
+        // Give a moment for database operations to complete
+        usleep(100000); // 0.1 seconds
+
         // Verify each language has its correct landing page
         $found_en = \EZTranslate\PostMetaManager::get_landing_page_for_language('en');
         $found_es = \EZTranslate\PostMetaManager::get_landing_page_for_language('es');
         $found_fr = \EZTranslate\PostMetaManager::get_landing_page_for_language('fr');
 
-        if ($found_en !== $post_en || $found_es !== $post_es || $found_fr !== $post_fr) {
-            echo "Landing pages not found correctly for different languages";
+        if ($found_en != $post_en || $found_es != $post_es || $found_fr != $post_fr) {
+            echo "Landing pages not found correctly for different languages. ";
+            echo "Expected EN: {$post_en}, Found: {$found_en}. ";
+            echo "Expected ES: {$post_es}, Found: {$found_es}. ";
+            echo "Expected FR: {$post_fr}, Found: {$found_fr}. ";
+
+            // Debug: Check if posts actually have the correct metadata
+            $en_lang = get_post_meta($post_en, '_ez_translate_language', true);
+            $es_lang = get_post_meta($post_es, '_ez_translate_language', true);
+            $fr_lang = get_post_meta($post_fr, '_ez_translate_language', true);
+            $en_landing = get_post_meta($post_en, '_ez_translate_is_landing', true);
+            $es_landing = get_post_meta($post_es, '_ez_translate_is_landing', true);
+            $fr_landing = get_post_meta($post_fr, '_ez_translate_is_landing', true);
+
+            echo "Post metadata - EN lang: {$en_lang}, landing: {$en_landing}. ";
+            echo "ES lang: {$es_lang}, landing: {$es_landing}. ";
+            echo "FR lang: {$fr_lang}, landing: {$fr_landing}.";
+
             wp_delete_post($post_en, true);
             wp_delete_post($post_es, true);
             wp_delete_post($post_fr, true);
@@ -482,6 +514,66 @@ class EZ_Translate_Landing_Pages_Tests {
         wp_delete_post($post_fr, true);
         echo "Multiple languages with multiple landing pages work correctly";
         return true;
+    }
+
+    /**
+     * Ensure test languages exist
+     *
+     * @since 1.0.0
+     */
+    private static function ensure_test_languages_exist() {
+        $required_languages = [
+            'en' => [
+                'code' => 'en',
+                'name' => 'English',
+                'slug' => 'english',
+                'native_name' => 'English',
+                'flag' => '🇺🇸',
+                'rtl' => false,
+                'enabled' => true
+            ],
+            'es' => [
+                'code' => 'es',
+                'name' => 'Spanish',
+                'slug' => 'spanish',
+                'native_name' => 'Español',
+                'flag' => '🇪🇸',
+                'rtl' => false,
+                'enabled' => true
+            ],
+            'fr' => [
+                'code' => 'fr',
+                'name' => 'French',
+                'slug' => 'french',
+                'native_name' => 'Français',
+                'flag' => '🇫🇷',
+                'rtl' => false,
+                'enabled' => true
+            ]
+        ];
+
+        $existing_languages = \EZTranslate\LanguageManager::get_languages();
+
+        foreach ($required_languages as $code => $language_data) {
+            $exists = false;
+            foreach ($existing_languages as $existing) {
+                if ($existing['code'] === $code) {
+                    $exists = true;
+                    break;
+                }
+            }
+
+            if (!$exists) {
+                try {
+                    \EZTranslate\LanguageManager::add_language($language_data);
+                } catch (Exception $e) {
+                    // Language might already exist, ignore duplicate errors
+                    if (strpos($e->getMessage(), 'duplicate') === false) {
+                        error_log('[EZ-Translate] Test setup: Could not add language ' . $code . ': ' . $e->getMessage());
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -504,14 +596,28 @@ class EZ_Translate_Landing_Pages_Tests {
         ]);
 
         foreach ($test_posts as $post) {
-            if (strpos($post->post_title, 'Test') !== false || 
+            if (strpos($post->post_title, 'Test') !== false ||
                 strpos($post->post_title, 'REST API') !== false ||
                 strpos($post->post_title, 'SEO') !== false ||
                 strpos($post->post_title, 'Toggle') !== false ||
                 strpos($post->post_title, 'English') !== false ||
                 strpos($post->post_title, 'Spanish') !== false ||
-                strpos($post->post_title, 'French') !== false) {
+                strpos($post->post_title, 'French') !== false ||
+                strpos($post->post_title, 'Landing') !== false) {
                 wp_delete_post($post->ID, true);
+            }
+        }
+
+        // Also clean up any posts that might be marked as landing pages for test languages
+        $test_languages = ['en', 'es', 'fr', 'de'];
+        foreach ($test_languages as $lang_code) {
+            $landing_page_id = \EZTranslate\PostMetaManager::get_landing_page_for_language($lang_code);
+            if ($landing_page_id) {
+                $post = get_post($landing_page_id);
+                if ($post && (strpos($post->post_title, 'Test') !== false ||
+                             strpos($post->post_title, 'Landing') !== false)) {
+                    wp_delete_post($landing_page_id, true);
+                }
             }
         }
     }

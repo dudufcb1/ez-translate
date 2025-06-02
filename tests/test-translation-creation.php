@@ -11,67 +11,17 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Include shared test utilities
+require_once __DIR__ . '/test-utilities.php';
+
 use EZTranslate\Logger;
 use EZTranslate\LanguageManager;
 use EZTranslate\PostMetaManager;
 use EZTranslate\RestAPI;
 
-/**
- * Ensure test languages exist for testing
- */
-function ez_translate_ensure_test_languages() {
-    $existing_languages = \EZTranslate\LanguageManager::get_languages();
 
-    // Check if we have English and Spanish
-    $has_english = false;
-    $has_spanish = false;
 
-    foreach ($existing_languages as $language) {
-        if ($language['code'] === 'en') {
-            $has_english = true;
-        }
-        if ($language['code'] === 'es') {
-            $has_spanish = true;
-        }
-    }
 
-    // Add missing languages
-    if (!$has_english) {
-        \EZTranslate\LanguageManager::add_language([
-            'code' => 'en',
-            'name' => 'English',
-            'slug' => 'english',
-            'native_name' => 'English',
-            'flag' => '🇺🇸',
-            'rtl' => false,
-            'enabled' => true
-        ]);
-        echo '<p style="color: blue;">ℹ️ Added English language for testing</p>';
-    }
-
-    if (!$has_spanish) {
-        \EZTranslate\LanguageManager::add_language([
-            'code' => 'es',
-            'name' => 'Spanish',
-            'slug' => 'spanish',
-            'native_name' => 'Español',
-            'flag' => '🇪🇸',
-            'rtl' => false,
-            'enabled' => true
-        ]);
-        echo '<p style="color: blue;">ℹ️ Added Spanish language for testing</p>';
-    }
-}
-
-/**
- * Check error logs helper function
- */
-function ez_translate_check_error_logs() {
-    // Simple error log check - in a real implementation you might want to check actual log files
-    if (defined('WP_DEBUG') && WP_DEBUG) {
-        echo '<p style="color: blue;">ℹ️ Debug mode is enabled - check error logs for detailed information</p>';
-    }
-}
 
 /**
  * Test Translation Creation functionality

@@ -225,6 +225,47 @@ EZ Translate es un plugin WordPress que implementa un sistema multilingüe robus
 - Reset automático de selección tras operación
 - Integración completa con WordPress data store
 
+### Sistema Frontend: `includes/class-ez-translate-frontend.php`
+**Propósito**: Gestión completa de operaciones frontend y inyección de metadatos SEO
+**Responsabilidades**:
+- Inyección automática de metadatos SEO para landing pages
+- Override de títulos de documento con SEO titles personalizados
+- Generación de metadatos Open Graph para redes sociales
+- Creación de Twitter Cards para optimización social
+- Inyección de datos estructurados JSON-LD para SEO
+- Conversión automática de códigos de idioma a locales
+- Integración con featured images para metadatos sociales
+
+**Características Técnicas**:
+- Namespace `EZTranslate\Frontend` con hooks específicos de frontend
+- Hooks de WordPress: `wp_head` (prioridades 1 y 2), `document_title_parts`
+- Detección inteligente de landing pages vs páginas regulares
+- Modo de testing para bypass de verificaciones WordPress en pruebas
+- Sanitización completa usando funciones nativas de WordPress
+- Verificación de contexto (solo páginas singulares)
+- Impacto mínimo en rendimiento (ejecución condicional)
+
+**Metadatos SEO Generados**:
+- **Document Title Override**: Reemplazo de títulos con SEO titles personalizados
+- **Meta Description**: Tags de descripción personalizados para landing pages
+- **Open Graph**: og:title, og:description, og:type, og:url, og:locale, og:image
+- **Twitter Cards**: twitter:card, twitter:title, twitter:description, twitter:image
+- **JSON-LD Schema**: Datos estructurados WebPage con autor, fechas e idioma
+- **Featured Images**: Integración automática en metadatos sociales
+
+**Sistema de Conversión de Idiomas**:
+- Mapeo automático de códigos ISO a locales (es → es_ES, en → en_US)
+- Soporte para 30+ idiomas principales con conversión correcta
+- Fallback inteligente para idiomas no mapeados
+- Detección de idiomas RTL para metadatos apropiados
+
+**Integración WordPress**:
+- Hook `wp_head` para inyección en `<head>` del documento
+- Filtro `document_title_parts` para override de títulos
+- Compatibilidad completa con temas WordPress
+- No interfiere con otros plugins SEO cuando no hay landing pages
+- Salida HTML limpia y válida según estándares W3C
+
 ### Script de Desinstalación: `uninstall.php`
 **Propósito**: Limpieza completa al eliminar el plugin
 **Responsabilidades**:
@@ -432,24 +473,42 @@ La arquitectura actual está preparada para:
 - **Sistema de redirección** automática al editor de traducción
 - **Manejo completo de errores** y validaciones
 
+**✅ Completados en Step 4.1**:
+- **Sistema de Landing Pages** completo con validación de unicidad por idioma
+- **Panel Gutenberg** para designación de landing pages
+- **Campos SEO** (título y descripción) específicos para landing pages
+- **Validación REST API** para prevenir múltiples landing pages por idioma
+- **Toggle functionality** con limpieza automática de campos SEO
+
+**✅ Completados en Step 5.1**:
+- **Sistema Frontend** completo para inyección de metadatos SEO
+- **Override de títulos** automático para landing pages
+- **Metadatos Open Graph** para optimización en redes sociales
+- **Twitter Cards** para mejorar compartición en Twitter
+- **JSON-LD Schema** para datos estructurados y SEO
+- **Conversión de idiomas** a locales para metadatos internacionales
+- **Modo de testing** para pruebas unitarias confiables
+
 **🔄 En Preparación**:
-- Designación de Landing Pages (Step 4.1)
-- Optimizaciones SEO frontend
+- Hreflang tags automáticos (Step 5.2)
 - Selector de idiomas frontend
+- Navegación entre traducciones
 - Herramientas administrativas avanzadas
 
-**📊 Métricas de Implementación** (Actualizado Step 3.2):
-- **Archivos de código**: 29 archivos
-- **Clases implementadas**: 7 clases principales
-- **Líneas de código**: ~5,000 líneas
-- **Cobertura de tests**: 40 tests automatizados (9 Language Manager + 16 Post Meta Manager + 8 Gutenberg Integration + 7 Translation Creation) - ✅ 40/40 PASANDO
+**📊 Métricas de Implementación** (Actualizado Step 5.1):
+- **Archivos de código**: 35 archivos
+- **Clases implementadas**: 8 clases principales (EZTranslate, Logger, Admin, LanguageManager, PostMetaManager, RestAPI, Gutenberg, Frontend)
+- **Líneas de código**: ~7,000 líneas
+- **Cobertura de tests**: 41 tests automatizados (9 Language Manager + 16 Post Meta Manager + 8 Gutenberg Integration + 7 Translation Creation + 7 Landing Pages + 9 Frontend SEO) - ✅ 41/41 PASANDO (100%)
 - **Idiomas soportados**: 70+ idiomas con códigos ISO
-- **Operaciones CRUD**: 100% implementadas y probadas (idiomas + metadatos + REST API + creación de traducciones)
+- **Operaciones CRUD**: 100% implementadas y probadas (idiomas + metadatos + REST API + creación de traducciones + landing pages + frontend SEO)
 - **Metadatos multilingües**: 5 campos implementados con validación completa
 - **Grupos de traducción**: Sistema UUID automático implementado y oculto del usuario
 - **REST API**: 7 endpoints implementados bajo `/wp-json/ez-translate/v1/` (incluyendo creación de traducciones)
 - **Gutenberg Integration**: Sidebar completo con flujo de traducción funcional y creación real de páginas
 - **Assets**: JavaScript y CSS para Gutenberg con gestión de dependencias
 - **Creación de Traducciones**: Sistema completo de duplicación inteligente con redirección automática
+- **Landing Pages**: Sistema completo con validación de unicidad por idioma, campos SEO y toggle functionality
+- **Frontend SEO**: Inyección automática de metadatos SEO, Open Graph, Twitter Cards, JSON-LD y conversión de idiomas a locales
 
 Esta base sólida permite el desarrollo incremental siguiendo el plan establecido, manteniendo la calidad del código y la facilidad de mantenimiento. El sistema de gestión de idiomas y metadatos multilingües está completamente funcional y listo para la integración con Gutenberg y optimizaciones SEO en las siguientes fases. La arquitectura modular facilita la expansión con nuevas funcionalidades mientras mantiene la estabilidad y rendimiento del sistema.

@@ -236,6 +236,11 @@ final class EZTranslate {
         // Initialize Gutenberg integration
         $this->init_gutenberg();
 
+        // Initialize frontend components (only on frontend)
+        if (!is_admin()) {
+            $this->init_frontend();
+        }
+
         $this->log_message('Core components initialized', 'debug');
     }
 
@@ -306,6 +311,21 @@ final class EZTranslate {
         new \EZTranslate\Admin();
 
         $this->log_message('Admin components initialized', 'debug');
+    }
+
+    /**
+     * Initialize frontend components
+     *
+     * @since 1.0.0
+     */
+    private function init_frontend() {
+        // Load frontend class
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-frontend.php';
+
+        // Initialize frontend
+        new \EZTranslate\Frontend();
+
+        $this->log_message('Frontend components initialized', 'debug');
     }
 
     /**

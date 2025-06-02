@@ -564,7 +564,13 @@ class Admin {
                     // Run Landing Pages tests
                     if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-landing-pages.php')) {
                         require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-landing-pages.php';
-                        EZ_Translate_Landing_Pages_Tests::run_tests();
+                        \EZ_Translate_Landing_Pages_Tests::run_tests();
+                    }
+
+                    // Run Frontend SEO tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-frontend-seo.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-frontend-seo.php';
+                        ez_translate_display_frontend_seo_tests();
                     }
                     ?>
                 </div>
@@ -575,9 +581,22 @@ class Admin {
                     // Run Landing Pages tests only
                     if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-landing-pages.php')) {
                         require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-landing-pages.php';
-                        EZ_Translate_Landing_Pages_Tests::run_tests();
+                        \EZ_Translate_Landing_Pages_Tests::run_tests();
                     } else {
                         echo '<p style="color: red;">Landing page test file not found.</p>';
+                    }
+                    ?>
+                </div>
+            <?php elseif (isset($_GET['run_ez_translate_frontend_tests']) && $_GET['run_ez_translate_frontend_tests'] === '1'): ?>
+                <div class="card">
+                    <h2><?php _e('Frontend SEO Test Results', 'ez-translate'); ?></h2>
+                    <?php
+                    // Run Frontend SEO tests only
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-frontend-seo.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-frontend-seo.php';
+                        ez_translate_display_frontend_seo_tests();
+                    } else {
+                        echo '<p style="color: red;">Frontend SEO test file not found.</p>';
                     }
                     ?>
                 </div>
@@ -596,6 +615,9 @@ class Admin {
                     </a>
                     <a href="<?php echo esc_url(add_query_arg('run_ez_translate_landing_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
                         <?php _e('Run Landing Page Tests', 'ez-translate'); ?>
+                    </a>
+                    <a href="<?php echo esc_url(add_query_arg('run_ez_translate_frontend_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
+                        <?php _e('Run Frontend SEO Tests', 'ez-translate'); ?>
                     </a>
                 </div>
             <?php endif; ?>
