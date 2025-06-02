@@ -170,18 +170,44 @@
             setError(null);
 
             try {
-                // TODO: Implement actual page duplication via REST API
                 console.log('Creating translation from', originalLanguage, 'to', selectedTargetLanguage);
 
-                // For now, just show a message
-                alert(`Translation creation will be implemented soon!\n\nFrom: ${originalLanguage}\nTo: ${selectedTargetLanguage}`);
+                // Call the REST API to create translation
+                const response = await wp.apiFetch({
+                    path: `/ez-translate/v1/create-translation/${postId}`,
+                    method: 'POST',
+                    data: {
+                        target_language: selectedTargetLanguage
+                    }
+                });
+
+                if (response.success) {
+                    // Show success message
+                    const message = __('Translation created successfully!', 'ez-translate') +
+                                  '\n\n' + __('You will be redirected to edit the new translation.', 'ez-translate');
+
+                    if (confirm(message)) {
+                        // Redirect to edit the new translation
+                        window.location.href = response.data.edit_url;
+                    }
+                } else {
+                    setError(__('Failed to create translation. Please try again.', 'ez-translate'));
+                }
 
                 // Reset selection
                 setSelectedTargetLanguage('');
 
             } catch (err) {
                 console.error('Failed to create translation:', err);
-                setError(__('Failed to create translation. Please try again.', 'ez-translate'));
+
+                // Handle specific error cases
+                if (err.code === 'translation_exists') {
+                    setError(__('A translation for this language already exists.', 'ez-translate'));
+                } else if (err.code === 'invalid_target_language') {
+                    setError(__('Invalid target language selected.', 'ez-translate'));
+                } else {
+                    setError(__('Failed to create translation. Please try again.', 'ez-translate'));
+                }
             } finally {
                 setCreating(false);
             }

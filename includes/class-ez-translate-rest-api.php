@@ -97,6 +97,28 @@ class RestAPI {
             'args' => $this->get_post_meta_schema(),
         ));
 
+        // Translation creation endpoint
+        register_rest_route(self::NAMESPACE, '/create-translation/(?P<id>\d+)', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'create_translation'),
+            'permission_callback' => array($this, 'check_post_permissions'),
+            'args' => array(
+                'id' => array(
+                    'validate_callback' => function($param, $request, $key) {
+                        return is_numeric($param);
+                    }
+                ),
+                'target_language' => array(
+                    'required' => true,
+                    'type' => 'string',
+                    'validate_callback' => function($param, $request, $key) {
+                        return is_string($param) && !empty($param);
+                    },
+                    'sanitize_callback' => 'sanitize_text_field',
+                ),
+            ),
+        ));
+
         Logger::info('REST API routes registered');
     }
 
@@ -410,6 +432,129 @@ class RestAPI {
             ));
 
             return new \WP_Error('update_post_meta_failed', 'Failed to update post metadata', array('status' => 500));
+        }
+    }
+
+    /**
+     * Create translation page
+     *
+     * @param WP_REST_Request $request Request object
+     * @return WP_REST_Response
+     * @since 1.0.0
+     */
+    public function create_translation($request) {
+        try {
+            $source_post_id = (int) $request->get_param('id');
+            $target_language = sanitize_text_field($request->get_param('target_language'));
+
+            // Get the source post
+            $source_post = get_post($source_post_id);
+            if (!$source_post) {
+                return new \WP_Error('source_post_not_found', 'Source post not found', array('status' => 404));
+            }
+
+            // Validate target language exists
+            $language = LanguageManager::get_language($target_language);
+            if (!$language) {
+                return new \WP_Error('invalid_target_language', 'Target language not found', array('status' => 400));
+            }
+
+            // Get source post metadata
+            $source_metadata = PostMetaManager::get_post_metadata($source_post_id);
+            $source_language = $source_metadata['language'] ?? '';
+
+            // Check if translation already exists
+            if ($source_metadata['group']) {
+                $existing_translations = PostMetaManager::get_posts_in_group($source_metadata['group']);
+                foreach ($existing_translations as $translation) {
+                    $translation_meta = PostMetaManager::get_post_metadata($translation->ID);
+                    if ($translation_meta['language'] === $target_language) {
+                        return new \WP_Error('translation_exists', 'Translation already exists for this language', array(
+                            'status' => 409,
+                            'existing_post_id' => $translation->ID
+                        ));
+                    }
+                }
+            }
+
+            // Create the translation post
+            $translation_data = array(
+                'post_title' => $source_post->post_title . ' (' . $language['name'] . ')',
+                'post_content' => $source_post->post_content,
+                'post_excerpt' => $source_post->post_excerpt,
+                'post_status' => 'draft', // Always create as draft
+                'post_type' => $source_post->post_type,
+                'post_author' => get_current_user_id(),
+                'post_parent' => $source_post->post_parent,
+                'menu_order' => $source_post->menu_order,
+            );
+
+            $translation_id = wp_insert_post($translation_data);
+
+            if (is_wp_error($translation_id)) {
+                Logger::error('REST API: Failed to create translation post', array(
+                    'error' => $translation_id->get_error_message(),
+                    'source_post_id' => $source_post_id,
+                    'target_language' => $target_language
+                ));
+                return $translation_id;
+            }
+
+            // Set up translation group
+            $group_id = $source_metadata['group'];
+            if (!$group_id) {
+                // Create new group and assign to source post
+                $group_id = PostMetaManager::generate_group_id();
+                PostMetaManager::set_post_group($source_post_id, $group_id);
+            }
+
+            // Set metadata for translation
+            PostMetaManager::set_post_language($translation_id, $target_language);
+            PostMetaManager::set_post_group($translation_id, $group_id);
+
+            // Copy featured image if exists
+            $featured_image_id = get_post_thumbnail_id($source_post_id);
+            if ($featured_image_id) {
+                set_post_thumbnail($translation_id, $featured_image_id);
+            }
+
+            // Copy custom fields (excluding our own meta fields)
+            $custom_fields = get_post_meta($source_post_id);
+            foreach ($custom_fields as $key => $values) {
+                if (strpos($key, '_ez_translate_') !== 0) {
+                    foreach ($values as $value) {
+                        add_post_meta($translation_id, $key, maybe_unserialize($value));
+                    }
+                }
+            }
+
+            Logger::info('REST API: Translation created successfully', array(
+                'source_post_id' => $source_post_id,
+                'translation_id' => $translation_id,
+                'target_language' => $target_language,
+                'group_id' => $group_id
+            ));
+
+            return rest_ensure_response(array(
+                'success' => true,
+                'message' => 'Translation created successfully',
+                'data' => array(
+                    'translation_id' => $translation_id,
+                    'edit_url' => admin_url('post.php?post=' . $translation_id . '&action=edit'),
+                    'source_post_id' => $source_post_id,
+                    'target_language' => $target_language,
+                    'group_id' => $group_id
+                )
+            ));
+
+        } catch (Exception $e) {
+            Logger::error('REST API: Exception creating translation', array(
+                'error' => $e->getMessage(),
+                'source_post_id' => $request->get_param('id'),
+                'target_language' => $request->get_param('target_language')
+            ));
+
+            return new \WP_Error('create_translation_failed', 'Failed to create translation', array('status' => 500));
         }
     }
 

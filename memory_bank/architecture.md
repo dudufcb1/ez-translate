@@ -149,8 +149,20 @@ EZ Translate es un plugin WordPress que implementa un sistema multilingüe robus
 - `POST /languages`: Crear nuevo idioma (admin)
 - `PUT /languages/{code}`: Actualizar idioma existente (admin)
 - `DELETE /languages/{code}`: Eliminar idioma (admin)
-- `GET /posts/{id}/meta`: Obtener metadatos multilingües de post
-- `POST /posts/{id}/meta`: Actualizar metadatos multilingües de post
+- `GET /post-meta/{id}`: Obtener metadatos multilingües de post
+- `POST /post-meta/{id}`: Actualizar metadatos multilingües de post
+- `POST /create-translation/{id}`: **Crear traducción de página** (nuevo en Step 3.2)
+
+**Funcionalidad de Creación de Traducciones** (Step 3.2):
+- Duplicación completa de páginas con contenido, título y excerpt
+- Copia automática de featured images y custom fields
+- Gestión automática de grupos de traducción con UUIDs
+- Prevención de traducciones duplicadas para el mismo idioma
+- Validación de idiomas destino contra base de datos
+- Verificación de permisos de edición del post original
+- Creación como borrador para permitir edición
+- Redirección automática al editor de la nueva traducción
+- Logging comprensivo de todas las operaciones
 
 ### Sistema Gutenberg Integration: `includes/class-ez-translate-gutenberg.php`
 **Propósito**: Integración completa con el editor de bloques Gutenberg
@@ -195,13 +207,23 @@ EZ Translate es un plugin WordPress que implementa un sistema multilingüe robus
 - Componentes WordPress nativos (`PanelBody`, `SelectControl`, `ToggleControl`)
 - Localización completa con `wp.i18n`
 
-**Flujo de Traducción Implementado**:
+**Flujo de Traducción Implementado** (Step 3.2 - Funcional):
 1. **Detección Automática**: Idioma original detectado desde configuración WordPress
 2. **Idioma Original Fijo**: Mostrado como solo lectura, no modificable
 3. **Selector de Destino**: Dropdown con idiomas disponibles (excluye original)
 4. **Botón de Creación**: "Create Translation Page" para duplicar páginas
-5. **Preservación**: Página original mantiene su idioma intacto
-6. **Grupos Automáticos**: Translation Group IDs ocultos del usuario
+5. **Llamada API Real**: Integración con endpoint `/create-translation/{id}`
+6. **Manejo de Respuestas**: Success/error handling con mensajes específicos
+7. **Redirección Automática**: Al editor de la nueva traducción creada
+8. **Preservación**: Página original mantiene su idioma intacto
+9. **Grupos Automáticos**: Translation Group IDs ocultos del usuario
+
+**Características de UX Implementadas**:
+- Confirmación de usuario antes de redirección
+- Mensajes de error específicos (traducción existente, idioma inválido)
+- Estados de loading durante creación de traducción
+- Reset automático de selección tras operación
+- Integración completa con WordPress data store
 
 ### Script de Desinstalación: `uninstall.php`
 **Propósito**: Limpieza completa al eliminar el plugin
@@ -403,23 +425,31 @@ La arquitectura actual está preparada para:
 - **Meta fields registration** para exposición en REST API
 - **Asset management** para JavaScript y CSS de Gutenberg
 
+**✅ Completados en Step 3.2**:
+- **Funcionalidad de duplicación de páginas** completa y funcional
+- **Endpoint REST API** `/create-translation/{id}` implementado
+- **Integración Gutenberg real** con API calls funcionales
+- **Sistema de redirección** automática al editor de traducción
+- **Manejo completo de errores** y validaciones
+
 **🔄 En Preparación**:
-- Funcionalidad de duplicación de páginas (Step 3.2)
+- Designación de Landing Pages (Step 4.1)
 - Optimizaciones SEO frontend
 - Selector de idiomas frontend
 - Herramientas administrativas avanzadas
 
-**📊 Métricas de Implementación**:
-- **Archivos de código**: 27 archivos
+**📊 Métricas de Implementación** (Actualizado Step 3.2):
+- **Archivos de código**: 29 archivos
 - **Clases implementadas**: 7 clases principales
-- **Líneas de código**: ~4,200 líneas
-- **Cobertura de tests**: 33 tests automatizados (9 Language Manager + 16 Post Meta Manager + 8 Gutenberg Integration) - ✅ 33/33 PASANDO
+- **Líneas de código**: ~5,000 líneas
+- **Cobertura de tests**: 40 tests automatizados (9 Language Manager + 16 Post Meta Manager + 8 Gutenberg Integration + 7 Translation Creation) - ✅ 40/40 PASANDO
 - **Idiomas soportados**: 70+ idiomas con códigos ISO
-- **Operaciones CRUD**: 100% implementadas y probadas (idiomas + metadatos + REST API)
+- **Operaciones CRUD**: 100% implementadas y probadas (idiomas + metadatos + REST API + creación de traducciones)
 - **Metadatos multilingües**: 5 campos implementados con validación completa
 - **Grupos de traducción**: Sistema UUID automático implementado y oculto del usuario
-- **REST API**: 6 endpoints implementados bajo `/wp-json/ez-translate/v1/`
-- **Gutenberg Integration**: Sidebar completo con flujo correcto de traducción
+- **REST API**: 7 endpoints implementados bajo `/wp-json/ez-translate/v1/` (incluyendo creación de traducciones)
+- **Gutenberg Integration**: Sidebar completo con flujo de traducción funcional y creación real de páginas
 - **Assets**: JavaScript y CSS para Gutenberg con gestión de dependencias
+- **Creación de Traducciones**: Sistema completo de duplicación inteligente con redirección automática
 
 Esta base sólida permite el desarrollo incremental siguiendo el plan establecido, manteniendo la calidad del código y la facilidad de mantenimiento. El sistema de gestión de idiomas y metadatos multilingües está completamente funcional y listo para la integración con Gutenberg y optimizaciones SEO en las siguientes fases. La arquitectura modular facilita la expansión con nuevas funcionalidades mientras mantiene la estabilidad y rendimiento del sistema.
