@@ -393,7 +393,26 @@ class RestAPI {
             }
 
             if ($request->has_param('is_landing')) {
-                $metadata['is_landing'] = (bool) $request->get_param('is_landing');
+                $is_landing = (bool) $request->get_param('is_landing');
+
+                // Special handling for landing page validation
+                if ($is_landing) {
+                    $language_code = get_post_meta($post_id, '_ez_translate_language', true);
+                    if (!empty($language_code)) {
+                        $existing_landing = PostMetaManager::get_landing_page_for_language($language_code);
+                        if ($existing_landing && $existing_landing != $post_id) {
+                            Logger::warning('REST API: Landing page already exists for language', array(
+                                'post_id' => $post_id,
+                                'language' => $language_code,
+                                'existing_landing' => $existing_landing
+                            ));
+
+                            return new \WP_Error('landing_page_exists', 'Another page is already set as landing page for this language', array('status' => 409));
+                        }
+                    }
+                }
+
+                $metadata['is_landing'] = $is_landing;
             }
 
             if ($request->has_param('seo_title')) {

@@ -53,7 +53,6 @@
 
         // Current metadata values
         const currentLanguage = postMeta._ez_translate_language || '';
-        const currentGroup = postMeta._ez_translate_group || '';
         const currentIsLanding = postMeta._ez_translate_is_landing || false;
         const currentSeoTitle = postMeta._ez_translate_seo_title || '';
         const currentSeoDescription = postMeta._ez_translate_seo_description || '';
@@ -64,11 +63,6 @@
         // If page already has a language set, that's the original language
         // Otherwise, use WordPress default language
         const originalLanguage = currentLanguage || wpLanguage;
-
-        // Check if this page is already a translation (has a different language than WP default)
-        const isTranslationPage = currentLanguage && currentLanguage !== wpLanguage;
-
-
 
         // Load languages on component mount
         useEffect(() => {
@@ -138,18 +132,6 @@
         };
 
         /**
-         * Generate new translation group ID
-         */
-        const generateGroupId = () => {
-            const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-            let result = 'tg_';
-            for (let i = 0; i < 16; i++) {
-                result += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            return result;
-        };
-
-        /**
          * Handle target language selection (for creating translation)
          */
         const handleLanguageChange = (targetLanguage) => {
@@ -214,15 +196,40 @@
         };
 
         /**
-         * Handle landing page toggle
+         * Handle landing page toggle with validation
          */
-        const handleLandingToggle = (isLanding) => {
-            updateMeta('_ez_translate_is_landing', isLanding);
-            
-            // Clear SEO fields if not landing page
-            if (!isLanding) {
+        const handleLandingToggle = async (isLanding) => {
+            if (isLanding) {
+                // Check if another landing page exists for this language
+                try {
+                    const response = await apiFetch({
+                        path: `ez-translate/v1/post-meta/${postId}`,
+                        method: 'POST',
+                        data: {
+                            is_landing: true
+                        }
+                    });
+
+                    if (response.success) {
+                        updateMeta('_ez_translate_is_landing', true);
+                        setError(null);
+                    } else {
+                        setError(__('Another page is already set as landing page for this language.', 'ez-translate'));
+                    }
+                } catch (err) {
+                    console.error('Failed to set landing page:', err);
+                    if (err.code === 'landing_page_exists') {
+                        setError(__('Another page is already set as landing page for this language.', 'ez-translate'));
+                    } else {
+                        setError(__('Failed to set landing page. Please try again.', 'ez-translate'));
+                    }
+                }
+            } else {
+                // Removing landing page status
+                updateMeta('_ez_translate_is_landing', false);
                 updateMeta('_ez_translate_seo_title', '');
                 updateMeta('_ez_translate_seo_description', '');
+                setError(null);
             }
         };
 
@@ -296,8 +303,8 @@
                 )
             ),
 
-            // Landing Page Panel (only show for translation pages)
-            isTranslationPage && el(PanelBody, {
+            // Landing Page Panel (show for all pages that have a language set)
+            currentLanguage && el(PanelBody, {
                 title: __('Landing Page Settings', 'ez-translate'),
                 initialOpen: false
             },

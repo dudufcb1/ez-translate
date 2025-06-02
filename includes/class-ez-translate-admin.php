@@ -560,6 +560,25 @@ class Admin {
                         require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-translation-creation.php';
                         ez_translate_display_translation_creation_tests();
                     }
+
+                    // Run Landing Pages tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-landing-pages.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-landing-pages.php';
+                        EZ_Translate_Landing_Pages_Tests::run_tests();
+                    }
+                    ?>
+                </div>
+            <?php elseif (isset($_GET['run_ez_translate_landing_tests']) && $_GET['run_ez_translate_landing_tests'] === '1'): ?>
+                <div class="card">
+                    <h2><?php _e('Landing Page Test Results', 'ez-translate'); ?></h2>
+                    <?php
+                    // Run Landing Pages tests only
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-landing-pages.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-landing-pages.php';
+                        EZ_Translate_Landing_Pages_Tests::run_tests();
+                    } else {
+                        echo '<p style="color: red;">Landing page test file not found.</p>';
+                    }
                     ?>
                 </div>
             <?php else: ?>
@@ -574,6 +593,9 @@ class Admin {
                     </a>
                     <a href="<?php echo esc_url(add_query_arg('run_ez_translate_translation_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
                         <?php _e('Run Translation Tests', 'ez-translate'); ?>
+                    </a>
+                    <a href="<?php echo esc_url(add_query_arg('run_ez_translate_landing_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
+                        <?php _e('Run Landing Page Tests', 'ez-translate'); ?>
                     </a>
                 </div>
             <?php endif; ?>
