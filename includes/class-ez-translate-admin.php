@@ -548,6 +548,12 @@ class Admin {
                         require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-post-meta-manager.php';
                         ez_translate_display_post_meta_tests();
                     }
+
+                    // Run Gutenberg Integration tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-gutenberg-integration.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-gutenberg-integration.php';
+                        ez_translate_display_gutenberg_tests();
+                    }
                     ?>
                 </div>
             <?php else: ?>
@@ -555,7 +561,10 @@ class Admin {
                     <h2><?php _e('Testing', 'ez-translate'); ?></h2>
                     <p><?php _e('Run automated tests to verify plugin functionality.', 'ez-translate'); ?></p>
                     <a href="<?php echo esc_url(add_query_arg('run_ez_translate_tests', '1')); ?>" class="button button-secondary">
-                        <?php _e('Run Tests', 'ez-translate'); ?>
+                        <?php _e('Run All Tests', 'ez-translate'); ?>
+                    </a>
+                    <a href="<?php echo esc_url(add_query_arg('run_ez_translate_gutenberg_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
+                        <?php _e('Run Gutenberg Tests', 'ez-translate'); ?>
                     </a>
                 </div>
             <?php endif; ?>

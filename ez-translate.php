@@ -230,6 +230,12 @@ final class EZTranslate {
         // Initialize post meta manager for all contexts
         $this->init_post_meta_manager();
 
+        // Initialize REST API
+        $this->init_rest_api();
+
+        // Initialize Gutenberg integration
+        $this->init_gutenberg();
+
         $this->log_message('Core components initialized', 'debug');
     }
 
@@ -246,6 +252,45 @@ final class EZTranslate {
         new \EZTranslate\PostMetaManager();
 
         $this->log_message('Post meta manager initialized', 'debug');
+    }
+
+    /**
+     * Initialize REST API
+     *
+     * @since 1.0.0
+     */
+    private function init_rest_api() {
+        // Ensure dependencies are loaded
+        if (!class_exists('EZTranslate\LanguageManager')) {
+            require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-manager.php';
+        }
+
+        if (!class_exists('EZTranslate\PostMetaManager')) {
+            require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-post-meta-manager.php';
+        }
+
+        // Load REST API class
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-rest-api.php';
+
+        // Initialize REST API
+        new \EZTranslate\RestAPI();
+
+        $this->log_message('REST API initialized', 'debug');
+    }
+
+    /**
+     * Initialize Gutenberg integration
+     *
+     * @since 1.0.0
+     */
+    private function init_gutenberg() {
+        // Load Gutenberg class
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-gutenberg.php';
+
+        // Initialize Gutenberg integration
+        new \EZTranslate\Gutenberg();
+
+        $this->log_message('Gutenberg integration initialized', 'debug');
     }
 
     /**
