@@ -473,7 +473,7 @@ class Admin {
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
             
             <!-- Add New Language Form -->
-            <div class="card">
+            <div class="card" style="max-width: 1200px; width: 100%;">
                 <h2><?php _e('Add New Language', 'ez-translate'); ?></h2>
                 <form method="post" action="">
                     <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce'); ?>
@@ -612,12 +612,12 @@ class Admin {
             </div>
 
             <!-- Current Languages List -->
-            <div class="card">
+            <div class="card" style="max-width: 1200px; width: 100%;">
                 <h2><?php _e('Current Languages', 'ez-translate'); ?></h2>
                 <?php if (empty($languages)): ?>
                     <p><?php _e('No languages configured yet. Add your first language above.', 'ez-translate'); ?></p>
                 <?php else: ?>
-                    <table class="wp-list-table widefat fixed striped">
+                    <table class="wp-list-table widefat fixed striped ez-translate-languages-table">
                         <thead>
                             <tr>
                                 <th scope="col"><?php _e('Code', 'ez-translate'); ?></th>

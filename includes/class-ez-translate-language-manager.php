@@ -787,24 +787,42 @@ class LanguageManager {
      * @since 1.0.0
      */
     private static function generate_default_landing_page_data($language_data) {
-        // Use site name if available, otherwise use language name
-        $site_name = !empty($language_data['site_name']) ? $language_data['site_name'] : get_bloginfo('name');
-        $language_name = $language_data['name'];
+        // Priority order for title: site_title > site_name > site bloginfo
+        $default_title = '';
+        if (!empty($language_data['site_title'])) {
+            // Use the specific site title for this language
+            $default_title = $language_data['site_title'];
+        } elseif (!empty($language_data['site_name'])) {
+            // Use the site name for this language
+            $default_title = $language_data['site_name'];
+        } else {
+            // Fallback to WordPress site name with language
+            $site_name = get_bloginfo('name');
+            $language_name = $language_data['name'];
+            $default_title = sprintf(
+                /* translators: %1$s: site name, %2$s: language name */
+                __('%1$s - %2$s', 'ez-translate'),
+                $site_name,
+                $language_name
+            );
+        }
 
-        // Generate default title and description
-        $default_title = sprintf(
-            /* translators: %1$s: site name, %2$s: language name */
-            __('%1$s - %2$s', 'ez-translate'),
-            $site_name,
-            $language_name
-        );
-
-        $default_description = sprintf(
-            /* translators: %1$s: site name, %2$s: language name */
-            __('Welcome to %1$s in %2$s. Explore our content and discover what we have to offer.', 'ez-translate'),
-            $site_name,
-            $language_name
-        );
+        // Priority order for description: site_description > generated description
+        $default_description = '';
+        if (!empty($language_data['site_description'])) {
+            // Use the specific site description for this language
+            $default_description = $language_data['site_description'];
+        } else {
+            // Generate a default description
+            $site_name = !empty($language_data['site_name']) ? $language_data['site_name'] : get_bloginfo('name');
+            $language_name = $language_data['name'];
+            $default_description = sprintf(
+                /* translators: %1$s: site name, %2$s: language name */
+                __('Welcome to %1$s in %2$s. Explore our content and discover what we have to offer.', 'ez-translate'),
+                $site_name,
+                $language_name
+            );
+        }
 
         // Generate slug from language code (ISO format is cleaner)
         $default_slug = $language_data['code'];
