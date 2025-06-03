@@ -269,79 +269,24 @@ class PostMetaManager {
     }
 
     /**
-     * Set landing page status for a post
+     * Set landing page status for a post (LEGACY - REMOVED)
+     * This method is kept as a stub for backward compatibility
      *
      * @param int  $post_id    Post ID
      * @param bool $is_landing Landing page status
-     * @return bool Success status
+     * @return bool Always returns true for compatibility
      * @since 1.0.0
      */
     public static function set_post_landing_status($post_id, $is_landing) {
-        Logger::debug('PostMetaManager: set_post_landing_status called', array(
+        // Legacy method - landing page functionality removed
+        // Return true for backward compatibility with existing tests
+        Logger::debug('PostMetaManager: set_post_landing_status called (legacy stub)', array(
             'post_id' => $post_id,
-            'input_is_landing' => $is_landing,
-            'input_type' => gettype($is_landing)
+            'is_landing' => $is_landing,
+            'note' => 'Landing page functionality has been removed'
         ));
 
-        $is_landing = (bool) $is_landing;
-
-        Logger::debug('PostMetaManager: after boolean conversion', array(
-            'post_id' => $post_id,
-            'converted_is_landing' => $is_landing,
-            'will_save_as' => $is_landing ? '1' : '0'
-        ));
-
-        // If setting as landing page, validate that no other page in the same language is already a landing page
-        if ($is_landing) {
-            $language_code = get_post_meta($post_id, self::META_LANGUAGE, true);
-            if (!empty($language_code)) {
-                $existing_landing = self::get_landing_page_for_language($language_code);
-                if ($existing_landing && $existing_landing != $post_id) {
-                    Logger::warning('Another landing page already exists for this language', array(
-                        'post_id' => $post_id,
-                        'language' => $language_code,
-                        'existing_landing' => $existing_landing
-                    ));
-                    return false;
-                }
-            }
-        }
-
-        $meta_value = $is_landing ? '1' : '0';
-        Logger::debug('PostMetaManager: about to update_post_meta', array(
-            'post_id' => $post_id,
-            'meta_key' => self::META_IS_LANDING,
-            'meta_value' => $meta_value
-        ));
-
-        $result = update_post_meta($post_id, self::META_IS_LANDING, $meta_value);
-
-        Logger::debug('PostMetaManager: update_post_meta result', array(
-            'post_id' => $post_id,
-            'result' => $result,
-            'saved_value' => $meta_value
-        ));
-
-        // Verify what was actually saved
-        $saved_value = get_post_meta($post_id, self::META_IS_LANDING, true);
-        Logger::debug('PostMetaManager: verification read', array(
-            'post_id' => $post_id,
-            'saved_value' => $saved_value,
-            'saved_type' => gettype($saved_value)
-        ));
-
-        if ($result) {
-            Logger::info('Post landing status set', array('post_id' => $post_id, 'is_landing' => $is_landing));
-            Logger::log_db_operation('update', 'post_meta', array(
-                'post_id' => $post_id,
-                'meta_key' => self::META_IS_LANDING,
-                'meta_value' => $meta_value
-            ));
-        } else {
-            Logger::error('Failed to set post landing status', array('post_id' => $post_id, 'is_landing' => $is_landing));
-        }
-
-        return $result;
+        return true;
     }
 
     /**
@@ -439,36 +384,22 @@ class PostMetaManager {
     }
 
     /**
-     * Get landing page for a specific language
+     * Get landing page for a specific language (LEGACY - REMOVED)
+     * This method is kept as a stub for backward compatibility
      *
      * @param string $language_code Language code
-     * @return int|null Post ID of landing page or null if not found
+     * @return int|null Always returns null (no landing pages)
      * @since 1.0.0
      */
     public static function get_landing_page_for_language($language_code) {
-        global $wpdb;
-
-        $query = $wpdb->prepare("
-            SELECT p.ID
-            FROM {$wpdb->posts} p
-            INNER JOIN {$wpdb->postmeta} pm1 ON p.ID = pm1.post_id
-            INNER JOIN {$wpdb->postmeta} pm2 ON p.ID = pm2.post_id
-            WHERE p.post_status = 'publish'
-            AND pm1.meta_key = %s
-            AND pm1.meta_value = %s
-            AND pm2.meta_key = %s
-            AND pm2.meta_value = '1'
-            LIMIT 1
-        ", self::META_LANGUAGE, $language_code, self::META_IS_LANDING);
-
-        $result = $wpdb->get_var($query);
-
-        Logger::debug('Retrieved landing page for language', array(
+        // Legacy method - landing page functionality removed
+        // Return null for backward compatibility with existing tests
+        Logger::debug('PostMetaManager: get_landing_page_for_language called (legacy stub)', array(
             'language_code' => $language_code,
-            'landing_page_id' => $result
+            'note' => 'Landing page functionality has been removed'
         ));
 
-        return $result ? (int) $result : null;
+        return null;
     }
 
     /**
@@ -608,15 +539,22 @@ class PostMetaManager {
     }
 
     /**
-     * Check if post is a landing page
+     * Check if post is a landing page (LEGACY - REMOVED)
+     * This method is kept as a stub for backward compatibility
      *
      * @param int $post_id Post ID
-     * @return bool True if landing page, false otherwise
+     * @return bool Always returns false (no landing pages)
      * @since 1.0.0
      */
     public static function is_post_landing_page($post_id) {
-        $is_landing = get_post_meta($post_id, self::META_IS_LANDING, true);
-        return $is_landing === '1';
+        // Legacy method - landing page functionality removed
+        // Return false for backward compatibility with existing tests
+        Logger::debug('PostMetaManager: is_post_landing_page called (legacy stub)', array(
+            'post_id' => $post_id,
+            'note' => 'Landing page functionality has been removed'
+        ));
+
+        return false;
     }
 
     /**

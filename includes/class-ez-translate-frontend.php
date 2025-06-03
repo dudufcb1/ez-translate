@@ -208,7 +208,7 @@ class Frontend {
             $page_description = !empty($seo_description) ? $seo_description :
                                (!empty($language_site_metadata['site_description']) ? $language_site_metadata['site_description'] : $this->get_post_excerpt($post));
         } else {
-            // For regular pages: SEO title > Post title
+            // For regular pages with language: SEO title > Post title
             $page_title = !empty($seo_title) ? $seo_title : $post->post_title;
             $page_description = !empty($seo_description) ? $seo_description : $this->get_post_excerpt($post);
         }
@@ -338,7 +338,7 @@ class Frontend {
     }
 
     /**
-     * Filter document title for landing pages
+     * Filter document title for pages with custom SEO titles and site names
      *
      * @param array $title_parts The document title parts
      * @return array Modified title parts
@@ -357,25 +357,80 @@ class Frontend {
             return $title_parts;
         }
 
-        // Check if this is a landing page with custom SEO title
-        $is_landing = get_post_meta($post->ID, '_ez_translate_is_landing', true);
-        $seo_title = get_post_meta($post->ID, '_ez_translate_seo_title', true);
+        // Debug: Log the current state
+        if ($this->test_mode) {
+            error_log('[EZ-Translate DEBUG] filter_document_title called with post ID: ' . $post->ID);
+        }
 
-        if ($is_landing && !empty($seo_title)) {
-            $title_parts['title'] = sanitize_text_field($seo_title);
-            
-            Logger::debug('Frontend: Document title overridden for landing page', array(
-                'post_id' => $post->ID,
-                'original_title' => $post->post_title,
-                'seo_title' => $seo_title
-            ));
+        // Check if this page has custom SEO title or language
+        $seo_title = get_post_meta($post->ID, '_ez_translate_seo_title', true);
+        $current_language = get_post_meta($post->ID, '_ez_translate_language', true);
+
+        // Debug: Log metadata values
+        if ($this->test_mode) {
+            error_log('[EZ-Translate DEBUG] SEO Title: "' . $seo_title . '"');
+            error_log('[EZ-Translate DEBUG] Language: "' . $current_language . '"');
+        }
+
+        // Only process if page has a language assigned (indicating it's managed by EZ Translate)
+        if (!empty($current_language)) {
+            // Get language-specific site metadata
+            $language_site_metadata = \EZTranslate\LanguageManager::get_language_site_metadata($current_language);
+
+            // Debug: Log site metadata
+            if ($this->test_mode) {
+                error_log('[EZ-Translate DEBUG] Site metadata: ' . print_r($language_site_metadata, true));
+            }
+
+            // Apply custom SEO title if available
+            if (!empty($seo_title)) {
+                $original_title = isset($title_parts['title']) ? $title_parts['title'] : 'N/A';
+                $title_parts['title'] = sanitize_text_field($seo_title);
+
+                if ($this->test_mode) {
+                    error_log('[EZ-Translate DEBUG] Title changed from "' . $original_title . '" to "' . $seo_title . '"');
+                }
+
+                Logger::debug('Frontend: Document title overridden with custom SEO title', array(
+                    'post_id' => $post->ID,
+                    'language' => $current_language,
+                    'original_title' => $original_title,
+                    'seo_title' => $seo_title
+                ));
+            }
+
+            // Apply custom site name if available
+            if (!empty($language_site_metadata['site_name'])) {
+                $original_site = isset($title_parts['site']) ? $title_parts['site'] : 'N/A';
+                $title_parts['site'] = sanitize_text_field($language_site_metadata['site_name']);
+
+                if ($this->test_mode) {
+                    error_log('[EZ-Translate DEBUG] Site name changed from "' . $original_site . '" to "' . $language_site_metadata['site_name'] . '"');
+                }
+
+                Logger::debug('Frontend: Site name overridden with language-specific name', array(
+                    'post_id' => $post->ID,
+                    'language' => $current_language,
+                    'original_site' => $original_site,
+                    'custom_site_name' => $language_site_metadata['site_name']
+                ));
+            }
+        } else {
+            if ($this->test_mode) {
+                error_log('[EZ-Translate DEBUG] No language assigned, skipping title filter');
+            }
+        }
+
+        // Debug: Log final title parts
+        if ($this->test_mode) {
+            error_log('[EZ-Translate DEBUG] Final title parts: ' . print_r($title_parts, true));
         }
 
         return $title_parts;
     }
 
     /**
-     * Inject meta description for landing pages
+     * Inject meta description for pages with custom SEO descriptions
      *
      * @since 1.0.0
      */
@@ -392,16 +447,20 @@ class Frontend {
             return;
         }
 
-        // Check if this is a landing page with custom SEO description
-        $is_landing = get_post_meta($post->ID, '_ez_translate_is_landing', true);
+        // Check if this page has custom SEO description
         $seo_description = get_post_meta($post->ID, '_ez_translate_seo_description', true);
+        $current_language = get_post_meta($post->ID, '_ez_translate_language', true);
 
-        if ($is_landing && !empty($seo_description)) {
+        // Apply custom SEO description if:
+        // 1. Page has a custom SEO description set, AND
+        // 2. Page has a language assigned (indicating it's managed by EZ Translate)
+        if (!empty($seo_description) && !empty($current_language)) {
             $clean_description = sanitize_text_field($seo_description);
             echo '<meta name="description" content="' . esc_attr($clean_description) . '">' . "\n";
-            
-            Logger::debug('Frontend: Meta description injected for landing page', array(
+
+            Logger::debug('Frontend: Meta description injected with custom SEO description', array(
                 'post_id' => $post->ID,
+                'language' => $current_language,
                 'description_length' => strlen($clean_description)
             ));
         }

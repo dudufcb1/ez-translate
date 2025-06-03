@@ -49,7 +49,7 @@ const EZTranslateSidebar = () => {
     // Current metadata values
     const currentLanguage = postMeta._ez_translate_language || '';
     const currentGroup = postMeta._ez_translate_group || '';
-    const currentIsLanding = postMeta._ez_translate_is_landing || false;
+    // Landing page functionality removed - legacy variable removed
     const currentSeoTitle = postMeta._ez_translate_seo_title || '';
     const currentSeoDescription = postMeta._ez_translate_seo_description || '';
 
@@ -135,18 +135,7 @@ const EZTranslateSidebar = () => {
         }
     };
 
-    /**
-     * Handle landing page toggle
-     */
-    const handleLandingToggle = (isLanding) => {
-        updateMeta('_ez_translate_is_landing', isLanding);
-        
-        // Clear SEO fields if not landing page
-        if (!isLanding) {
-            updateMeta('_ez_translate_seo_title', '');
-            updateMeta('_ez_translate_seo_description', '');
-        }
-    };
+    // Landing page toggle handler removed - legacy functionality
 
     /**
      * Render loading state
@@ -200,39 +189,7 @@ const EZTranslateSidebar = () => {
                 )}
             </PanelBody>
 
-            {/* Landing Page Panel */}
-            {currentLanguage && (
-                <PanelBody 
-                    title={__('Landing Page Settings', 'ez-translate')} 
-                    initialOpen={false}
-                >
-                    <ToggleControl
-                        label={__('Landing Page', 'ez-translate')}
-                        checked={currentIsLanding}
-                        onChange={handleLandingToggle}
-                        help={__('Mark this page as the landing page for this language.', 'ez-translate')}
-                    />
-
-                    {currentIsLanding && (
-                        <>
-                            <TextControl
-                                label={__('SEO Title', 'ez-translate')}
-                                value={currentSeoTitle}
-                                onChange={(value) => updateMeta('_ez_translate_seo_title', value)}
-                                help={__('Custom SEO title for this landing page.', 'ez-translate')}
-                            />
-
-                            <TextareaControl
-                                label={__('SEO Description', 'ez-translate')}
-                                value={currentSeoDescription}
-                                onChange={(value) => updateMeta('_ez_translate_seo_description', value)}
-                                help={__('Custom SEO description for this landing page.', 'ez-translate')}
-                                rows={3}
-                            />
-                        </>
-                    )}
-                </PanelBody>
-            )}
+            {/* Landing page panel removed - legacy functionality */}
 
             {/* Debug Info Panel (only in development) */}
             {window.ezTranslateGutenberg && window.ezTranslateGutenberg.debug && (
@@ -243,7 +200,6 @@ const EZTranslateSidebar = () => {
                     <p><strong>Post ID:</strong> {postId}</p>
                     <p><strong>Current Language:</strong> {currentLanguage || 'None'}</p>
                     <p><strong>Group ID:</strong> {currentGroup || 'None'}</p>
-                    <p><strong>Is Landing:</strong> {currentIsLanding ? 'Yes' : 'No'}</p>
                 </PanelBody>
             )}
         </div>

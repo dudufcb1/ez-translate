@@ -406,27 +406,10 @@ class RestAPI {
                 $metadata['group'] = sanitize_text_field($request->get_param('group'));
             }
 
+            // Landing page functionality removed - legacy parameter ignored
             if ($request->has_param('is_landing')) {
-                $is_landing = (bool) $request->get_param('is_landing');
-
-                // Special handling for landing page validation
-                if ($is_landing) {
-                    $language_code = get_post_meta($post_id, '_ez_translate_language', true);
-                    if (!empty($language_code)) {
-                        $existing_landing = PostMetaManager::get_landing_page_for_language($language_code);
-                        if ($existing_landing && $existing_landing != $post_id) {
-                            Logger::warning('REST API: Landing page already exists for language', array(
-                                'post_id' => $post_id,
-                                'language' => $language_code,
-                                'existing_landing' => $existing_landing
-                            ));
-
-                            return new \WP_Error('landing_page_exists', 'Another page is already set as landing page for this language', array('status' => 409));
-                        }
-                    }
-                }
-
-                $metadata['is_landing'] = $is_landing;
+                // Legacy parameter - no longer processed
+                Logger::debug('REST API: is_landing parameter ignored (legacy functionality removed)');
             }
 
             if ($request->has_param('seo_title')) {
@@ -726,7 +709,6 @@ class RestAPI {
                             'edit_url' => admin_url('post.php?post=' . $related_post_id . '&action=edit'),
                             'view_url' => get_permalink($related_post_id),
                             'language' => $related_language,
-                            'is_landing' => $related_metadata['is_landing'] ?? false,
                             'is_current' => ($related_post_id == $post_id)
                         );
 
@@ -766,7 +748,6 @@ class RestAPI {
                                 'edit_url' => admin_url('post.php?post=' . $related_post_id . '&action=edit'),
                                 'view_url' => get_permalink($related_post_id),
                                 'language' => $related_language,
-                                'is_landing' => $related_metadata['is_landing'] ?? false,
                                 'is_current' => ($related_post_id == $post_id)
                             );
 
@@ -931,11 +912,7 @@ class RestAPI {
                 'pattern' => '^tg_[a-zA-Z0-9]{16}$',
                 'description' => 'Translation group ID',
             ),
-            'is_landing' => array(
-                'required' => false,
-                'type' => 'boolean',
-                'description' => 'Landing page status',
-            ),
+            // Landing page parameter removed - legacy functionality
             'seo_title' => array(
                 'required' => false,
                 'type' => 'string',

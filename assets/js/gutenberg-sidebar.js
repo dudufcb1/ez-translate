@@ -42,8 +42,7 @@
         const [translationData, setTranslationData] = useState(null);
         const [loadingTranslations, setLoadingTranslations] = useState(false);
 
-        // Local state for landing page toggle to handle immediate UI updates
-        const [localIsLanding, setLocalIsLanding] = useState(null);
+        // Landing page functionality removed - legacy state removed
 
         // Get post data from WordPress data store
         const { postId, postMeta, isSaving, isAutosaving, hasEdits } = useSelect((select) => {
@@ -63,22 +62,13 @@
 
         // Current metadata values
         const currentLanguage = postMeta._ez_translate_language || '';
-        const metaIsLanding = (postMeta._ez_translate_is_landing === '1' || postMeta._ez_translate_is_landing === true || postMeta._ez_translate_is_landing === 1);
-        const currentIsLanding = localIsLanding !== null ? localIsLanding : metaIsLanding;
+        // Landing page functionality removed - legacy variables removed
         const currentSeoTitle = postMeta._ez_translate_seo_title || '';
         const currentSeoDescription = postMeta._ez_translate_seo_description || '';
 
         // Debug logging
         console.log('EZ Translate: Current meta values:', {
             language: currentLanguage,
-            metaIsLanding: metaIsLanding,
-            localIsLanding: localIsLanding,
-            currentIsLanding: currentIsLanding,
-            rawIsLanding: postMeta._ez_translate_is_landing,
-            rawIsLandingType: typeof postMeta._ez_translate_is_landing,
-            rawIsLandingEquals1: (postMeta._ez_translate_is_landing === '1'),
-            rawIsLandingEqualsTrue: (postMeta._ez_translate_is_landing === true),
-            rawIsLandingEquals1Num: (postMeta._ez_translate_is_landing === 1),
             seoTitle: currentSeoTitle,
             seoDescription: currentSeoDescription,
             allPostMeta: postMeta
@@ -104,21 +94,7 @@
             }
         }, [postId]);
 
-        // Sync local state with meta when meta changes (e.g., after save)
-        useEffect(() => {
-            console.log('EZ Translate: useEffect sync check', {
-                localIsLanding: localIsLanding,
-                metaIsLanding: metaIsLanding,
-                areEqual: (localIsLanding === metaIsLanding),
-                shouldReset: (localIsLanding !== null && localIsLanding === metaIsLanding)
-            });
-
-            if (localIsLanding !== null && localIsLanding === metaIsLanding) {
-                // Meta has caught up with local state, reset local state
-                setLocalIsLanding(null);
-                console.log('EZ Translate: Local state synced with meta, resetting localIsLanding');
-            }
-        }, [metaIsLanding, localIsLanding]);
+        // Landing page sync effect removed - legacy functionality
 
         // Monitor post save status
         useEffect(() => {
@@ -308,31 +284,7 @@
             }
         };
 
-        /**
-         * Handle landing page toggle
-         */
-        const handleLandingToggle = (isLanding) => {
-            console.log('EZ Translate: handleLandingToggle called with:', isLanding);
-            console.log('EZ Translate: Current meta before update:', postMeta);
-
-            // Update local state immediately for UI responsiveness
-            setLocalIsLanding(isLanding);
-
-            // Convert boolean to string for consistency with backend
-            const stringValue = isLanding ? '1' : '0';
-            updateMeta('_ez_translate_is_landing', stringValue);
-
-            // Clear SEO fields if not landing page
-            if (!isLanding) {
-                updateMeta('_ez_translate_seo_title', '');
-                updateMeta('_ez_translate_seo_description', '');
-            }
-
-            // Clear any previous errors
-            setError(null);
-
-            console.log('EZ Translate: Meta update completed, localIsLanding set to:', isLanding, 'stringValue:', stringValue);
-        };
+        // Landing page toggle handler removed - legacy functionality
 
         /**
          * Debug function to check database value
@@ -494,16 +446,7 @@
                                 style: { textDecoration: 'none', fontSize: '12px' }
                             }, __('View', 'ez-translate')),
 
-                            translation.is_landing && el('span', {
-                                style: {
-                                    fontSize: '11px',
-                                    backgroundColor: '#00a32a',
-                                    color: 'white',
-                                    padding: '2px 6px',
-                                    borderRadius: '3px',
-                                    marginLeft: translation.is_current ? '0' : 'auto'
-                                }
-                            }, __('Landing', 'ez-translate'))
+                            // Landing page badge removed - legacy functionality
                         )
                     )
                 )
@@ -525,47 +468,61 @@
                 )
             ),
 
-            // Landing Page Panel (show for all pages that have a language set)
-            currentLanguage && (() => {
-                console.log('EZ Translate: Rendering ToggleControl with checked:', currentIsLanding);
-                return el(PanelBody, {
-                    title: __('Landing Page Settings', 'ez-translate'),
-                    initialOpen: false
-                },
-                el(ToggleControl, {
-                    label: __('Landing Page', 'ez-translate'),
-                    checked: currentIsLanding,
-                    onChange: (value) => {
-                        console.log('EZ Translate: ToggleControl onChange fired with value:', value);
-                        handleLandingToggle(value);
-                    },
-                    help: __('Mark this page as the landing page for this language.', 'ez-translate')
+            // Current Language Info Panel (when page has language assigned)
+            currentLanguage && el(PanelBody, {
+                title: __('Current Language', 'ez-translate'),
+                initialOpen: true
+            },
+                el('div', { style: { marginBottom: '16px' } },
+                    el('label', { style: { fontWeight: 'bold', display: 'block', marginBottom: '4px' } },
+                        __('Page Language', 'ez-translate')
+                    ),
+                    el('div', { style: { padding: '8px', backgroundColor: '#e7f3ff', borderRadius: '4px', border: '1px solid #72aee6' } },
+                        currentLanguage.toUpperCase() + ' (' + (allLanguages[currentLanguage]?.name || 'Unknown') + ')'
+                    )
+                ),
+
+                postMeta._ez_translate_group && el('div', { style: { marginBottom: '16px' } },
+                    el('label', { style: { fontWeight: 'bold', display: 'block', marginBottom: '4px' } },
+                        __('Translation Group', 'ez-translate')
+                    ),
+                    el('div', { style: { padding: '8px', backgroundColor: '#f0f0f0', borderRadius: '4px', fontFamily: 'monospace', fontSize: '12px' } },
+                        postMeta._ez_translate_group
+                    ),
+                    el('p', { style: { margin: '4px 0 0 0', fontSize: '11px', color: '#666' } },
+                        __('Pages with the same group ID are translations of each other.', 'ez-translate')
+                    )
+                )
+            ),
+
+            // SEO Metadata Panel (when page has language assigned)
+            currentLanguage && el(PanelBody, {
+                title: __('SEO Metadata', 'ez-translate'),
+                initialOpen: true
+            },
+                el(TextControl, {
+                    label: __('SEO Title', 'ez-translate'),
+                    value: currentSeoTitle,
+                    onChange: (value) => updateMeta('_ez_translate_seo_title', value),
+                    help: __('Custom SEO title for this page. Leave empty to use the page title.', 'ez-translate'),
+                    placeholder: __('Enter SEO title...', 'ez-translate')
                 }),
 
-                // Debug button
-                el('button', {
-                    onClick: checkDatabaseValue,
-                    style: { marginTop: '10px', padding: '5px 10px', fontSize: '12px' }
-                }, 'Check Database Value'),
+                el(TextareaControl, {
+                    label: __('SEO Description', 'ez-translate'),
+                    value: currentSeoDescription,
+                    onChange: (value) => updateMeta('_ez_translate_seo_description', value),
+                    help: __('Meta description for search engines and social media.', 'ez-translate'),
+                    placeholder: __('Enter SEO description...', 'ez-translate'),
+                    rows: 3
+                }),
 
-                currentIsLanding && el('div', null,
-                    el(TextControl, {
-                        label: __('SEO Title', 'ez-translate'),
-                        value: currentSeoTitle,
-                        onChange: (value) => updateMeta('_ez_translate_seo_title', value),
-                        help: __('Custom SEO title for this landing page.', 'ez-translate')
-                    }),
-
-                    el(TextareaControl, {
-                        label: __('SEO Description', 'ez-translate'),
-                        value: currentSeoDescription,
-                        onChange: (value) => updateMeta('_ez_translate_seo_description', value),
-                        help: __('Custom SEO description for this landing page.', 'ez-translate'),
-                        rows: 3
-                    })
+                el('div', { style: { marginTop: '12px', padding: '8px', backgroundColor: '#f0f0f0', borderRadius: '4px' } },
+                    el('p', { style: { margin: '0', fontSize: '12px', color: '#666' } },
+                        __('These SEO settings will be used in the page head, Open Graph tags, and structured data.', 'ez-translate')
+                    )
                 )
-            );
-            })()
+            )
         );
     }
 

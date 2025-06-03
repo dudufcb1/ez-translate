@@ -144,6 +144,10 @@ class Admin {
             case 'delete_language':
                 $this->handle_delete_language();
                 break;
+
+            case 'update_landing_page_seo':
+                $this->handle_update_landing_page_seo();
+                break;
             default:
                 Logger::warning('Unknown form action', array('action' => $action));
                 break;
@@ -159,13 +163,44 @@ class Admin {
         // Sanitize input data
         $language_data = \EZTranslate\LanguageManager::sanitize_language_data($_POST);
 
+        // Check if landing page creation is requested
+        $create_landing_page = isset($_POST['create_landing_page']) && $_POST['create_landing_page'] === '1';
+        $landing_page_data = null;
+
+        if ($create_landing_page) {
+            // Sanitize landing page data
+            $landing_page_data = array(
+                'title' => sanitize_text_field($_POST['landing_page_title'] ?? ''),
+                'description' => sanitize_textarea_field($_POST['landing_page_description'] ?? ''),
+                'slug' => sanitize_title($_POST['landing_page_slug'] ?? ''),
+                'status' => in_array($_POST['landing_page_status'] ?? 'draft', array('draft', 'publish')) ? $_POST['landing_page_status'] : 'draft'
+            );
+
+            // Validate required fields for landing page
+            if (empty($landing_page_data['title']) || empty($landing_page_data['description'])) {
+                $this->add_admin_notice(__('Landing page title and description are required when creating a landing page.', 'ez-translate'), 'error');
+                return;
+            }
+        }
+
         // Add the language
-        $result = \EZTranslate\LanguageManager::add_language($language_data);
+        $result = \EZTranslate\LanguageManager::add_language($language_data, $landing_page_data);
 
         if (is_wp_error($result)) {
             $this->add_admin_notice($result->get_error_message(), 'error');
         } else {
-            $this->add_admin_notice(__('Language added successfully!', 'ez-translate'), 'success');
+            if ($create_landing_page && isset($result['landing_page_id'])) {
+                $edit_url = admin_url('post.php?post=' . $result['landing_page_id'] . '&action=edit');
+                $this->add_admin_notice(
+                    sprintf(
+                        __('Language added successfully! Landing page created: <a href="%s" target="_blank">Edit Landing Page</a>', 'ez-translate'),
+                        esc_url($edit_url)
+                    ),
+                    'success'
+                );
+            } else {
+                $this->add_admin_notice(__('Language added successfully!', 'ez-translate'), 'success');
+            }
         }
     }
 
@@ -178,10 +213,56 @@ class Admin {
         $original_code = sanitize_text_field($_POST['original_code']);
         $language_data = \EZTranslate\LanguageManager::sanitize_language_data($_POST);
 
+        // Check if landing page creation is requested
+        $create_landing_page = isset($_POST['create_landing_page']) && $_POST['create_landing_page'] === '1';
+        $landing_page_data = null;
+
+        if ($create_landing_page) {
+            // Sanitize landing page data
+            $landing_page_data = array(
+                'title' => sanitize_text_field($_POST['landing_page_title'] ?? ''),
+                'description' => sanitize_textarea_field($_POST['landing_page_description'] ?? ''),
+                'slug' => sanitize_title($_POST['landing_page_slug'] ?? ''),
+                'status' => in_array($_POST['landing_page_status'] ?? 'draft', array('draft', 'publish')) ? $_POST['landing_page_status'] : 'draft'
+            );
+
+            // Validate required fields for landing page
+            if (empty($landing_page_data['title']) || empty($landing_page_data['description'])) {
+                $this->add_admin_notice(__('Landing page title and description are required when creating a landing page.', 'ez-translate'), 'error');
+                return;
+            }
+        }
+
+        // Update the language first
         $result = \EZTranslate\LanguageManager::update_language($original_code, $language_data);
 
         if (is_wp_error($result)) {
             $this->add_admin_notice($result->get_error_message(), 'error');
+            return;
+        }
+
+        // Create landing page if requested
+        if ($create_landing_page && $landing_page_data) {
+            $landing_page_result = \EZTranslate\LanguageManager::create_landing_page_for_language($language_data['code'], $landing_page_data);
+
+            if (is_wp_error($landing_page_result)) {
+                $this->add_admin_notice(
+                    sprintf(
+                        __('Language updated successfully, but landing page creation failed: %s', 'ez-translate'),
+                        $landing_page_result->get_error_message()
+                    ),
+                    'warning'
+                );
+            } else {
+                $edit_url = admin_url('post.php?post=' . $landing_page_result . '&action=edit');
+                $this->add_admin_notice(
+                    sprintf(
+                        __('Language updated successfully! Landing page created: <a href="%s" target="_blank">Edit Landing Page</a>', 'ez-translate'),
+                        esc_url($edit_url)
+                    ),
+                    'success'
+                );
+            }
         } else {
             $this->add_admin_notice(__('Language updated successfully!', 'ez-translate'), 'success');
         }
@@ -201,6 +282,52 @@ class Admin {
             $this->add_admin_notice($result->get_error_message(), 'error');
         } else {
             $this->add_admin_notice(__('Language deleted successfully!', 'ez-translate'), 'success');
+        }
+    }
+
+    /**
+     * Handle landing page SEO update
+     *
+     * @since 1.0.0
+     */
+    private function handle_update_landing_page_seo() {
+        $post_id = intval($_POST['post_id']);
+        $language_code = sanitize_text_field($_POST['language_code']);
+        $seo_title = sanitize_text_field($_POST['seo_title']);
+        $seo_description = sanitize_textarea_field($_POST['seo_description']);
+
+        Logger::info('Processing landing page SEO update', array(
+            'post_id' => $post_id,
+            'language_code' => $language_code
+        ));
+
+        if (empty($post_id)) {
+            $this->add_admin_notice(__('Invalid post ID.', 'ez-translate'), 'error');
+            return;
+        }
+
+        $seo_data = array(
+            'title' => $seo_title,
+            'description' => $seo_description
+        );
+
+        $result = \EZTranslate\LanguageManager::update_landing_page_seo($post_id, $seo_data);
+
+        if (is_wp_error($result)) {
+            $this->add_admin_notice(
+                sprintf(__('Failed to update SEO: %s', 'ez-translate'), $result->get_error_message()),
+                'error'
+            );
+            Logger::error('Failed to update landing page SEO', array(
+                'post_id' => $post_id,
+                'error' => $result->get_error_message()
+            ));
+        } else {
+            $this->add_admin_notice(__('Landing page SEO updated successfully!', 'ez-translate'), 'success');
+            Logger::info('Landing page SEO updated successfully', array(
+                'post_id' => $post_id,
+                'language_code' => $language_code
+            ));
         }
     }
 
@@ -452,12 +579,22 @@ class Admin {
                         </tr>
                         <tr>
                             <th scope="row">
+                                <label for="language_site_name"><?php _e('Site Name', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <input type="text" id="language_site_name" name="site_name" class="regular-text"
+                                       placeholder="<?php esc_attr_e('e.g., WordPress Specialist, Especialista en WordPress', 'ez-translate'); ?>">
+                                <p class="description"><?php _e('Short site name for this language (used in page titles). Example: "WordPress Specialist" for English.', 'ez-translate'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
                                 <label for="language_site_title"><?php _e('Site Title', 'ez-translate'); ?></label>
                             </th>
                             <td>
                                 <input type="text" id="language_site_title" name="site_title" class="regular-text"
                                        placeholder="<?php esc_attr_e('e.g., My Website - English Version', 'ez-translate'); ?>">
-                                <p class="description"><?php _e('Site title for this language (used in landing pages and SEO metadata)', 'ez-translate'); ?></p>
+                                <p class="description"><?php _e('Full site title for this language (used in landing pages and SEO metadata)', 'ez-translate'); ?></p>
                             </td>
                         </tr>
                         <tr>
@@ -471,6 +608,73 @@ class Admin {
                             </td>
                         </tr>
                     </table>
+
+                    <!-- Landing Page Creation Section -->
+                    <div class="card" style="margin-top: 20px;">
+                        <h3><?php _e('Landing Page Creation', 'ez-translate'); ?></h3>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><?php _e('Auto-create Landing Page', 'ez-translate'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" id="create_landing_page" name="create_landing_page" value="1">
+                                        <?php _e('Automatically create a landing page for this language', 'ez-translate'); ?>
+                                    </label>
+                                    <p class="description"><?php _e('When enabled, a WordPress page will be created automatically and configured as the landing page for this language.', 'ez-translate'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <div id="landing_page_fields" style="display: none;">
+                            <table class="form-table">
+                                <tr>
+                                    <th scope="row">
+                                        <label for="landing_page_title"><?php _e('Landing Page Title', 'ez-translate'); ?> *</label>
+                                    </th>
+                                    <td>
+                                        <input type="text" id="landing_page_title" name="landing_page_title" class="regular-text"
+                                               placeholder="<?php esc_attr_e('e.g., Welcome to Our Site', 'ez-translate'); ?>">
+                                        <p class="description"><?php _e('Title for the landing page (will also be used as SEO title)', 'ez-translate'); ?></p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">
+                                        <label for="landing_page_description"><?php _e('Landing Page Description', 'ez-translate'); ?> *</label>
+                                    </th>
+                                    <td>
+                                        <textarea id="landing_page_description" name="landing_page_description" class="large-text" rows="3"
+                                                  placeholder="<?php esc_attr_e('Brief description of your site for this language...', 'ez-translate'); ?>"></textarea>
+                                        <p class="description"><?php _e('SEO description for the landing page (used in meta description and social media)', 'ez-translate'); ?></p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">
+                                        <label for="landing_page_slug"><?php _e('Landing Page Slug', 'ez-translate'); ?></label>
+                                    </th>
+                                    <td>
+                                        <input type="text" id="landing_page_slug" name="landing_page_slug" class="regular-text"
+                                               placeholder="<?php esc_attr_e('e.g., home, inicio, accueil', 'ez-translate'); ?>"
+                                               pattern="[a-z0-9\-_]+">
+                                        <p class="description"><?php _e('URL slug for the landing page (optional - will be auto-generated if empty)', 'ez-translate'); ?></p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><?php _e('Page Status', 'ez-translate'); ?></th>
+                                    <td>
+                                        <label>
+                                            <input type="radio" name="landing_page_status" value="draft" checked>
+                                            <?php _e('Draft', 'ez-translate'); ?>
+                                        </label>
+                                        <label style="margin-left: 15px;">
+                                            <input type="radio" name="landing_page_status" value="publish">
+                                            <?php _e('Published', 'ez-translate'); ?>
+                                        </label>
+                                        <p class="description"><?php _e('Create as draft to edit content first, or publish immediately', 'ez-translate'); ?></p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
 
                     <?php submit_button(__('Add Language', 'ez-translate'), 'primary', 'submit', false); ?>
                 </form>
@@ -491,12 +695,17 @@ class Admin {
                                 <th scope="col"><?php _e('Native Name', 'ez-translate'); ?></th>
                                 <th scope="col"><?php _e('Flag', 'ez-translate'); ?></th>
                                 <th scope="col"><?php _e('RTL', 'ez-translate'); ?></th>
+                                <th scope="col"><?php _e('Landing Page', 'ez-translate'); ?></th>
                                 <th scope="col"><?php _e('Status', 'ez-translate'); ?></th>
                                 <th scope="col"><?php _e('Actions', 'ez-translate'); ?></th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($languages as $language): ?>
+                                <?php
+                                // Get landing page info for this language
+                                $landing_page = \EZTranslate\LanguageManager::get_landing_page_for_language($language['code']);
+                                ?>
                                 <tr>
                                     <td><strong><?php echo esc_html($language['code']); ?></strong></td>
                                     <td><?php echo esc_html($language['name']); ?></td>
@@ -504,6 +713,28 @@ class Admin {
                                     <td><?php echo esc_html($language['native_name'] ?? '—'); ?></td>
                                     <td><?php echo esc_html($language['flag'] ?? '—'); ?></td>
                                     <td><?php echo ($language['rtl'] ?? false) ? __('Yes', 'ez-translate') : __('No', 'ez-translate'); ?></td>
+                                    <td>
+                                        <?php if ($landing_page): ?>
+                                            <div style="margin-bottom: 5px;">
+                                                <strong><?php echo esc_html($landing_page['title']); ?></strong>
+                                                <br>
+                                                <small style="color: #666;">
+                                                    <?php echo esc_html($landing_page['status']); ?> |
+                                                    <a href="<?php echo esc_url($landing_page['edit_url']); ?>" target="_blank"><?php _e('Edit', 'ez-translate'); ?></a> |
+                                                    <a href="<?php echo esc_url($landing_page['view_url']); ?>" target="_blank"><?php _e('View', 'ez-translate'); ?></a>
+                                                </small>
+                                            </div>
+                                            <button type="button" class="button button-small ez-translate-edit-seo-btn"
+                                                    data-post-id="<?php echo esc_attr($landing_page['post_id']); ?>"
+                                                    data-language="<?php echo esc_attr($language['code']); ?>"
+                                                    data-title="<?php echo esc_attr($landing_page['seo_title']); ?>"
+                                                    data-description="<?php echo esc_attr($landing_page['seo_description']); ?>">
+                                                <?php _e('Edit SEO', 'ez-translate'); ?>
+                                            </button>
+                                        <?php else: ?>
+                                            <span style="color: #999;"><?php _e('No landing page', 'ez-translate'); ?></span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <?php if ($language['enabled'] ?? true): ?>
                                             <span class="ez-translate-status-enabled"><?php _e('Enabled', 'ez-translate'); ?></span>
@@ -783,6 +1014,45 @@ class Admin {
                     }
                     ?>
                 </div>
+            <?php elseif (isset($_GET['run_ez_translate_landing_page_tests']) && $_GET['run_ez_translate_landing_page_tests'] === '1'): ?>
+                <div class="card">
+                    <h2><?php _e('Landing Page Creation Test Results', 'ez-translate'); ?></h2>
+                    <?php
+                    // Run Landing Page Creation tests only
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-landing-page-creation.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-landing-page-creation.php';
+                        ez_translate_display_landing_page_creation_tests();
+                    } else {
+                        echo '<p style="color: red;">Landing page creation test file not found.</p>';
+                    }
+                    ?>
+                </div>
+            <?php elseif (isset($_GET['run_ez_translate_landing_management_tests']) && $_GET['run_ez_translate_landing_management_tests'] === '1'): ?>
+                <div class="card">
+                    <h2><?php _e('Landing Page Management Test Results', 'ez-translate'); ?></h2>
+                    <?php
+                    // Run Landing Page Management tests only
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-landing-page-management.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-landing-page-management.php';
+                        ez_translate_display_landing_page_management_tests();
+                    } else {
+                        echo '<p style="color: red;">Landing page management test file not found.</p>';
+                    }
+                    ?>
+                </div>
+            <?php elseif (isset($_GET['run_ez_translate_seo_title_tests']) && $_GET['run_ez_translate_seo_title_tests'] === '1'): ?>
+                <div class="card">
+                    <h2><?php _e('SEO Title Functionality Test Results', 'ez-translate'); ?></h2>
+                    <?php
+                    // Run SEO Title tests only
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-seo-title-functionality.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-seo-title-functionality.php';
+                        ez_translate_display_seo_title_tests();
+                    } else {
+                        echo '<p style="color: red;">SEO title functionality test file not found.</p>';
+                    }
+                    ?>
+                </div>
             <?php else: ?>
                 <div class="card">
                     <h2><?php _e('Testing', 'ez-translate'); ?></h2>
@@ -813,6 +1083,15 @@ class Admin {
                     </a>
                     <a href="<?php echo esc_url(add_query_arg('run_ez_translate_site_metadata_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
                         <?php _e('Run Site Metadata Tests', 'ez-translate'); ?>
+                    </a>
+                    <a href="<?php echo esc_url(add_query_arg('run_ez_translate_landing_page_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
+                        <?php _e('Run Landing Page Creation Tests', 'ez-translate'); ?>
+                    </a>
+                    <a href="<?php echo esc_url(add_query_arg('run_ez_translate_landing_management_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
+                        <?php _e('Run Landing Page Management Tests', 'ez-translate'); ?>
+                    </a>
+                    <a href="<?php echo esc_url(add_query_arg('run_ez_translate_seo_title_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
+                        <?php _e('Run SEO Title Tests', 'ez-translate'); ?>
                     </a>
                 </div>
             <?php endif; ?>
@@ -896,12 +1175,22 @@ class Admin {
                         </tr>
                         <tr>
                             <th scope="row">
+                                <label for="edit_language_site_name"><?php _e('Site Name', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <input type="text" id="edit_language_site_name" name="site_name" class="regular-text"
+                                       placeholder="<?php esc_attr_e('e.g., WordPress Specialist, Especialista en WordPress', 'ez-translate'); ?>">
+                                <p class="description"><?php _e('Short site name for this language (used in page titles). Example: "WordPress Specialist" for English.', 'ez-translate'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
                                 <label for="edit_language_site_title"><?php _e('Site Title', 'ez-translate'); ?></label>
                             </th>
                             <td>
                                 <input type="text" id="edit_language_site_title" name="site_title" class="regular-text"
                                        placeholder="<?php esc_attr_e('e.g., My Website - English Version', 'ez-translate'); ?>">
-                                <p class="description"><?php _e('Site title for this language (used in landing pages and SEO metadata)', 'ez-translate'); ?></p>
+                                <p class="description"><?php _e('Full site title for this language (used in landing pages and SEO metadata)', 'ez-translate'); ?></p>
                             </td>
                         </tr>
                         <tr>
@@ -916,9 +1205,117 @@ class Admin {
                         </tr>
                     </table>
 
+                    <!-- Landing Page Creation Section for Edit -->
+                    <div class="card" style="margin-top: 20px;">
+                        <h3><?php _e('Landing Page Creation', 'ez-translate'); ?></h3>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><?php _e('Create Landing Page', 'ez-translate'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" id="edit_create_landing_page" name="create_landing_page" value="1">
+                                        <?php _e('Create a landing page for this language', 'ez-translate'); ?>
+                                    </label>
+                                    <p class="description"><?php _e('Create a new WordPress page configured as the landing page for this language.', 'ez-translate'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <div id="edit_landing_page_fields" style="display: none;">
+                            <table class="form-table">
+                                <tr>
+                                    <th scope="row">
+                                        <label for="edit_landing_page_title"><?php _e('Landing Page Title', 'ez-translate'); ?> *</label>
+                                    </th>
+                                    <td>
+                                        <input type="text" id="edit_landing_page_title" name="landing_page_title" class="regular-text"
+                                               placeholder="<?php esc_attr_e('e.g., Welcome to Our Site', 'ez-translate'); ?>">
+                                        <p class="description"><?php _e('Title for the landing page (will also be used as SEO title)', 'ez-translate'); ?></p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">
+                                        <label for="edit_landing_page_description"><?php _e('Landing Page Description', 'ez-translate'); ?> *</label>
+                                    </th>
+                                    <td>
+                                        <textarea id="edit_landing_page_description" name="landing_page_description" class="large-text" rows="3"
+                                                  placeholder="<?php esc_attr_e('Brief description of your site for this language...', 'ez-translate'); ?>"></textarea>
+                                        <p class="description"><?php _e('SEO description for the landing page (used in meta description and social media)', 'ez-translate'); ?></p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">
+                                        <label for="edit_landing_page_slug"><?php _e('Landing Page Slug', 'ez-translate'); ?></label>
+                                    </th>
+                                    <td>
+                                        <input type="text" id="edit_landing_page_slug" name="landing_page_slug" class="regular-text"
+                                               placeholder="<?php esc_attr_e('e.g., home, inicio, accueil', 'ez-translate'); ?>"
+                                               pattern="[a-z0-9\-_]+">
+                                        <p class="description"><?php _e('URL slug for the landing page (optional - will be auto-generated if empty)', 'ez-translate'); ?></p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><?php _e('Page Status', 'ez-translate'); ?></th>
+                                    <td>
+                                        <label>
+                                            <input type="radio" name="landing_page_status" value="draft" checked>
+                                            <?php _e('Draft', 'ez-translate'); ?>
+                                        </label>
+                                        <label style="margin-left: 15px;">
+                                            <input type="radio" name="landing_page_status" value="publish">
+                                            <?php _e('Published', 'ez-translate'); ?>
+                                        </label>
+                                        <p class="description"><?php _e('Create as draft to edit content first, or publish immediately', 'ez-translate'); ?></p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
                     <p class="submit">
                         <button type="submit" class="button button-primary"><?php _e('Update Language', 'ez-translate'); ?></button>
                         <button type="button" class="button ez-translate-cancel-edit"><?php _e('Cancel', 'ez-translate'); ?></button>
+                    </p>
+                </form>
+            </div>
+        </div>
+
+        <!-- Edit SEO Modal -->
+        <div id="ez-translate-seo-modal" style="display: none;">
+            <div class="ez-translate-modal-content">
+                <h2><?php _e('Edit Landing Page SEO', 'ez-translate'); ?></h2>
+                <form method="post" action="" id="ez-translate-seo-form">
+                    <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce'); ?>
+                    <input type="hidden" name="ez_translate_action" value="update_landing_page_seo">
+                    <input type="hidden" name="post_id" id="seo_post_id">
+                    <input type="hidden" name="language_code" id="seo_language_code">
+
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">
+                                <label for="seo_title"><?php _e('SEO Title', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <input type="text" id="seo_title" name="seo_title" class="large-text" maxlength="60">
+                                <p class="description"><?php _e('Recommended: 50-60 characters. This will be used in the page title tag and social media.', 'ez-translate'); ?></p>
+                                <div id="seo_title_counter" style="font-size: 11px; color: #666; margin-top: 4px;"></div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="seo_description"><?php _e('SEO Description', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <textarea id="seo_description" name="seo_description" class="large-text" rows="3" maxlength="160"></textarea>
+                                <p class="description"><?php _e('Recommended: 150-160 characters. This will be used in meta description and social media previews.', 'ez-translate'); ?></p>
+                                <div id="seo_description_counter" style="font-size: 11px; color: #666; margin-top: 4px;"></div>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <p class="submit">
+                        <button type="submit" class="button button-primary"><?php _e('Update SEO', 'ez-translate'); ?></button>
+                        <button type="button" class="button ez-translate-cancel-seo"><?php _e('Cancel', 'ez-translate'); ?></button>
                     </p>
                 </form>
             </div>
@@ -944,7 +1341,8 @@ class Admin {
                 font-weight: 600;
             }
 
-            #ez-translate-edit-modal {
+            #ez-translate-edit-modal,
+            #ez-translate-seo-modal {
                 position: fixed;
                 top: 0;
                 left: 0;
@@ -1049,8 +1447,15 @@ class Admin {
                 $('#edit_language_flag').val(languageData.flag || '');
                 $('#edit_language_rtl').prop('checked', languageData.rtl || false);
                 $('#edit_language_enabled').prop('checked', languageData.enabled !== false);
+                $('#edit_language_site_name').val(languageData.site_name || '');
                 $('#edit_language_site_title').val(languageData.site_title || '');
                 $('#edit_language_site_description').val(languageData.site_description || '');
+
+                // Reset landing page creation fields
+                $('#edit_create_landing_page').prop('checked', false);
+                $('#edit_landing_page_fields').hide();
+                $('#edit_landing_page_title, #edit_landing_page_description, #edit_landing_page_slug').val('');
+                $('input[name="landing_page_status"][value="draft"]').prop('checked', true);
 
                 // Show the modal
                 $('#ez-translate-edit-modal').show();
@@ -1104,11 +1509,138 @@ class Admin {
                 }
             });
 
+            // Landing page creation toggle
+            $('#create_landing_page').on('change', function() {
+                if ($(this).is(':checked')) {
+                    $('#landing_page_fields').show();
+                    // Auto-populate landing page title from language name
+                    var languageName = $('#language_name').val();
+                    if (languageName && !$('#landing_page_title').val()) {
+                        $('#landing_page_title').val('Welcome to Our Site - ' + languageName);
+                    }
+                } else {
+                    $('#landing_page_fields').hide();
+                    // Clear landing page fields
+                    $('#landing_page_title, #landing_page_description, #landing_page_slug').val('');
+                    $('input[name="landing_page_status"][value="draft"]').prop('checked', true);
+                }
+            });
+
+            // Auto-populate landing page title when language name changes
+            $('#language_name').on('input', function() {
+                if ($('#create_landing_page').is(':checked') && !$('#landing_page_title').val()) {
+                    var languageName = $(this).val();
+                    if (languageName) {
+                        $('#landing_page_title').val('Welcome to Our Site - ' + languageName);
+                    }
+                }
+            });
+
+            // Auto-generate landing page slug from title
+            $('#landing_page_title').on('input', function() {
+                if (!$('#landing_page_slug').val()) {
+                    var title = $(this).val();
+                    var slug = title.toLowerCase()
+                        .replace(/[^a-z0-9\s\-_]/g, '')
+                        .replace(/\s+/g, '-')
+                        .replace(/\-+/g, '-')
+                        .replace(/^-|-$/g, '');
+                    $('#landing_page_slug').val(slug);
+                }
+            });
+
+            // Landing page creation toggle for EDIT modal
+            $('#edit_create_landing_page').on('change', function() {
+                if ($(this).is(':checked')) {
+                    $('#edit_landing_page_fields').show();
+                    // Auto-populate landing page title from language name
+                    var languageName = $('#edit_language_name').val();
+                    if (languageName && !$('#edit_landing_page_title').val()) {
+                        $('#edit_landing_page_title').val('Welcome to Our Site - ' + languageName);
+                    }
+                } else {
+                    $('#edit_landing_page_fields').hide();
+                    // Clear landing page fields
+                    $('#edit_landing_page_title, #edit_landing_page_description, #edit_landing_page_slug').val('');
+                    $('input[name="landing_page_status"][value="draft"]').prop('checked', true);
+                }
+            });
+
+            // Auto-populate landing page title when language name changes in EDIT modal
+            $('#edit_language_name').on('input', function() {
+                if ($('#edit_create_landing_page').is(':checked') && !$('#edit_landing_page_title').val()) {
+                    var languageName = $(this).val();
+                    if (languageName) {
+                        $('#edit_landing_page_title').val('Welcome to Our Site - ' + languageName);
+                    }
+                }
+            });
+
+            // Auto-generate landing page slug from title in EDIT modal
+            $('#edit_landing_page_title').on('input', function() {
+                if (!$('#edit_landing_page_slug').val()) {
+                    var title = $(this).val();
+                    var slug = title.toLowerCase()
+                        .replace(/[^a-z0-9\s\-_]/g, '')
+                        .replace(/\s+/g, '-')
+                        .replace(/\-+/g, '-')
+                        .replace(/^-|-$/g, '');
+                    $('#edit_landing_page_slug').val(slug);
+                }
+            });
+
             $('#edit_language_code_select').on('change', function() {
                 if (!$(this).val()) {
                     // Don't clear when editing, just reset the dropdown
                 }
             });
+
+            // SEO Edit button click handler
+            $('.ez-translate-edit-seo-btn').on('click', function() {
+                var postId = $(this).data('post-id');
+                var language = $(this).data('language');
+                var title = $(this).data('title');
+                var description = $(this).data('description');
+
+                // Populate the SEO form
+                $('#seo_post_id').val(postId);
+                $('#seo_language_code').val(language);
+                $('#seo_title').val(title);
+                $('#seo_description').val(description);
+
+                // Update character counters
+                updateSeoCounters();
+
+                // Show the modal
+                $('#ez-translate-seo-modal').show();
+            });
+
+            // Cancel SEO edit button
+            $('.ez-translate-cancel-seo').on('click', function() {
+                $('#ez-translate-seo-modal').hide();
+            });
+
+            // Close SEO modal when clicking outside
+            $('#ez-translate-seo-modal').on('click', function(e) {
+                if (e.target === this) {
+                    $(this).hide();
+                }
+            });
+
+            // Character counters for SEO fields
+            function updateSeoCounters() {
+                var titleLength = $('#seo_title').val().length;
+                var descLength = $('#seo_description').val().length;
+
+                var titleColor = titleLength > 60 ? '#d63638' : (titleLength > 50 ? '#dba617' : '#00a32a');
+                var descColor = descLength > 160 ? '#d63638' : (descLength > 150 ? '#dba617' : '#00a32a');
+
+                $('#seo_title_counter').html(titleLength + '/60 characters').css('color', titleColor);
+                $('#seo_description_counter').html(descLength + '/160 characters').css('color', descColor);
+            }
+
+            // Update counters on input
+            $('#seo_title, #seo_description').on('input', updateSeoCounters);
         });
         </script>
         <?php

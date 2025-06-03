@@ -31,14 +31,7 @@ class Gutenberg {
         add_action('enqueue_block_editor_assets', array($this, 'enqueue_block_editor_assets'));
         add_action('init', array($this, 'register_meta_fields'));
 
-        // Hook into meta updates to ensure proper sanitization
-        add_filter('update_post_metadata', array($this, 'intercept_landing_page_meta'), 10, 5);
-
-        // Hook into REST API to intercept meta updates from Gutenberg
-        add_filter('rest_pre_update_post_meta', array($this, 'intercept_rest_meta_update'), 10, 4);
-
-        // Hook into all REST API requests to see what's happening
-        add_filter('rest_pre_dispatch', array($this, 'log_rest_requests'), 10, 3);
+        // Landing page meta update hooks removed - legacy functionality
 
         Logger::info('Gutenberg integration initialized');
     }
@@ -67,14 +60,7 @@ class Gutenberg {
             'sanitize_callback' => 'sanitize_text_field',
         ));
 
-        // Register landing page meta field
-        register_meta('post', '_ez_translate_is_landing', array(
-            'show_in_rest' => true,
-            'single' => true,
-            'type' => 'string',
-            'auth_callback' => array($this, 'meta_auth_callback'),
-            'sanitize_callback' => array($this, 'sanitize_landing_page'),
-        ));
+        // Landing page functionality removed - legacy meta field registration removed
 
         // Register SEO title meta field
         register_meta('post', '_ez_translate_seo_title', array(
@@ -134,153 +120,13 @@ class Gutenberg {
         return (bool) $value;
     }
 
-    /**
-     * Sanitize landing page value (convert boolean to string for consistency)
-     *
-     * @param mixed $value Value to sanitize
-     * @return string '1' for true, '0' for false
-     * @since 1.0.0
-     */
-    public function sanitize_landing_page($value) {
-        // Simple error_log for immediate visibility
-        error_log('[EZ-Translate] SANITIZE_LANDING_PAGE CALLED: ' . var_export($value, true) . ' (type: ' . gettype($value) . ')');
+    // Landing page sanitization method removed - legacy functionality
 
-        \EZTranslate\Logger::debug('Gutenberg: sanitize_landing_page called', array(
-            'input_value' => $value,
-            'input_type' => gettype($value),
-            'is_true' => ($value === true),
-            'is_1' => ($value === 1),
-            'is_string_1' => ($value === '1'),
-            'is_string_true' => ($value === 'true')
-        ));
+    // Landing page meta interception method removed - legacy functionality
 
-        // Convert various truthy/falsy values to '1' or '0'
-        if ($value === true || $value === 1 || $value === '1' || $value === 'true') {
-            error_log('[EZ-Translate] SANITIZE_LANDING_PAGE RETURNING: 1');
-            \EZTranslate\Logger::debug('Gutenberg: sanitize_landing_page returning 1');
-            return '1';
-        }
-        error_log('[EZ-Translate] SANITIZE_LANDING_PAGE RETURNING: 0');
-        \EZTranslate\Logger::debug('Gutenberg: sanitize_landing_page returning 0');
-        return '0';
-    }
+    // Landing page REST API interception method removed - legacy functionality
 
-    /**
-     * Intercept landing page meta updates to ensure proper sanitization
-     *
-     * @param null|bool $check      Whether to allow updating metadata for the given type
-     * @param int       $object_id  ID of the object metadata is for
-     * @param string    $meta_key   Metadata key
-     * @param mixed     $meta_value Metadata value
-     * @param mixed     $prev_value Previous value to check before updating
-     * @return null|bool Null to continue with normal flow, bool to override
-     * @since 1.0.0
-     */
-    public function intercept_landing_page_meta($check, $object_id, $meta_key, $meta_value, $prev_value) {
-        // Only intercept our landing page meta
-        if ($meta_key !== '_ez_translate_is_landing') {
-            return $check;
-        }
-
-        // Simple error_log for immediate visibility
-        error_log('[EZ-Translate] INTERCEPT_LANDING_PAGE_META CALLED: ' . $meta_key . ' = ' . var_export($meta_value, true));
-
-        \EZTranslate\Logger::debug('Gutenberg: intercept_landing_page_meta called', array(
-            'object_id' => $object_id,
-            'meta_key' => $meta_key,
-            'meta_value' => $meta_value,
-            'meta_value_type' => gettype($meta_value),
-            'prev_value' => $prev_value
-        ));
-
-        // Sanitize the value using our function
-        $sanitized_value = $this->sanitize_landing_page($meta_value);
-
-        \EZTranslate\Logger::debug('Gutenberg: intercepted meta update, sanitized value', array(
-            'original_value' => $meta_value,
-            'sanitized_value' => $sanitized_value
-        ));
-
-        // Update with sanitized value
-        $result = update_post_meta($object_id, $meta_key, $sanitized_value, $prev_value);
-
-        \EZTranslate\Logger::debug('Gutenberg: intercepted update result', array(
-            'object_id' => $object_id,
-            'result' => $result,
-            'final_value' => $sanitized_value
-        ));
-
-        // Return true to prevent WordPress from doing its own update
-        return true;
-    }
-
-    /**
-     * Intercept REST API meta updates for landing page
-     *
-     * @param mixed           $value     The meta value being updated
-     * @param WP_Post         $object    The post object
-     * @param string          $meta_key  The meta key being updated
-     * @param WP_REST_Request $request   The REST request object
-     * @return mixed The filtered meta value
-     * @since 1.0.0
-     */
-    public function intercept_rest_meta_update($value, $object, $meta_key, $request) {
-        // Only intercept our landing page meta
-        if ($meta_key !== '_ez_translate_is_landing') {
-            return $value;
-        }
-
-        // Simple error_log for immediate visibility
-        error_log('[EZ-Translate] INTERCEPT_REST_META_UPDATE CALLED: ' . $meta_key . ' = ' . var_export($value, true));
-
-        \EZTranslate\Logger::debug('Gutenberg: intercept_rest_meta_update called', array(
-            'post_id' => $object->ID,
-            'meta_key' => $meta_key,
-            'meta_value' => $value,
-            'meta_value_type' => gettype($value)
-        ));
-
-        // Sanitize the value using our function
-        $sanitized_value = $this->sanitize_landing_page($value);
-
-        \EZTranslate\Logger::debug('Gutenberg: REST meta update sanitized', array(
-            'original_value' => $value,
-            'sanitized_value' => $sanitized_value
-        ));
-
-        error_log('[EZ-Translate] INTERCEPT_REST_META_UPDATE SANITIZED: ' . var_export($sanitized_value, true));
-
-        return $sanitized_value;
-    }
-
-    /**
-     * Log REST API requests to debug Gutenberg behavior
-     *
-     * @param mixed           $result  Response to replace the requested version with
-     * @param WP_REST_Server  $server  Server instance
-     * @param WP_REST_Request $request Request used to generate the response
-     * @return mixed The result
-     * @since 1.0.0
-     */
-    public function log_rest_requests($result, $server, $request) {
-        $route = $request->get_route();
-        $method = $request->get_method();
-
-        // Only log post-related requests
-        if (strpos($route, '/wp/v2/posts/') !== false || strpos($route, '/wp/v2/pages/') !== false) {
-            $body = $request->get_body();
-            $params = $request->get_params();
-
-            // Check if this request contains our meta
-            if (isset($params['meta']) && isset($params['meta']['_ez_translate_is_landing'])) {
-                error_log('[EZ-Translate] REST REQUEST WITH LANDING META: ' . $method . ' ' . $route);
-                error_log('[EZ-Translate] META VALUE: ' . var_export($params['meta']['_ez_translate_is_landing'], true));
-                error_log('[EZ-Translate] ALL META: ' . var_export($params['meta'], true));
-            }
-        }
-
-        return $result;
-    }
+    // Landing page REST API logging method removed - legacy functionality
 
     /**
      * Enqueue block editor assets
