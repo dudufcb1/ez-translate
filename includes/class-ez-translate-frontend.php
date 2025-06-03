@@ -195,9 +195,23 @@ class Frontend {
      * @since 1.0.0
      */
     private function generate_complete_metadata($post, $language, $is_landing, $seo_title, $seo_description) {
-        // Determine title and description
-        $page_title = !empty($seo_title) ? $seo_title : $post->post_title;
-        $page_description = !empty($seo_description) ? $seo_description : $this->get_post_excerpt($post);
+        // Get language-specific site metadata (MEJORA 2)
+        $language_site_metadata = \EZTranslate\LanguageManager::get_language_site_metadata($language);
+
+        // Determine title and description with fallback logic
+        if ($is_landing) {
+            // For landing pages: SEO title > Language site title > Post title
+            $page_title = !empty($seo_title) ? $seo_title :
+                         (!empty($language_site_metadata['site_title']) ? $language_site_metadata['site_title'] : $post->post_title);
+
+            // For landing pages: SEO description > Language site description > Post excerpt
+            $page_description = !empty($seo_description) ? $seo_description :
+                               (!empty($language_site_metadata['site_description']) ? $language_site_metadata['site_description'] : $this->get_post_excerpt($post));
+        } else {
+            // For regular pages: SEO title > Post title
+            $page_title = !empty($seo_title) ? $seo_title : $post->post_title;
+            $page_description = !empty($seo_description) ? $seo_description : $this->get_post_excerpt($post);
+        }
 
         // Get current URL
         $current_url = get_permalink($post->ID);
@@ -265,7 +279,9 @@ class Frontend {
             'is_landing' => $is_landing,
             'og_type' => $og_type,
             'title' => $page_title,
-            'url' => $current_url
+            'url' => $current_url,
+            'used_language_site_title' => $is_landing && !empty($seo_title) ? false : !empty($language_site_metadata['site_title']),
+            'used_language_site_description' => $is_landing && !empty($seo_description) ? false : !empty($language_site_metadata['site_description'])
         ));
     }
 

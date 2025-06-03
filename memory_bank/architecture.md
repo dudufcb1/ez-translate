@@ -537,3 +537,118 @@ La arquitectura actual está preparada para:
 - **Frontend SEO**: Inyección automática de metadatos SEO, Open Graph, Twitter Cards, JSON-LD y conversión de idiomas a locales
 
 Esta base sólida permite el desarrollo incremental siguiendo el plan establecido, manteniendo la calidad del código y la facilidad de mantenimiento. El sistema de gestión de idiomas y metadatos multilingües está completamente funcional y listo para la integración con Gutenberg y optimizaciones SEO en las siguientes fases. La arquitectura modular facilita la expansión con nuevas funcionalidades mientras mantiene la estabilidad y rendimiento del sistema.
+
+## ✅ MEJORA 5: Sistema de Verificación de Traducciones Existentes
+
+**Estado**: ✅ COMPLETADA
+**Fecha**: 2 de junio de 2025
+
+### Arquitectura del Sistema de Verificación
+
+#### 🔍 **Endpoint REST de Verificación**
+- **Ruta**: `/ez-translate/v1/verify-translations/{post_id}`
+- **Método**: GET
+- **Autenticación**: Verificación de permisos por post
+- **Funcionalidad**: Detecta todas las traducciones existentes de un post
+
+#### 🧠 **Lógica de Detección Inteligente**
+1. **Detección por Metadatos Explícitos**: Busca posts con metadatos `_ez_translate_group`
+2. **Auto-corrección de Metadatos**: Repara posts sin idioma asignado automáticamente
+3. **Detección de Original**: Identifica el artículo original por idioma del sitio
+4. **Fallback Inteligente**: Usa detección automática del Frontend para casos edge
+
+#### 🎨 **Componente Gutenberg "Existing Translations"**
+- **Ubicación**: Panel dinámico en sidebar de Gutenberg
+- **Renderizado Condicional**: Solo aparece cuando existen traducciones
+- **Información Mostrada**:
+  - Título de cada traducción
+  - Idioma con nombre nativo
+  - Estado de publicación
+  - Etiquetas distintivas (Current, Original, Landing)
+
+#### 🏷️ **Sistema de Etiquetas Distintivas**
+- **🔵 Current**: Página que se está editando actualmente
+- **🔴 Original**: Artículo original (determinado por idioma del sitio)
+- **🟢 Landing**: Página configurada como landing page
+
+#### 🚫 **Filtrado Inteligente de Idiomas**
+- **Lógica**: Excluye idiomas que ya tienen traducción del selector
+- **Actualización Dinámica**: Se actualiza automáticamente al detectar cambios
+- **Prevención de Duplicados**: Impide crear traducciones duplicadas
+
+#### 🔧 **Mejoras Técnicas Implementadas**
+- **URLs Correctas**: Soporte para sitios en subcarpetas usando `rest_url()`
+- **APIs Modernas**: Compatibilidad con WordPress 6.6+ (wp.editor vs wp.editPost)
+- **Manejo de Errores**: Gestión robusta de casos edge y errores de red
+- **Logging Detallado**: Sistema comprensivo para debugging
+
+#### 🏗️ **Integración con Grupos de Traducción**
+- **Auto-asignación**: El artículo original se agrega automáticamente al grupo
+- **Detección de Idioma**: Asigna idioma al post original al crear primera traducción
+- **Consistencia**: Mantiene integridad de grupos de traducción
+
+### Flujo de Funcionamiento
+
+1. **Carga del Editor**: Al abrir cualquier página en Gutenberg
+2. **Llamada Automática**: Se ejecuta `verify-translations/{post_id}`
+3. **Procesamiento Backend**:
+   - Obtiene metadatos del post
+   - Busca posts relacionados en el grupo
+   - Identifica el post original por idioma
+   - Filtra idiomas disponibles
+4. **Renderizado Frontend**:
+   - Muestra panel "Existing Translations" si existen
+   - Actualiza lista de idiomas disponibles
+   - Aplica etiquetas distintivas
+5. **Interacción Usuario**: Botones Edit/View para navegación rápida
+
+### Archivos Modificados
+
+#### Backend
+- `includes/class-ez-translate-rest-api.php`:
+  - Nuevo endpoint `verify_existing_translations()`
+  - Lógica de detección de original por idioma del sitio
+  - Auto-corrección de metadatos faltantes
+  - Filtrado inteligente de idiomas disponibles
+
+#### Frontend
+- `assets/js/gutenberg-sidebar.js`:
+  - Nuevo panel "Existing Translations"
+  - Sistema de etiquetas distintivas
+  - Botones de navegación Edit/View
+  - Filtrado dinámico de idiomas
+  - Compatibilidad con APIs modernas de WordPress
+
+#### Testing
+- `tests/test-translation-verification.php`:
+  - Tests de endpoint REST
+  - Verificación de detección de traducciones
+  - Tests de filtrado de idiomas
+  - Validación de identificación de original
+
+### Impacto en la Experiencia de Usuario
+
+#### Antes de MEJORA 5
+- ❌ No había visibilidad de traducciones existentes
+- ❌ Posibilidad de crear traducciones duplicadas
+- ❌ Navegación manual entre traducciones
+- ❌ Confusión sobre cuál es el artículo original
+
+#### Después de MEJORA 5
+- ✅ **Visibilidad Completa**: Panel que muestra todas las traducciones
+- ✅ **Prevención de Duplicados**: Lista filtrada de idiomas disponibles
+- ✅ **Navegación Rápida**: Botones directos Edit/View
+- ✅ **Identificación Clara**: Etiquetas que distinguen original, actual y landing
+- ✅ **Auto-reparación**: Corrige automáticamente metadatos faltantes
+
+### Métricas de Implementación
+
+- **Nuevos Endpoints**: 1 endpoint REST (`verify-translations/{id}`)
+- **Componentes UI**: 1 panel Gutenberg dinámico
+- **Funciones Backend**: 3 funciones principales de detección
+- **Tests Automatizados**: 5 tests específicos de verificación
+- **Líneas de Código**: ~300 líneas nuevas
+- **Compatibilidad**: WordPress 5.8+ y 6.6+ APIs
+- **Performance**: Mínimo impacto (carga bajo demanda)
+
+Esta implementación completa el sistema de verificación de traducciones, proporcionando una experiencia de usuario fluida y previniendo errores comunes en la gestión de contenido multilingüe.

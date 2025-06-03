@@ -277,7 +277,19 @@ class PostMetaManager {
      * @since 1.0.0
      */
     public static function set_post_landing_status($post_id, $is_landing) {
+        Logger::debug('PostMetaManager: set_post_landing_status called', array(
+            'post_id' => $post_id,
+            'input_is_landing' => $is_landing,
+            'input_type' => gettype($is_landing)
+        ));
+
         $is_landing = (bool) $is_landing;
+
+        Logger::debug('PostMetaManager: after boolean conversion', array(
+            'post_id' => $post_id,
+            'converted_is_landing' => $is_landing,
+            'will_save_as' => $is_landing ? '1' : '0'
+        ));
 
         // If setting as landing page, validate that no other page in the same language is already a landing page
         if ($is_landing) {
@@ -295,14 +307,35 @@ class PostMetaManager {
             }
         }
 
-        $result = update_post_meta($post_id, self::META_IS_LANDING, $is_landing ? '1' : '0');
-        
+        $meta_value = $is_landing ? '1' : '0';
+        Logger::debug('PostMetaManager: about to update_post_meta', array(
+            'post_id' => $post_id,
+            'meta_key' => self::META_IS_LANDING,
+            'meta_value' => $meta_value
+        ));
+
+        $result = update_post_meta($post_id, self::META_IS_LANDING, $meta_value);
+
+        Logger::debug('PostMetaManager: update_post_meta result', array(
+            'post_id' => $post_id,
+            'result' => $result,
+            'saved_value' => $meta_value
+        ));
+
+        // Verify what was actually saved
+        $saved_value = get_post_meta($post_id, self::META_IS_LANDING, true);
+        Logger::debug('PostMetaManager: verification read', array(
+            'post_id' => $post_id,
+            'saved_value' => $saved_value,
+            'saved_type' => gettype($saved_value)
+        ));
+
         if ($result) {
             Logger::info('Post landing status set', array('post_id' => $post_id, 'is_landing' => $is_landing));
             Logger::log_db_operation('update', 'post_meta', array(
                 'post_id' => $post_id,
                 'meta_key' => self::META_IS_LANDING,
-                'meta_value' => $is_landing ? '1' : '0'
+                'meta_value' => $meta_value
             ));
         } else {
             Logger::error('Failed to set post landing status', array('post_id' => $post_id, 'is_landing' => $is_landing));

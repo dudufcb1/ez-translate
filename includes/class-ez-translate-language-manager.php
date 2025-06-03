@@ -400,6 +400,10 @@ class LanguageManager {
         $sanitized['rtl'] = isset($language_data['rtl']) ? self::sanitize_boolean($language_data['rtl']) : false;
         $sanitized['enabled'] = isset($language_data['enabled']) ? self::sanitize_boolean($language_data['enabled']) : true;
 
+        // Site metadata fields (MEJORA 2: Metadatos de Sitio por Idioma)
+        $sanitized['site_title'] = isset($language_data['site_title']) ? sanitize_text_field($language_data['site_title']) : '';
+        $sanitized['site_description'] = isset($language_data['site_description']) ? sanitize_textarea_field($language_data['site_description']) : '';
+
         Logger::debug('Language data sanitized', array('original' => $language_data, 'sanitized' => $sanitized));
 
         return $sanitized;
@@ -451,6 +455,35 @@ class LanguageManager {
 
         Logger::debug('Retrieved enabled languages', array('count' => count($enabled_languages)));
         return $enabled_languages;
+    }
+
+    /**
+     * Get language-specific site metadata
+     *
+     * @param string $language_code Language code
+     * @return array Array with site_title and site_description, or empty array if not found
+     * @since 1.0.0
+     */
+    public static function get_language_site_metadata($language_code) {
+        $language = self::get_language($language_code);
+
+        if (!$language) {
+            Logger::debug('Language not found for site metadata', array('language_code' => $language_code));
+            return array();
+        }
+
+        $metadata = array(
+            'site_title' => isset($language['site_title']) ? $language['site_title'] : '',
+            'site_description' => isset($language['site_description']) ? $language['site_description'] : ''
+        );
+
+        Logger::debug('Retrieved language site metadata', array(
+            'language_code' => $language_code,
+            'has_title' => !empty($metadata['site_title']),
+            'has_description' => !empty($metadata['site_description'])
+        ));
+
+        return $metadata;
     }
 
     /**

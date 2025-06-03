@@ -450,6 +450,26 @@ class Admin {
                                 <p class="description"><?php _e('Disabled languages are hidden from frontend', 'ez-translate'); ?></p>
                             </td>
                         </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="language_site_title"><?php _e('Site Title', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <input type="text" id="language_site_title" name="site_title" class="regular-text"
+                                       placeholder="<?php esc_attr_e('e.g., My Website - English Version', 'ez-translate'); ?>">
+                                <p class="description"><?php _e('Site title for this language (used in landing pages and SEO metadata)', 'ez-translate'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="language_site_description"><?php _e('Site Description', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <textarea id="language_site_description" name="site_description" class="large-text" rows="3"
+                                          placeholder="<?php esc_attr_e('Brief description of your website in this language...', 'ez-translate'); ?>"></textarea>
+                                <p class="description"><?php _e('Site description for this language (used in landing pages and SEO metadata)', 'ez-translate'); ?></p>
+                            </td>
+                        </tr>
                     </table>
 
                     <?php submit_button(__('Add Language', 'ez-translate'), 'primary', 'submit', false); ?>
@@ -652,6 +672,12 @@ class Admin {
                         require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-metadata-control.php';
                         ez_translate_display_metadata_control_tests();
                     }
+
+                    // Run Site Metadata tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-site-metadata.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-site-metadata.php';
+                        ez_translate_display_site_metadata_tests();
+                    }
                     ?>
                 </div>
             <?php elseif (isset($_GET['run_ez_translate_landing_tests']) && $_GET['run_ez_translate_landing_tests'] === '1'): ?>
@@ -744,6 +770,19 @@ class Admin {
                     }
                     ?>
                 </div>
+            <?php elseif (isset($_GET['run_ez_translate_site_metadata_tests']) && $_GET['run_ez_translate_site_metadata_tests'] === '1'): ?>
+                <div class="card">
+                    <h2><?php _e('Site Metadata Test Results', 'ez-translate'); ?></h2>
+                    <?php
+                    // Run Site Metadata tests only
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-site-metadata.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-site-metadata.php';
+                        ez_translate_display_site_metadata_tests();
+                    } else {
+                        echo '<p style="color: red;">Site metadata test file not found.</p>';
+                    }
+                    ?>
+                </div>
             <?php else: ?>
                 <div class="card">
                     <h2><?php _e('Testing', 'ez-translate'); ?></h2>
@@ -771,6 +810,9 @@ class Admin {
                     </a>
                     <a href="<?php echo esc_url(add_query_arg('run_ez_translate_verification_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
                         <?php _e('Run Translation Verification Tests', 'ez-translate'); ?>
+                    </a>
+                    <a href="<?php echo esc_url(add_query_arg('run_ez_translate_site_metadata_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
+                        <?php _e('Run Site Metadata Tests', 'ez-translate'); ?>
                     </a>
                 </div>
             <?php endif; ?>
@@ -850,6 +892,26 @@ class Admin {
                                     <input type="checkbox" id="edit_language_enabled" name="enabled" value="1">
                                     <?php _e('Enable this language', 'ez-translate'); ?>
                                 </label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="edit_language_site_title"><?php _e('Site Title', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <input type="text" id="edit_language_site_title" name="site_title" class="regular-text"
+                                       placeholder="<?php esc_attr_e('e.g., My Website - English Version', 'ez-translate'); ?>">
+                                <p class="description"><?php _e('Site title for this language (used in landing pages and SEO metadata)', 'ez-translate'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="edit_language_site_description"><?php _e('Site Description', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <textarea id="edit_language_site_description" name="site_description" class="large-text" rows="3"
+                                          placeholder="<?php esc_attr_e('Brief description of your website in this language...', 'ez-translate'); ?>"></textarea>
+                                <p class="description"><?php _e('Site description for this language (used in landing pages and SEO metadata)', 'ez-translate'); ?></p>
                             </td>
                         </tr>
                     </table>
@@ -987,6 +1049,8 @@ class Admin {
                 $('#edit_language_flag').val(languageData.flag || '');
                 $('#edit_language_rtl').prop('checked', languageData.rtl || false);
                 $('#edit_language_enabled').prop('checked', languageData.enabled !== false);
+                $('#edit_language_site_title').val(languageData.site_title || '');
+                $('#edit_language_site_description').val(languageData.site_description || '');
 
                 // Show the modal
                 $('#ez-translate-edit-modal').show();

@@ -808,27 +808,48 @@ Después de la implementación inicial del Paso 5.2, se identificaron varias mej
 
 ---
 
-## 📋 MEJORA 5: Sistema de Verificación de Traducciones Existentes
+## ✅ MEJORA 5: Sistema de Verificación de Traducciones Existentes
 **Prioridad**: MEDIA
-**Estado**: Pendiente
+**Estado**: ✅ COMPLETADA
+**Fecha**: 2 de junio de 2025
 
-### Problema Identificado:
-- No se verifica si ya existe traducción antes de crear nueva
-- Posibilidad de duplicar traducciones accidentalmente
+### Funcionalidades Implementadas:
 
-### Solución Propuesta:
-1. **Verificación previa en Gutenberg**:
-   - Antes de crear traducción, verificar si existe
-   - Mostrar enlace a traducción existente si la hay
-   - Opción de "Ir a traducción existente" o "Crear nueva versión"
+#### 🔍 **Sistema de Verificación de Traducciones**
+- ✅ **Endpoint REST**: `/ez-translate/v1/verify-translations/{post_id}`
+- ✅ **Detección Automática**: Identifica todas las traducciones del grupo
+- ✅ **Auto-corrección**: Repara posts sin idioma asignado automáticamente
+- ✅ **Detección de Original**: Identifica el artículo original por idioma del sitio
 
-2. **Mejora en REST API**:
-   - Endpoint para verificar traducciones existentes
-   - Respuesta con detalles de traducción encontrada
+#### 🎨 **Panel Gutenberg "Existing Translations"**
+- ✅ **Visualización Completa**: Muestra todas las versiones del grupo de traducción
+- ✅ **Etiquetas Distintivas**:
+  - 🔵 **"Current"** - Página que se está editando actualmente
+  - 🔴 **"Original"** - Artículo original (idioma del sitio)
+  - 🟢 **"Landing"** - Página de aterrizaje configurada
+- ✅ **Botones de Acción**: Edit/View para otras traducciones (no para la actual)
+- ✅ **Información Detallada**: Título, idioma, estado de publicación
 
-### Archivos a Modificar:
-- `includes/class-ez-translate-rest-api.php` (nuevo endpoint)
-- `assets/js/gutenberg-sidebar.js` (verificación previa)
+#### 🚫 **Filtrado Inteligente de Idiomas**
+- ✅ **Lista Filtrada**: Solo muestra idiomas sin traducción existente
+- ✅ **Prevención de Duplicados**: Impide crear traducciones duplicadas
+- ✅ **Actualización Dinámica**: Se actualiza automáticamente al crear traducciones
+
+#### 🔧 **Mejoras Técnicas**
+- ✅ **URLs Correctas**: Soporte para sitios en subcarpetas usando `rest_url()`
+- ✅ **APIs Modernas**: Compatibilidad con WordPress 6.6+ (wp.editor vs wp.editPost)
+- ✅ **Logging Detallado**: Sistema de logs para debugging y monitoreo
+- ✅ **Manejo de Errores**: Gestión robusta de errores y casos edge
+
+#### 🏗️ **Integración con Grupos de Traducción**
+- ✅ **Auto-asignación**: El artículo original se agrega automáticamente al grupo
+- ✅ **Detección de Idioma**: Asigna idioma al post original al crear primera traducción
+- ✅ **Consistencia**: Mantiene integridad de grupos de traducción
+
+### Archivos Modificados:
+- `includes/class-ez-translate-rest-api.php` (endpoint de verificación)
+- `assets/js/gutenberg-sidebar.js` (panel de traducciones existentes)
+- `tests/test-translation-verification.php` (tests completos)
 
 ---
 
@@ -1035,11 +1056,11 @@ Después de la implementación inicial del Paso 5.2, se identificaron varias mej
 **COMPLETADAS**:
 - ✅ **MEJORA 3**: Control Completo de Metadatos SEO
 - ✅ **MEJORA 4**: Hreflang Bidireccional Completo (implementado como parte de MEJORA 3)
+- ✅ **MEJORA 5**: Sistema de Verificación de Traducciones Existentes
 
 **PENDIENTES**:
 - 🔄 **MEJORA 1**: Configuración de Idioma por Defecto (parcialmente implementada)
 - 🔄 **MEJORA 2**: Metadatos de Sitio por Idioma
-- 🔄 **MEJORA 5**: Verificación de Traducciones Existentes
 - 🔄 **MEJORA 6**: Estructura Jerárquica de Traducciones
 
 ### 📝 **Notas para Desarrolladores**
@@ -1070,3 +1091,93 @@ Después de la implementación inicial del Paso 5.2, se identificaron varias mej
 - **Creación de Traducciones**: Sistema completo de duplicación inteligente de páginas con redirección automática
 - **Landing Pages**: Sistema completo con validación de unicidad por idioma, campos SEO y toggle functionality
 - **Frontend SEO**: Inyección automática de metadatos SEO, Open Graph, Twitter Cards, JSON-LD y conversión de idiomas a locales
+
+---
+
+## 🚧 REFACTORIZACIÓN: Landing Pages Jerárquicas - PLANIFICADA
+
+### 🎯 Objetivo:
+Rediseñar completamente el sistema de landing pages para que sea lógico y funcional en un contexto multiidioma real.
+
+### 🔍 Problemas Identificados con Sistema Actual:
+- ❌ Toggle "Landing Page" sin especificar idioma (no tiene sentido)
+- ❌ No se puede elegir para qué idioma es landing page
+- ❌ Lógica antigua que no encaja con diseño multiidioma
+- ❌ Falta creación automática de landing pages por idioma
+- ❌ No hay estructura jerárquica de URLs
+
+### 🏗️ Nueva Arquitectura Propuesta:
+
+#### **Landing Pages Automáticas por Idioma:**
+```
+sitio.com/en/          <- Landing page EN (creada automáticamente)
+sitio.com/es/          <- Landing page ES (creada automáticamente)
+sitio.com/pt/          <- Landing page PT (creada automáticamente)
+```
+
+#### **URLs Jerárquicas:**
+```
+sitio.com/en/programming-basics     <- Artículo EN (hijo de /en/)
+sitio.com/es/bases-de-programacion  <- Artículo ES (hijo de /es/)
+sitio.com/pt/fundamentos-programacao <- Artículo PT (hijo de /pt/)
+```
+
+#### **Gestión desde Admin:**
+- Campo "Landing Page Slug" al crear/editar idiomas
+- Creación automática de landing page al configurar idioma
+- Nomenclatura personalizable (default: código de idioma)
+- Landing pages como páginas normales de WordPress con jerarquía
+
+### 📋 Plan de Implementación:
+
+#### **🔧 Fase 1: Preparación del Language Manager**
+- [ ] Agregar campo `landing_page_slug` a estructura de idiomas
+- [ ] Crear función `create_language_landing_page()`
+- [ ] Implementar validación de slugs únicos
+- [ ] Agregar gestión de páginas padre en metadatos
+
+#### **🎨 Fase 2: Modificación de Admin Interface**
+- [ ] Agregar campo "Landing Page Slug" en formulario de idiomas
+- [ ] Implementar botón "Create Landing Page" si no existe
+- [ ] Mostrar vista previa de URL resultante
+- [ ] Validar y mostrar estado de landing page existente
+
+#### **🔄 Fase 3: Modificación de Translation Creation**
+- [ ] Al crear traducción, asignar como página hija de landing page
+- [ ] Implementar URL automática: `/idioma/slug-traduccion`
+- [ ] Validar que landing page padre existe antes de crear traducción
+
+#### **🧹 Fase 4: Limpieza de Código Legacy**
+- [ ] **ELIMINAR**: Toggle "Landing Page" de Gutenberg sidebar
+- [ ] **ELIMINAR**: Campo `_ez_translate_is_landing` de metadatos
+- [ ] **ELIMINAR**: Validaciones de landing page en posts individuales
+- [ ] **ELIMINAR**: Funciones relacionadas en `class-ez-translate-gutenberg.php`
+- [ ] **ELIMINAR**: Lógica de landing page en `class-ez-translate-post-meta-manager.php`
+
+#### **🧪 Fase 5: Testing y Migración**
+- [ ] Crear tests para nueva funcionalidad de landing pages
+- [ ] Implementar migración de landing pages existentes (si las hay)
+- [ ] Probar creación de idiomas con landing pages
+- [ ] Verificar jerarquía automática de traducciones
+- [ ] Validar URLs y estructura completa
+
+### 🗂️ Archivos a Modificar:
+
+#### **Modificaciones Principales:**
+- `includes/class-ez-translate-language-manager.php` - Gestión de landing pages
+- `includes/class-ez-translate-admin.php` - Interfaz de creación/edición
+- `includes/class-ez-translate-post-meta-manager.php` - Jerarquía automática
+
+#### **Eliminaciones (Cleanup):**
+- `assets/js/gutenberg-sidebar.js` - Remover toggle y lógica de landing page
+- `includes/class-ez-translate-gutenberg.php` - Remover registro de meta landing page
+- `tests/test-landing-pages.php` - Actualizar o eliminar tests obsoletos
+
+### 🎯 Resultado Esperado:
+- ✅ Landing pages automáticas por idioma desde admin
+- ✅ Estructura jerárquica clara y lógica
+- ✅ URLs semánticamente correctas
+- ✅ Gestión centralizada desde configuración de idiomas
+- ✅ Eliminación completa de lógica confusa actual
+
+### ⚠️ Estado: PLANIFICADA - Pendiente de implementación

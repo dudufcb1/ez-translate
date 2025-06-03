@@ -42,14 +42,19 @@
         const [translationData, setTranslationData] = useState(null);
         const [loadingTranslations, setLoadingTranslations] = useState(false);
 
+        // Local state for landing page toggle to handle immediate UI updates
+        const [localIsLanding, setLocalIsLanding] = useState(null);
+
         // Get post data from WordPress data store
-        const { postId, postMeta } = useSelect((select) => {
-            const { getCurrentPostId } = select('core/editor');
-            const { getEditedPostAttribute } = select('core/editor');
-            
+        const { postId, postMeta, isSaving, isAutosaving, hasEdits } = useSelect((select) => {
+            const { getCurrentPostId, getEditedPostAttribute, isSavingPost, isAutosavingPost, isEditedPostDirty } = select('core/editor');
+
             return {
                 postId: getCurrentPostId(),
-                postMeta: getEditedPostAttribute('meta') || {}
+                postMeta: getEditedPostAttribute('meta') || {},
+                isSaving: isSavingPost(),
+                isAutosaving: isAutosavingPost(),
+                hasEdits: isEditedPostDirty()
             };
         });
 
@@ -58,9 +63,26 @@
 
         // Current metadata values
         const currentLanguage = postMeta._ez_translate_language || '';
-        const currentIsLanding = postMeta._ez_translate_is_landing || false;
+        const metaIsLanding = (postMeta._ez_translate_is_landing === '1' || postMeta._ez_translate_is_landing === true || postMeta._ez_translate_is_landing === 1);
+        const currentIsLanding = localIsLanding !== null ? localIsLanding : metaIsLanding;
         const currentSeoTitle = postMeta._ez_translate_seo_title || '';
         const currentSeoDescription = postMeta._ez_translate_seo_description || '';
+
+        // Debug logging
+        console.log('EZ Translate: Current meta values:', {
+            language: currentLanguage,
+            metaIsLanding: metaIsLanding,
+            localIsLanding: localIsLanding,
+            currentIsLanding: currentIsLanding,
+            rawIsLanding: postMeta._ez_translate_is_landing,
+            rawIsLandingType: typeof postMeta._ez_translate_is_landing,
+            rawIsLandingEquals1: (postMeta._ez_translate_is_landing === '1'),
+            rawIsLandingEqualsTrue: (postMeta._ez_translate_is_landing === true),
+            rawIsLandingEquals1Num: (postMeta._ez_translate_is_landing === 1),
+            seoTitle: currentSeoTitle,
+            seoDescription: currentSeoDescription,
+            allPostMeta: postMeta
+        });
 
         // Detect original language (from WordPress config or current page)
         const wpLanguage = window.ezTranslateGutenberg?.wpLanguage || 'en';
@@ -81,6 +103,32 @@
                 loadExistingTranslations();
             }
         }, [postId]);
+
+        // Sync local state with meta when meta changes (e.g., after save)
+        useEffect(() => {
+            console.log('EZ Translate: useEffect sync check', {
+                localIsLanding: localIsLanding,
+                metaIsLanding: metaIsLanding,
+                areEqual: (localIsLanding === metaIsLanding),
+                shouldReset: (localIsLanding !== null && localIsLanding === metaIsLanding)
+            });
+
+            if (localIsLanding !== null && localIsLanding === metaIsLanding) {
+                // Meta has caught up with local state, reset local state
+                setLocalIsLanding(null);
+                console.log('EZ Translate: Local state synced with meta, resetting localIsLanding');
+            }
+        }, [metaIsLanding, localIsLanding]);
+
+        // Monitor post save status
+        useEffect(() => {
+            console.log('EZ Translate: Post save status changed', {
+                isSaving: isSaving,
+                isAutosaving: isAutosaving,
+                hasEdits: hasEdits,
+                postMeta: postMeta
+            });
+        }, [isSaving, isAutosaving, hasEdits]);
 
         /**
          * Load available languages from API
@@ -174,15 +222,23 @@
          * Update post meta field
          */
         const updateMeta = (key, value) => {
+            console.log('EZ Translate: updateMeta called with:', { key, value, currentMeta: postMeta });
+
+            const newMeta = {
+                ...postMeta,
+                [key]: value
+            };
+
+            console.log('EZ Translate: About to call editPost with meta:', newMeta);
+
             editPost({
-                meta: {
-                    ...postMeta,
-                    [key]: value
-                }
+                meta: newMeta
             });
 
             // Clear any previous messages
             setError(null);
+
+            console.log('EZ Translate: editPost called successfully with new meta');
         };
 
         /**
@@ -253,40 +309,45 @@
         };
 
         /**
-         * Handle landing page toggle with validation
+         * Handle landing page toggle
          */
-        const handleLandingToggle = async (isLanding) => {
-            if (isLanding) {
-                // Check if another landing page exists for this language
-                try {
-                    const response = await apiFetch({
-                        path: `ez-translate/v1/post-meta/${postId}`,
-                        method: 'POST',
-                        data: {
-                            is_landing: true
-                        }
-                    });
+        const handleLandingToggle = (isLanding) => {
+            console.log('EZ Translate: handleLandingToggle called with:', isLanding);
+            console.log('EZ Translate: Current meta before update:', postMeta);
 
-                    if (response.success) {
-                        updateMeta('_ez_translate_is_landing', true);
-                        setError(null);
-                    } else {
-                        setError(__('Another page is already set as landing page for this language.', 'ez-translate'));
-                    }
-                } catch (err) {
-                    console.error('Failed to set landing page:', err);
-                    if (err.code === 'landing_page_exists') {
-                        setError(__('Another page is already set as landing page for this language.', 'ez-translate'));
-                    } else {
-                        setError(__('Failed to set landing page. Please try again.', 'ez-translate'));
-                    }
-                }
-            } else {
-                // Removing landing page status
-                updateMeta('_ez_translate_is_landing', false);
+            // Update local state immediately for UI responsiveness
+            setLocalIsLanding(isLanding);
+
+            // Convert boolean to string for consistency with backend
+            const stringValue = isLanding ? '1' : '0';
+            updateMeta('_ez_translate_is_landing', stringValue);
+
+            // Clear SEO fields if not landing page
+            if (!isLanding) {
                 updateMeta('_ez_translate_seo_title', '');
                 updateMeta('_ez_translate_seo_description', '');
-                setError(null);
+            }
+
+            // Clear any previous errors
+            setError(null);
+
+            console.log('EZ Translate: Meta update completed, localIsLanding set to:', isLanding, 'stringValue:', stringValue);
+        };
+
+        /**
+         * Debug function to check database value
+         */
+        const checkDatabaseValue = async () => {
+            try {
+                const response = await apiFetch({
+                    path: `ez-translate/v1/post-meta/${postId}`,
+                    method: 'GET'
+                });
+                console.log('EZ Translate: Database value check:', response);
+                alert('Database value: ' + JSON.stringify(response.metadata, null, 2));
+            } catch (error) {
+                console.error('EZ Translate: Failed to check database value:', error);
+                alert('Error checking database: ' + error.message);
             }
         };
 
@@ -465,16 +526,27 @@
             ),
 
             // Landing Page Panel (show for all pages that have a language set)
-            currentLanguage && el(PanelBody, {
-                title: __('Landing Page Settings', 'ez-translate'),
-                initialOpen: false
-            },
+            currentLanguage && (() => {
+                console.log('EZ Translate: Rendering ToggleControl with checked:', currentIsLanding);
+                return el(PanelBody, {
+                    title: __('Landing Page Settings', 'ez-translate'),
+                    initialOpen: false
+                },
                 el(ToggleControl, {
                     label: __('Landing Page', 'ez-translate'),
                     checked: currentIsLanding,
-                    onChange: handleLandingToggle,
+                    onChange: (value) => {
+                        console.log('EZ Translate: ToggleControl onChange fired with value:', value);
+                        handleLandingToggle(value);
+                    },
                     help: __('Mark this page as the landing page for this language.', 'ez-translate')
                 }),
+
+                // Debug button
+                el('button', {
+                    onClick: checkDatabaseValue,
+                    style: { marginTop: '10px', padding: '5px 10px', fontSize: '12px' }
+                }, 'Check Database Value'),
 
                 currentIsLanding && el('div', null,
                     el(TextControl, {
@@ -492,7 +564,8 @@
                         rows: 3
                     })
                 )
-            )
+            );
+            })()
         );
     }
 
