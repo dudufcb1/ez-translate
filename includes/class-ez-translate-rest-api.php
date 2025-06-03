@@ -119,6 +119,20 @@ class RestAPI {
             ),
         ));
 
+        // Translation verification endpoint
+        register_rest_route(self::NAMESPACE, '/verify-translations/(?P<id>\d+)', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'verify_existing_translations'),
+            'permission_callback' => array($this, 'check_post_permissions'),
+            'args' => array(
+                'id' => array(
+                    'validate_callback' => function($param, $request, $key) {
+                        return is_numeric($param);
+                    }
+                ),
+            ),
+        ));
+
         Logger::info('REST API routes registered');
     }
 
@@ -525,6 +539,20 @@ class RestAPI {
                 // Create new group and assign to source post
                 $group_id = PostMetaManager::generate_group_id();
                 PostMetaManager::set_post_group($source_post_id, $group_id);
+
+                // IMPORTANT: Set the source language for the original post
+                // If no source language is set, detect it from WordPress default or assume 'es'
+                if (empty($source_language)) {
+                    $wp_language = substr(get_locale(), 0, 2); // Convert en_US to en
+                    $source_language = ($wp_language === 'en') ? 'es' : $wp_language; // Default to Spanish if WordPress is English
+                }
+                PostMetaManager::set_post_language($source_post_id, $source_language);
+
+                Logger::info('REST API: Original post added to translation group', array(
+                    'source_post_id' => $source_post_id,
+                    'source_language' => $source_language,
+                    'group_id' => $group_id
+                ));
             }
 
             // Set metadata for translation
@@ -574,6 +602,264 @@ class RestAPI {
             ));
 
             return new \WP_Error('create_translation_failed', 'Failed to create translation', array('status' => 500));
+        }
+    }
+
+    /**
+     * Verify existing translations for a post
+     *
+     * @param WP_REST_Request $request Request object
+     * @return WP_REST_Response
+     * @since 1.0.0
+     */
+    public function verify_existing_translations($request) {
+        try {
+            $post_id = (int) $request->get_param('id');
+
+            // Get the source post
+            $source_post = get_post($post_id);
+            if (!$source_post) {
+                return new \WP_Error('source_post_not_found', 'Source post not found', array('status' => 404));
+            }
+
+            // Get all available languages
+            $all_languages = LanguageManager::get_enabled_languages();
+
+            // Get current post metadata (or detect automatically)
+            $source_metadata = PostMetaManager::get_post_metadata($post_id);
+            $source_language = $source_metadata['language'] ?? '';
+
+            // If no language assigned, try to detect using Frontend detection system
+            if (empty($source_language)) {
+                // Use Frontend class detection method
+                $frontend = new \EZTranslate\Frontend();
+                $group_info = $frontend->debug_post_metadata($post_id);
+
+                if (isset($group_info['metadata']['_ez_translate_language']) && !empty($group_info['metadata']['_ez_translate_language'])) {
+                    $source_language = $group_info['metadata']['_ez_translate_language'];
+                    $source_metadata['group'] = $group_info['metadata']['_ez_translate_group'] ?? '';
+                } else {
+                    // If still no language detected, check if this post is part of a translation group
+                    // and try to infer the language from the group context
+                    if (!empty($source_metadata['group'])) {
+                        $related_post_ids = PostMetaManager::get_posts_in_group($source_metadata['group']);
+
+                        // If this is the only post without language in the group, it's likely the original
+                        $posts_with_language = 0;
+                        foreach ($related_post_ids as $related_id) {
+                            if ($related_id != $post_id) {
+                                $related_meta = PostMetaManager::get_post_metadata($related_id);
+                                if (!empty($related_meta['language'])) {
+                                    $posts_with_language++;
+                                }
+                            }
+                        }
+
+                        // If other posts in group have languages but this one doesn't, assume it's Spanish (original)
+                        if ($posts_with_language > 0) {
+                            $source_language = 'es'; // Default to Spanish as original language
+
+                            // Auto-fix: Set the language for this post
+                            PostMetaManager::set_post_language($post_id, $source_language);
+
+                            Logger::info('REST API: Auto-fixed missing language for original post', array(
+                                'post_id' => $post_id,
+                                'assigned_language' => $source_language,
+                                'group_id' => $source_metadata['group']
+                            ));
+                        }
+                    }
+                }
+            }
+
+            $result = array(
+                'source_post_id' => $post_id,
+                'source_language' => $source_language,
+                'source_language_detected' => empty($source_metadata['language']), // True if auto-detected
+                'translation_group' => $source_metadata['group'] ?? '',
+                'available_languages' => array(),
+                'existing_translations' => array(),
+                'unavailable_languages' => array()
+            );
+
+            // Get existing translations if we have a group
+            $existing_translations = array();
+            $group_id = $source_metadata['group'] ?? '';
+
+            Logger::debug('REST API: Looking for translations in group', array(
+                'post_id' => $post_id,
+                'group_id' => $group_id,
+                'source_metadata' => $source_metadata
+            ));
+
+            if (!empty($group_id)) {
+                $related_post_ids = PostMetaManager::get_posts_in_group($group_id);
+
+                Logger::debug('REST API: Found related post IDs', array(
+                    'group_id' => $group_id,
+                    'related_posts_count' => count($related_post_ids),
+                    'related_post_ids' => $related_post_ids
+                ));
+
+                foreach ($related_post_ids as $related_post_id) {
+                    $related_post = get_post($related_post_id);
+                    if (!$related_post) {
+                        continue; // Skip if post doesn't exist
+                    }
+
+                    $related_metadata = PostMetaManager::get_post_metadata($related_post_id);
+                    $related_language = $related_metadata['language'] ?? '';
+
+                    Logger::debug('REST API: Processing related post', array(
+                        'post_id' => $related_post_id,
+                        'title' => $related_post->post_title,
+                        'language' => $related_language,
+                        'metadata' => $related_metadata,
+                        'is_current_post' => ($related_post_id == $post_id)
+                    ));
+
+                    if (!empty($related_language)) {
+                        $translation_info = array(
+                            'post_id' => $related_post_id,
+                            'title' => $related_post->post_title,
+                            'status' => $related_post->post_status,
+                            'edit_url' => admin_url('post.php?post=' . $related_post_id . '&action=edit'),
+                            'view_url' => get_permalink($related_post_id),
+                            'language' => $related_language,
+                            'is_landing' => $related_metadata['is_landing'] ?? false,
+                            'is_current' => ($related_post_id == $post_id)
+                        );
+
+                        $existing_translations[$related_language] = $translation_info;
+                    }
+                }
+            } else {
+                Logger::debug('REST API: No group ID found, trying auto-detection');
+                // If no group, try to find related posts through auto-detection
+                // This handles cases where the source post doesn't have explicit metadata
+                $frontend = new \EZTranslate\Frontend();
+                $group_info = $frontend->debug_post_metadata($post_id);
+
+                if (!empty($group_info['translation_group']['group_id'])) {
+                    $auto_group_id = $group_info['translation_group']['group_id'];
+                    $related_post_ids = PostMetaManager::get_posts_in_group($auto_group_id);
+
+                    Logger::debug('REST API: Auto-detected group', array(
+                        'auto_group_id' => $auto_group_id,
+                        'related_posts_count' => count($related_post_ids)
+                    ));
+
+                    foreach ($related_post_ids as $related_post_id) {
+                        $related_post = get_post($related_post_id);
+                        if (!$related_post) {
+                            continue;
+                        }
+
+                        $related_metadata = PostMetaManager::get_post_metadata($related_post_id);
+                        $related_language = $related_metadata['language'] ?? '';
+
+                        if (!empty($related_language)) {
+                            $translation_info = array(
+                                'post_id' => $related_post_id,
+                                'title' => $related_post->post_title,
+                                'status' => $related_post->post_status,
+                                'edit_url' => admin_url('post.php?post=' . $related_post_id . '&action=edit'),
+                                'view_url' => get_permalink($related_post_id),
+                                'language' => $related_language,
+                                'is_landing' => $related_metadata['is_landing'] ?? false,
+                                'is_current' => ($related_post_id == $post_id)
+                            );
+
+                            $existing_translations[$related_language] = $translation_info;
+                        }
+                    }
+                }
+            }
+
+            // Determine which post is the original (based on site language, not date)
+            if (!empty($existing_translations)) {
+                // Get the site's default language (WordPress locale converted to language code)
+                $wp_locale = get_locale(); // e.g., 'es_ES', 'en_US'
+                $site_language = substr($wp_locale, 0, 2); // Convert to 'es', 'en'
+
+                // Try to get the configured default language from settings
+                $default_language = null;
+                $languages = LanguageManager::get_enabled_languages();
+                foreach ($languages as $lang) {
+                    if (isset($lang['is_default']) && $lang['is_default']) {
+                        $default_language = $lang['code'];
+                        break;
+                    }
+                }
+
+                // Priority: 1) Configured default language, 2) Site language, 3) Spanish as fallback
+                $original_language = $default_language ?: $site_language;
+                if (!isset($existing_translations[$original_language])) {
+                    $original_language = 'es'; // Fallback to Spanish
+                }
+
+                // Mark the post in the original language as original
+                if (isset($existing_translations[$original_language])) {
+                    foreach ($existing_translations as $lang => &$translation) {
+                        $translation['is_original'] = ($lang === $original_language);
+                    }
+                    unset($translation); // Break reference
+
+                    Logger::debug('REST API: Identified original post by language', array(
+                        'original_language' => $original_language,
+                        'original_post_id' => $existing_translations[$original_language]['post_id'],
+                        'site_language' => $site_language,
+                        'default_language' => $default_language
+                    ));
+                } else {
+                    Logger::warning('REST API: Could not identify original post', array(
+                        'available_languages' => array_keys($existing_translations),
+                        'expected_original_language' => $original_language
+                    ));
+                }
+            }
+
+            Logger::debug('REST API: Final existing translations', array(
+                'existing_translations' => $existing_translations,
+                'count' => count($existing_translations)
+            ));
+
+            // Process all languages to determine availability
+            foreach ($all_languages as $language) {
+                $language_code = $language['code'];
+
+                if (isset($existing_translations[$language_code])) {
+                    // Translation exists - add to existing translations list
+                    $result['existing_translations'][] = array_merge(
+                        $existing_translations[$language_code],
+                        array('language_info' => $language)
+                    );
+
+                    // Mark as unavailable for creation (translation already exists)
+                    $result['unavailable_languages'][] = $language_code;
+                } else {
+                    // Translation available for creation
+                    $result['available_languages'][] = $language;
+                }
+            }
+
+            Logger::debug('REST API: Translation verification completed', array(
+                'post_id' => $post_id,
+                'source_language' => $source_language,
+                'existing_count' => count($result['existing_translations']),
+                'available_count' => count($result['available_languages']),
+                'auto_detected' => $result['source_language_detected']
+            ));
+
+            return rest_ensure_response($result);
+
+        } catch (Exception $e) {
+            Logger::error('REST API: Exception verifying translations', array(
+                'error' => $e->getMessage(),
+                'post_id' => $request->get_param('id')
+            ));
+
+            return new \WP_Error('verify_translations_failed', 'Failed to verify existing translations', array('status' => 500));
         }
     }
 

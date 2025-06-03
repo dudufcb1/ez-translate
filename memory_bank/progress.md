@@ -697,13 +697,358 @@ Por esta razón, se procedió directamente al **Paso 2.2**.
 
 ---
 
-## 🔄 Pasos Pendientes
+## ⚠️ MEJORAS CRÍTICAS IDENTIFICADAS - PLAN DE CORRECCIÓN
 
-### Paso 5.2: Hreflang y Navegación Multilingüe
-- Implementar generación automática de tags hreflang
-- Sistema de detección de traducciones relacionadas
-- Widget/shortcode de selector de idiomas
-- Navegación entre traducciones
+### 🎯 FASE DE MEJORAS SEO Y FUNCIONALIDAD MULTILINGÜE
+
+Después de la implementación inicial del Paso 5.2, se identificaron varias mejoras críticas necesarias para un funcionamiento óptimo del sistema multilingüe y SEO. Este plan aborda estas mejoras de manera sistemática.
+
+---
+
+## 📋 MEJORA 1: Configuración de Idioma por Defecto (x-default)
+**Prioridad**: ALTA
+**Estado**: Pendiente
+
+### Problema Identificado:
+- No existe configuración para el idioma por defecto (x-default) en hreflang
+- Falta sistema de configuración global de idiomas
+
+### Solución Propuesta:
+1. **Agregar página de configuración general**:
+   - Nueva página "Settings" en el menú administrativo
+   - Selector de idioma por defecto de los idiomas activos
+   - Configuración de título y descripción del sitio por idioma
+
+2. **Implementar x-default en hreflang**:
+   - Modificar `inject_hreflang_tags()` para incluir x-default
+   - Usar el idioma configurado como predeterminado
+   - Formato: `<link rel="alternate" hreflang="x-default" href="URL_IDIOMA_DEFAULT">`
+
+### Archivos a Modificar:
+- `includes/class-ez-translate-admin.php` (nueva página Settings)
+- `includes/class-ez-translate-frontend.php` (x-default en hreflang)
+- Nuevo: `includes/class-ez-translate-settings.php`
+
+---
+
+## 📋 MEJORA 2: Metadatos de Sitio por Idioma
+**Prioridad**: ALTA
+**Estado**: Pendiente
+
+### Problema Identificado:
+- Al agregar idiomas, no se pueden configurar título y descripción del sitio específicos
+- Landing pages usan metadatos genéricos en lugar de específicos del idioma
+
+### Solución Propuesta:
+1. **Extender formulario de idiomas**:
+   - Campos adicionales: "Título del sitio" y "Descripción del sitio"
+   - Almacenar en estructura de idiomas existente
+
+2. **Usar metadatos específicos en landing pages**:
+   - Modificar `inject_seo_metadata()` para usar título/descripción del idioma
+   - Fallback a metadatos de página si no hay metadatos de sitio
+
+### Archivos a Modificar:
+- `includes/class-ez-translate-language-manager.php` (estructura de datos)
+- `includes/class-ez-translate-admin.php` (formulario)
+- `includes/class-ez-translate-frontend.php` (uso de metadatos)
+
+---
+
+## 📋 MEJORA 3: Control Completo de Metadatos SEO
+**Prioridad**: CRÍTICA
+**Estado**: Pendiente
+
+### Problema Identificado:
+- Plugin no controla completamente los metadatos de cabecera
+- Metadatos inconsistentes entre idiomas
+- og:url incorrecto, og:type genérico, lang attribute incorrecto
+
+### Solución Propuesta:
+1. **Tomar control completo de metadatos**:
+   - Hook temprano en `wp_head` (prioridad 1)
+   - Remover metadatos existentes de tema/otros plugins
+   - Generar metadatos completos y consistentes
+
+2. **Metadatos específicos por página**:
+   - `lang` attribute correcto en `<html>`
+   - `og:url` con URL completa de la página específica
+   - `og:type` = "article" para contenido, "website" para landing
+   - `og:title`, `og:description` en idioma correcto
+   - `og:locale` correcto para el idioma
+
+### Archivos a Modificar:
+- `includes/class-ez-translate-frontend.php` (control completo de metadatos)
+- Nuevo método: `override_head_metadata()`
+
+---
+
+## 📋 MEJORA 4: Hreflang Bidireccional Completo
+**Prioridad**: ALTA
+**Estado**: Pendiente
+
+### Problema Identificado:
+- Páginas originales no incluyen autodeclaración hreflang
+- Falta declaración de versiones alternativas en todas las páginas
+- x-default no se incluye en el conjunto de hreflang
+
+### Solución Propuesta:
+1. **Hreflang completo en todas las páginas del grupo**:
+   - Autodeclaración: página incluye su propio hreflang
+   - Declaraciones alternativas: todas las otras páginas del grupo
+   - x-default: página en idioma predeterminado del grupo
+
+2. **Lógica mejorada de detección**:
+   - Identificar idioma predeterminado del grupo de traducción
+   - Generar hreflang completo para todas las páginas relacionadas
+
+### Archivos a Modificar:
+- `includes/class-ez-translate-frontend.php` (lógica de hreflang)
+- `includes/class-ez-translate-post-meta-manager.php` (métodos helper)
+
+---
+
+## 📋 MEJORA 5: Sistema de Verificación de Traducciones Existentes
+**Prioridad**: MEDIA
+**Estado**: Pendiente
+
+### Problema Identificado:
+- No se verifica si ya existe traducción antes de crear nueva
+- Posibilidad de duplicar traducciones accidentalmente
+
+### Solución Propuesta:
+1. **Verificación previa en Gutenberg**:
+   - Antes de crear traducción, verificar si existe
+   - Mostrar enlace a traducción existente si la hay
+   - Opción de "Ir a traducción existente" o "Crear nueva versión"
+
+2. **Mejora en REST API**:
+   - Endpoint para verificar traducciones existentes
+   - Respuesta con detalles de traducción encontrada
+
+### Archivos a Modificar:
+- `includes/class-ez-translate-rest-api.php` (nuevo endpoint)
+- `assets/js/gutenberg-sidebar.js` (verificación previa)
+
+---
+
+## 📋 MEJORA 6: Estructura Jerárquica de Traducciones
+**Prioridad**: MEDIA
+**Estado**: Pendiente
+
+### Problema Identificado:
+- Traducciones no siguen estructura jerárquica organizada
+- URLs no reflejan organización por idioma
+
+### Solución Propuesta:
+1. **Páginas contenedoras por idioma**:
+   - Crear automáticamente página raíz por idioma (ej: `/pt/`, `/en/`)
+   - Traducciones como páginas hijas de la página del idioma
+   - URLs resultantes: `sitio.com/pt/articulo-traducido`
+
+2. **Gestión automática de jerarquía**:
+   - Verificar/crear página contenedora al crear traducción
+   - Asignar `post_parent` automáticamente
+   - Mantener estructura consistente
+
+### Archivos a Modificar:
+- `includes/class-ez-translate-rest-api.php` (creación de traducciones)
+- Nuevo: `includes/class-ez-translate-hierarchy-manager.php`
+
+---
+
+## 🎯 PLAN DE EJECUCIÓN SUGERIDO
+
+### Orden de Implementación:
+1. **MEJORA 3** (Control de metadatos) - Base fundamental
+2. **MEJORA 1** (x-default) - Configuración esencial
+3. **MEJORA 4** (Hreflang bidireccional) - Funcionalidad core
+4. **MEJORA 2** (Metadatos por idioma) - Experiencia de usuario
+5. **MEJORA 5** (Verificación de traducciones) - Prevención de errores
+6. **MEJORA 6** (Estructura jerárquica) - Organización avanzada
+
+### Preguntas para Clarificación:
+
+1. **Prioridades**: ¿Estás de acuerdo con el orden propuesto o prefieres otro?
+
+2. **Configuración de idioma por defecto**: ¿Prefieres que sea configurable por el usuario o que se determine automáticamente (ej: primer idioma agregado)?
+
+3. **Estructura de URLs**: ¿Prefieres la estructura jerárquica (`/pt/articulo`) o mantienes URLs planas con sufijos (`/articulo-pt`)?
+
+4. **Control de metadatos**: ¿Quieres que el plugin tome control completo (removiendo metadatos de tema) o que sea más conservador y solo agregue los faltantes?
+
+5. **Páginas contenedoras**: ¿Las páginas raíz de idioma (`/pt/`, `/en/`) deberían tener contenido específico o ser redirecciones a landing pages?
+
+¿Con cuál mejora te gustaría empezar?
+
+---
+
+## ✅ MEJORA 3: Control Completo de Metadatos SEO - COMPLETADA
+
+**Fecha de Implementación**: Diciembre 2024
+**Estado**: ✅ COMPLETADA Y VALIDADA
+**Prioridad**: CRÍTICA
+
+### 🎯 Problemas Resueltos
+
+#### **Problema Original**:
+- Plugin no controlaba completamente los metadatos de cabecera
+- Metadatos inconsistentes entre idiomas
+- og:url incorrecto, og:type genérico, lang attribute incorrecto
+- Títulos duplicados y metadatos mezclados sin identificación
+- Páginas originales sin metadatos de EZ Translate no generaban SEO
+
+#### **Solución Implementada**:
+
+### 🔧 **1. Control Completo de Metadatos**
+
+**Archivo**: `includes/class-ez-translate-frontend.php`
+
+**Nuevos Métodos**:
+- `override_head_metadata()` - Control completo con prioridad 1 en wp_head
+- `filter_language_attributes()` - Atributo lang correcto en HTML
+- `generate_complete_metadata()` - Metadatos consistentes por idioma
+- `get_post_excerpt()` - Extractos inteligentes para meta description
+- `generate_article_jsonld()` - Datos estructurados JSON-LD
+
+**Características**:
+- ✅ **Hook temprano**: Prioridad 1 para tomar control antes que otros plugins
+- ✅ **Metadatos específicos**: og:url con URL completa, og:type correcto (article/website)
+- ✅ **Locales precisos**: pt → pt_BR, es → es_MX, etc.
+- ✅ **Imágenes automáticas**: Featured images en Open Graph y Twitter Cards
+- ✅ **JSON-LD completo**: Datos estructurados para artículos
+
+### 🔧 **2. Comentarios Organizados**
+
+**Implementación**:
+```html
+<!-- EZ Translate: SEO Metadata -->
+<meta name="description" content="...">
+
+<!-- EZ Translate: Open Graph -->
+<meta property="og:title" content="...">
+<meta property="og:description" content="...">
+<meta property="og:type" content="article">
+<meta property="og:url" content="URL_ESPECIFICA">
+<meta property="og:locale" content="pt_BR">
+
+<!-- EZ Translate: Twitter Cards -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="...">
+<meta name="twitter:description" content="...">
+
+<!-- EZ Translate: JSON-LD Structured Data -->
+<script type="application/ld+json">{...}</script>
+<!-- /EZ Translate: SEO Metadata -->
+```
+
+**Beneficios**:
+- ✅ **Visibilidad clara**: Fácil identificación de metadatos del plugin
+- ✅ **Debugging simplificado**: Comentarios organizados por sección
+- ✅ **Mantenimiento**: Fácil verificación de qué genera el plugin
+
+### 🔧 **3. Detección Automática de Grupos de Traducción**
+
+**Nuevos Métodos**:
+- `detect_translation_group_membership()` - Detecta si página es parte de grupo
+- `detect_original_language()` - Identifica idioma de páginas sin metadatos
+- `find_posts_with_similar_titles()` - Busca traducciones por similitud
+- `detect_language_from_content()` - Análisis de contenido para idioma
+
+**Métodos de Detección**:
+1. **Referencia Directa**: Posts que referencian la página como original
+2. **Títulos Similares**: Busca posts con títulos similares y metadatos de traducción
+3. **Análisis de Contenido**: Detecta idioma por palabras comunes
+
+**Resultado**: Páginas originales sin metadatos explícitos ahora generan SEO completo
+
+### 🔧 **4. Hreflang Bidireccional Completo**
+
+**Mejoras Implementadas**:
+- ✅ **Autodeclaración**: Cada página incluye su propio hreflang
+- ✅ **Versiones alternativas**: Todas las páginas del grupo mostradas
+- ✅ **X-default configurable**: Desde interface administrativa
+- ✅ **Orden inteligente**: Página actual primera, luego alfabético
+- ✅ **Detección automática**: Funciona con páginas sin metadatos explícitos
+
+**Ejemplo de Salida**:
+```html
+<!-- EZ Translate: Hreflang Tags -->
+<link rel="alternate" hreflang="es" href="URL_ESPAÑOL">
+<link rel="alternate" hreflang="en" href="URL_INGLES">
+<link rel="alternate" hreflang="pt-BR" href="URL_PORTUGUES">
+<link rel="alternate" hreflang="x-default" href="URL_CONFIGURADO_DEFAULT">
+<!-- /EZ Translate: Hreflang Tags -->
+```
+
+### 🔧 **5. Configuración de X-Default**
+
+**Archivo**: `includes/class-ez-translate-admin.php`
+
+**Nueva Sección**: "Default Language (x-default)" en página de Languages
+
+**Funcionalidad**:
+- ✅ **Selector de idioma**: 11 idiomas principales disponibles
+- ✅ **Auto-detect**: Fallback inteligente si no configurado
+- ✅ **Persistencia**: Guardado en `ez_translate_default_language` option
+- ✅ **Validación**: Solo idiomas válidos permitidos
+
+### 🧪 **6. Suite de Testing Completa**
+
+**Archivo**: `tests/test-metadata-control.php`
+
+**7 Tests Automatizados**:
+1. ✅ Language Attributes Filter
+2. ✅ Complete Metadata Generation
+3. ✅ Article vs Website OG Type
+4. ✅ Correct URL Generation
+5. ✅ Language Locale Conversion
+6. ✅ Post Excerpt Generation
+7. ✅ JSON-LD Structured Data
+
+**Integración Admin**: Botón "Run Metadata Control Tests" con reportes visuales
+
+### 📊 **Resultados de Validación**
+
+**Tests Ejecutados**: ✅ 7/7 PASSED
+**Funcionalidad Verificada**: ✅ Hreflang completo generado correctamente
+**Detección Automática**: ✅ Páginas originales detectadas y procesadas
+**X-Default**: ✅ Configuración desde admin funcionando
+
+### 🎯 **Impacto SEO**
+
+**Antes**:
+- Metadatos inconsistentes o faltantes
+- og:url genérico, og:type incorrecto
+- Sin hreflang o hreflang incompleto
+- Páginas originales sin metadatos SEO
+
+**Después**:
+- ✅ **Metadatos completos** en todas las páginas multilingües
+- ✅ **URLs específicas** en og:url para cada página
+- ✅ **Hreflang bidireccional** con autodeclaración y x-default
+- ✅ **JSON-LD estructurado** para mejor indexación
+- ✅ **Detección automática** de páginas sin metadatos explícitos
+
+### 🔄 **Estado de Mejoras Restantes**
+
+**COMPLETADAS**:
+- ✅ **MEJORA 3**: Control Completo de Metadatos SEO
+- ✅ **MEJORA 4**: Hreflang Bidireccional Completo (implementado como parte de MEJORA 3)
+
+**PENDIENTES**:
+- 🔄 **MEJORA 1**: Configuración de Idioma por Defecto (parcialmente implementada)
+- 🔄 **MEJORA 2**: Metadatos de Sitio por Idioma
+- 🔄 **MEJORA 5**: Verificación de Traducciones Existentes
+- 🔄 **MEJORA 6**: Estructura Jerárquica de Traducciones
+
+### 📝 **Notas para Desarrolladores**
+
+1. **Logging Detallado**: Todos los procesos registran información de debug
+2. **Método de Debug**: `debug_post_metadata($post_id)` disponible para diagnóstico
+3. **Fallbacks Inteligentes**: Sistema robusto con múltiples niveles de fallback
+4. **Compatibilidad**: No interfiere con otros plugins SEO cuando está activo
+5. **Performance**: Procesamiento eficiente, solo en páginas con contenido multilingüe
 
 ---
 

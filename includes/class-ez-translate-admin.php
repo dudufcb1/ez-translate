@@ -513,6 +513,74 @@ class Admin {
                 <?php endif; ?>
             </div>
 
+            <!-- Default Language Configuration -->
+            <div class="card">
+                <h2><?php _e('Default Language (x-default)', 'ez-translate'); ?></h2>
+                <p><?php _e('Configure the default language for hreflang x-default tags. This language will be shown to users when their preferred language is not available.', 'ez-translate'); ?></p>
+
+                <?php
+                // Handle form submission
+                if (isset($_POST['save_default_language']) && wp_verify_nonce($_POST['ez_translate_default_language_nonce'], 'ez_translate_save_default_language')) {
+                    $default_language = sanitize_text_field($_POST['ez_translate_default_language']);
+                    update_option('ez_translate_default_language', $default_language);
+                    echo '<div class="notice notice-success"><p>' . __('Default language saved successfully!', 'ez-translate') . '</p></div>';
+                }
+                ?>
+
+                <form method="post" action="">
+                    <?php wp_nonce_field('ez_translate_save_default_language', 'ez_translate_default_language_nonce'); ?>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row"><?php _e('Default Language', 'ez-translate'); ?></th>
+                            <td>
+                                <select name="ez_translate_default_language" id="ez_translate_default_language">
+                                    <option value=""><?php _e('Auto-detect (English preferred)', 'ez-translate'); ?></option>
+                                    <?php
+                                    $current_default = get_option('ez_translate_default_language', '');
+                                    $available_languages = array(
+                                        'en' => 'English',
+                                        'es' => 'Español',
+                                        'pt' => 'Português',
+                                        'fr' => 'Français',
+                                        'de' => 'Deutsch',
+                                        'it' => 'Italiano',
+                                        'ja' => '日本語',
+                                        'ko' => '한국어',
+                                        'zh' => '中文',
+                                        'ru' => 'Русский',
+                                        'ar' => 'العربية'
+                                    );
+
+                                    foreach ($available_languages as $code => $name) {
+                                        $selected = ($current_default === $code) ? 'selected' : '';
+                                        echo '<option value="' . esc_attr($code) . '" ' . $selected . '>' . esc_html($name) . ' (' . esc_html($code) . ')</option>';
+                                    }
+                                    ?>
+                                </select>
+                                <p class="description"><?php _e('This language will be used for hreflang="x-default" tags. Choose the language that is most universally understood by your audience.', 'ez-translate'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php _e('Current Setting', 'ez-translate'); ?></th>
+                            <td>
+                                <?php
+                                $current_default = get_option('ez_translate_default_language', '');
+                                if (empty($current_default)) {
+                                    echo '<code>' . __('Auto-detect (English preferred)', 'ez-translate') . '</code>';
+                                } else {
+                                    $language_name = isset($available_languages[$current_default]) ? $available_languages[$current_default] : $current_default;
+                                    echo '<code>' . esc_html($language_name) . ' (' . esc_html($current_default) . ')</code>';
+                                }
+                                ?>
+                            </td>
+                        </tr>
+                    </table>
+                    <p class="submit">
+                        <input type="submit" name="save_default_language" class="button-primary" value="<?php _e('Save Default Language', 'ez-translate'); ?>">
+                    </p>
+                </form>
+            </div>
+
             <!-- Statistics -->
             <div class="card">
                 <h2><?php _e('Statistics', 'ez-translate'); ?></h2>
@@ -572,6 +640,18 @@ class Admin {
                         require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-frontend-seo.php';
                         ez_translate_display_frontend_seo_tests();
                     }
+
+                    // Run Hreflang Navigation tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-hreflang-navigation.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-hreflang-navigation.php';
+                        ez_translate_display_hreflang_navigation_tests();
+                    }
+
+                    // Run Metadata Control tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-metadata-control.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-metadata-control.php';
+                        ez_translate_display_metadata_control_tests();
+                    }
                     ?>
                 </div>
             <?php elseif (isset($_GET['run_ez_translate_landing_tests']) && $_GET['run_ez_translate_landing_tests'] === '1'): ?>
@@ -600,6 +680,70 @@ class Admin {
                     }
                     ?>
                 </div>
+            <?php elseif (isset($_GET['run_ez_translate_hreflang_tests']) && $_GET['run_ez_translate_hreflang_tests'] === '1'): ?>
+                <div class="card">
+                    <h2><?php _e('Hreflang Navigation Test Results', 'ez-translate'); ?></h2>
+                    <?php
+                    // Run Hreflang Navigation tests only
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-hreflang-navigation.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-hreflang-navigation.php';
+                        ez_translate_display_hreflang_navigation_tests();
+                    } else {
+                        echo '<p style="color: red;">Hreflang navigation test file not found.</p>';
+                    }
+                    ?>
+                </div>
+            <?php elseif (isset($_GET['run_ez_translate_metadata_tests']) && $_GET['run_ez_translate_metadata_tests'] === '1'): ?>
+                <div class="card">
+                    <h2><?php _e('Metadata Control Test Results', 'ez-translate'); ?></h2>
+                    <?php
+                    // Run Metadata Control tests only
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-metadata-control.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-metadata-control.php';
+                        ez_translate_display_metadata_control_tests();
+                    } else {
+                        echo '<p style="color: red;">Metadata control test file not found.</p>';
+                    }
+                    ?>
+                </div>
+            <?php elseif (isset($_GET['run_ez_translate_verification_tests']) && $_GET['run_ez_translate_verification_tests'] === '1'): ?>
+                <div class="card">
+                    <h2><?php _e('Translation Verification Test Results', 'ez-translate'); ?></h2>
+                    <?php
+                    // Run Translation Verification tests only
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-translation-verification.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-translation-verification.php';
+                        $verification_results = \EZTranslateTranslationVerificationTests::run_all_tests();
+
+                        echo '<div style="margin: 20px 0;">';
+                        foreach ($verification_results as $result) {
+                            $status_class = $result['status'] === 'PASS' ? 'notice-success' : 'notice-error';
+                            $status_icon = $result['status'] === 'PASS' ? '✅' : '❌';
+                            echo '<div class="notice ' . $status_class . ' inline" style="margin: 5px 0; padding: 10px;">';
+                            echo '<p style="margin: 0;"><strong>' . $status_icon . ' ' . esc_html($result['test']) . ':</strong> ' . esc_html($result['message']) . '</p>';
+                            echo '</div>';
+                        }
+                        echo '</div>';
+
+                        // Summary
+                        $passed = array_filter($verification_results, function($r) { return $r['status'] === 'PASS'; });
+                        $total = count($verification_results);
+                        $passed_count = count($passed);
+
+                        echo '<div class="notice notice-info inline" style="margin-top: 20px; padding: 15px;">';
+                        echo '<h4 style="margin: 0 0 10px 0;">' . __('Test Summary', 'ez-translate') . '</h4>';
+                        echo '<p style="margin: 0;"><strong>' . sprintf(__('%d of %d tests passed', 'ez-translate'), $passed_count, $total) . '</strong></p>';
+                        if ($passed_count === $total) {
+                            echo '<p style="margin: 5px 0 0 0; color: #00a32a;">' . __('All translation verification tests are working correctly!', 'ez-translate') . '</p>';
+                        } else {
+                            echo '<p style="margin: 5px 0 0 0; color: #d63638;">' . __('Some tests failed. Please check the implementation.', 'ez-translate') . '</p>';
+                        }
+                        echo '</div>';
+                    } else {
+                        echo '<p style="color: red;">Translation verification test file not found.</p>';
+                    }
+                    ?>
+                </div>
             <?php else: ?>
                 <div class="card">
                     <h2><?php _e('Testing', 'ez-translate'); ?></h2>
@@ -618,6 +762,15 @@ class Admin {
                     </a>
                     <a href="<?php echo esc_url(add_query_arg('run_ez_translate_frontend_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
                         <?php _e('Run Frontend SEO Tests', 'ez-translate'); ?>
+                    </a>
+                    <a href="<?php echo esc_url(add_query_arg('run_ez_translate_hreflang_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
+                        <?php _e('Run Hreflang Tests', 'ez-translate'); ?>
+                    </a>
+                    <a href="<?php echo esc_url(add_query_arg('run_ez_translate_metadata_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
+                        <?php _e('Run Metadata Control Tests', 'ez-translate'); ?>
+                    </a>
+                    <a href="<?php echo esc_url(add_query_arg('run_ez_translate_verification_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
+                        <?php _e('Run Translation Verification Tests', 'ez-translate'); ?>
                     </a>
                 </div>
             <?php endif; ?>

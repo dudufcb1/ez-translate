@@ -11,12 +11,15 @@
     // WordPress dependencies
     const { __ } = wp.i18n;
     const { registerPlugin } = wp.plugins;
-    const { PluginSidebar, PluginSidebarMoreMenuItem } = wp.editPost;
-    const { 
-        PanelBody, 
-        SelectControl, 
-        ToggleControl, 
-        TextControl, 
+
+    // Use modern APIs (WordPress 6.6+) with fallback to deprecated ones
+    const PluginSidebar = wp.editor?.PluginSidebar || wp.editPost?.PluginSidebar;
+    const PluginSidebarMoreMenuItem = wp.editor?.PluginSidebarMoreMenuItem || wp.editPost?.PluginSidebarMoreMenuItem;
+    const {
+        PanelBody,
+        SelectControl,
+        ToggleControl,
+        TextControl,
         TextareaControl,
         Notice,
         Spinner
@@ -36,6 +39,8 @@
         const [error, setError] = useState(null);
         const [selectedTargetLanguage, setSelectedTargetLanguage] = useState('');
         const [creating, setCreating] = useState(false);
+        const [translationData, setTranslationData] = useState(null);
+        const [loadingTranslations, setLoadingTranslations] = useState(false);
 
         // Get post data from WordPress data store
         const { postId, postMeta } = useSelect((select) => {
@@ -64,10 +69,18 @@
         // Otherwise, use WordPress default language
         const originalLanguage = currentLanguage || wpLanguage;
 
-        // Load languages on component mount
+        // Load languages and translations on component mount
         useEffect(() => {
             loadLanguages();
+            loadExistingTranslations();
         }, []);
+
+        // Reload translations when post ID changes
+        useEffect(() => {
+            if (postId) {
+                loadExistingTranslations();
+            }
+        }, [postId]);
 
         /**
          * Load available languages from API
@@ -113,6 +126,47 @@
                 setError(__('Failed to load languages. Please refresh the page.', 'ez-translate'));
             } finally {
                 setLoading(false);
+            }
+        };
+
+        /**
+         * Load existing translations for this post
+         */
+        const loadExistingTranslations = async () => {
+            console.log('EZ Translate: loadExistingTranslations called, postId:', postId);
+            if (!postId) {
+                console.log('EZ Translate: No postId, skipping translation verification');
+                return;
+            }
+
+            try {
+                console.log('EZ Translate: Starting translation verification for post:', postId);
+                setLoadingTranslations(true);
+
+                const response = await apiFetch({
+                    path: `ez-translate/v1/verify-translations/${postId}`,
+                    method: 'GET'
+                });
+
+                console.log('Translation verification response:', response);
+                setTranslationData(response);
+
+                // Filter existing languages to exclude those with existing translations
+                if (response.unavailable_languages && response.unavailable_languages.length > 0) {
+                    // Get current languages and filter out unavailable ones
+                    setLanguages(currentLanguages => {
+                        return currentLanguages.filter(lang => {
+                            // Keep the empty option and languages not in unavailable list
+                            return lang.value === '' || !response.unavailable_languages.includes(lang.value);
+                        });
+                    });
+                }
+
+            } catch (err) {
+                console.error('Failed to load existing translations:', err);
+                // Don't show error for this, just log it
+            } finally {
+                setLoadingTranslations(false);
             }
         };
 
@@ -164,6 +218,9 @@
                 });
 
                 if (response.success) {
+                    // Reload translations to update the UI
+                    await loadExistingTranslations();
+
                     // Show success message
                     const message = __('Translation created successfully!', 'ez-translate') +
                                   '\n\n' + __('You will be redirected to edit the new translation.', 'ez-translate');
@@ -299,6 +356,110 @@
                         }
                     },
                         __('This will create a new page with the same content in the selected language.', 'ez-translate')
+                    )
+                )
+            ),
+
+            // Existing Translations Panel
+            translationData && translationData.existing_translations && translationData.existing_translations.length > 0 && el(PanelBody, {
+                title: __('Existing Translations', 'ez-translate'),
+                initialOpen: true
+            },
+                el('div', { style: { marginBottom: '12px' } },
+                    el('p', { style: { margin: '0 0 8px 0', fontSize: '13px', color: '#666' } },
+                        __('This page has translations in the following languages:', 'ez-translate')
+                    )
+                ),
+
+                translationData.existing_translations.map((translation, index) =>
+                    el('div', {
+                        key: translation.post_id,
+                        style: {
+                            padding: '12px',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
+                            marginBottom: '8px',
+                            backgroundColor: '#f9f9f9'
+                        }
+                    },
+                        el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' } },
+                            el('div', null,
+                                el('strong', { style: { display: 'block', marginBottom: '4px' } },
+                                    translation.language_info.name + (translation.language_info.native_name ? ` (${translation.language_info.native_name})` : '') +
+                                    (translation.is_current ? ' (Current)' : '') +
+                                    (translation.is_original ? ' (Original)' : '')
+                                ),
+                                el('div', { style: { fontSize: '12px', color: '#666' } },
+                                    translation.title
+                                )
+                            ),
+                            el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
+                                translation.is_current && el('span', {
+                                    style: {
+                                        fontSize: '10px',
+                                        backgroundColor: '#0073aa',
+                                        color: 'white',
+                                        padding: '2px 6px',
+                                        borderRadius: '3px'
+                                    }
+                                }, __('Current', 'ez-translate')),
+                                translation.is_original && el('span', {
+                                    style: {
+                                        fontSize: '10px',
+                                        backgroundColor: '#d63638',
+                                        color: 'white',
+                                        padding: '2px 6px',
+                                        borderRadius: '3px'
+                                    }
+                                }, __('Original', 'ez-translate')),
+                                el('div', { style: { fontSize: '11px', color: '#999' } },
+                                    translation.language.toUpperCase()
+                                )
+                            )
+                        ),
+
+                        el('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
+                            // Only show Edit/View buttons for other translations, not current post
+                            !translation.is_current && el('a', {
+                                href: translation.edit_url,
+                                className: 'components-button is-secondary is-small',
+                                style: { textDecoration: 'none', fontSize: '12px' }
+                            }, __('Edit', 'ez-translate')),
+
+                            !translation.is_current && translation.status === 'publish' && el('a', {
+                                href: translation.view_url,
+                                className: 'components-button is-tertiary is-small',
+                                target: '_blank',
+                                style: { textDecoration: 'none', fontSize: '12px' }
+                            }, __('View', 'ez-translate')),
+
+                            translation.is_landing && el('span', {
+                                style: {
+                                    fontSize: '11px',
+                                    backgroundColor: '#00a32a',
+                                    color: 'white',
+                                    padding: '2px 6px',
+                                    borderRadius: '3px',
+                                    marginLeft: translation.is_current ? '0' : 'auto'
+                                }
+                            }, __('Landing', 'ez-translate'))
+                        )
+                    )
+                )
+            ),
+
+            // Source Language Info Panel (when auto-detected)
+            translationData && translationData.source_language_detected && el(PanelBody, {
+                title: __('Language Detection', 'ez-translate'),
+                initialOpen: false
+            },
+                el('div', { style: { padding: '8px', backgroundColor: '#e7f3ff', borderRadius: '4px', border: '1px solid #72aee6' } },
+                    el('p', { style: { margin: '0', fontSize: '13px' } },
+                        __('Language automatically detected as:', 'ez-translate') + ' ' +
+                        (translationData.source_language ? translationData.source_language.toUpperCase() : __('Unknown', 'ez-translate'))
+                    ),
+                    el('p', { style: { margin: '8px 0 0 0', fontSize: '12px', color: '#666' } },
+                        __('This page was detected as part of a translation group. You can create additional translations using the form above.', 'ez-translate')
                     )
                 )
             ),
