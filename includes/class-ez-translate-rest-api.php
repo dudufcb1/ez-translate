@@ -493,6 +493,24 @@ class RestAPI {
                 }
             }
 
+            // Get landing page for target language to set as parent
+            $landing_page_data = LanguageManager::get_landing_page_for_language($target_language);
+            $parent_id = 0; // Default to no parent
+
+            if ($landing_page_data && !empty($landing_page_data['post_id'])) {
+                $parent_id = $landing_page_data['post_id'];
+                Logger::info('REST API: Setting landing page as parent for translation', array(
+                    'target_language' => $target_language,
+                    'landing_page_id' => $parent_id,
+                    'landing_page_title' => $landing_page_data['title']
+                ));
+            } else {
+                Logger::warning('REST API: No landing page found for target language, creating translation without parent', array(
+                    'target_language' => $target_language,
+                    'source_post_id' => $source_post_id
+                ));
+            }
+
             // Create the translation post
             $translation_data = array(
                 'post_title' => $source_post->post_title . ' (' . $language['name'] . ')',
@@ -501,7 +519,7 @@ class RestAPI {
                 'post_status' => 'draft', // Always create as draft
                 'post_type' => $source_post->post_type,
                 'post_author' => get_current_user_id(),
-                'post_parent' => $source_post->post_parent,
+                'post_parent' => $parent_id, // Set landing page as parent for hierarchical URLs
                 'menu_order' => $source_post->menu_order,
             );
 
@@ -565,16 +583,30 @@ class RestAPI {
                 'group_id' => $group_id
             ));
 
+            // Prepare response data
+            $response_data = array(
+                'translation_id' => $translation_id,
+                'edit_url' => admin_url('post.php?post=' . $translation_id . '&action=edit'),
+                'source_post_id' => $source_post_id,
+                'target_language' => $target_language,
+                'group_id' => $group_id,
+                'parent_page_id' => $parent_id
+            );
+
+            // Add landing page info if available
+            if ($landing_page_data) {
+                $response_data['landing_page'] = array(
+                    'id' => $landing_page_data['post_id'],
+                    'title' => $landing_page_data['title'],
+                    'slug' => $landing_page_data['slug'],
+                    'url' => $landing_page_data['view_url']
+                );
+            }
+
             return rest_ensure_response(array(
                 'success' => true,
                 'message' => 'Translation created successfully',
-                'data' => array(
-                    'translation_id' => $translation_id,
-                    'edit_url' => admin_url('post.php?post=' . $translation_id . '&action=edit'),
-                    'source_post_id' => $source_post_id,
-                    'target_language' => $target_language,
-                    'group_id' => $group_id
-                )
+                'data' => $response_data
             ));
 
         } catch (Exception $e) {
