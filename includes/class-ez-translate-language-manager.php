@@ -111,12 +111,12 @@ class LanguageManager {
      * Add a new language
      *
      * @param array $language_data Language data
-     * @param array|null $landing_page_data Landing page data (optional)
+     * @param array|null $landing_page_data Landing page data (optional, if not provided, auto-creates basic landing page)
      * @return bool|array|WP_Error True on success, array with landing_page_id if landing page created, WP_Error on failure
      * @since 1.0.0
      */
     public static function add_language($language_data, $landing_page_data = null) {
-        Logger::info('Adding new language', array('data' => $language_data, 'create_landing_page' => !empty($landing_page_data)));
+        Logger::info('Adding new language', array('data' => $language_data, 'auto_create_landing' => empty($landing_page_data)));
 
         // Validate language data
         $validation_result = self::validate_language_data($language_data);
@@ -139,6 +139,26 @@ class LanguageManager {
             return $error;
         }
 
+        // Auto-create landing page data if not provided
+        if (empty($landing_page_data)) {
+            $landing_page_data = self::generate_default_landing_page_data($language_data);
+            Logger::debug('Auto-generated landing page data', array('data' => $landing_page_data));
+        }
+
+        // Create landing page first (before saving language to ensure we have the ID)
+        $landing_page_result = self::create_landing_page_for_language($language_data['code'], $landing_page_data);
+
+        if (is_wp_error($landing_page_result)) {
+            Logger::error('Failed to create landing page for new language', array(
+                'language_code' => $language_data['code'],
+                'error' => $landing_page_result->get_error_message()
+            ));
+            return $landing_page_result;
+        }
+
+        // Add landing page ID to language data
+        $language_data['landing_page_id'] = $landing_page_result;
+
         // Get current languages
         $languages = self::get_languages(false);
 
@@ -152,33 +172,22 @@ class LanguageManager {
             // Clear cache
             delete_transient(self::CACHE_KEY);
 
-            Logger::info('Language added successfully', array('code' => $language_data['code'], 'name' => $language_data['name']));
+            Logger::info('Language added successfully with landing page', array(
+                'code' => $language_data['code'],
+                'name' => $language_data['name'],
+                'landing_page_id' => $landing_page_result
+            ));
             Logger::log_db_operation('create', self::OPTION_NAME, $language_data);
 
-            // Create landing page if requested
-            if (!empty($landing_page_data)) {
-                $landing_page_result = self::create_landing_page_for_language($language_data['code'], $landing_page_data);
-
-                if (is_wp_error($landing_page_result)) {
-                    Logger::warning('Language added but landing page creation failed', array(
-                        'language_code' => $language_data['code'],
-                        'error' => $landing_page_result->get_error_message()
-                    ));
-                    // Return success for language but note the landing page error
-                    return $landing_page_result;
-                } else {
-                    Logger::info('Landing page created successfully', array(
-                        'language_code' => $language_data['code'],
-                        'landing_page_id' => $landing_page_result
-                    ));
-                    return array('success' => true, 'landing_page_id' => $landing_page_result);
-                }
-            }
-
-            return true;
+            return array('success' => true, 'landing_page_id' => $landing_page_result);
         } else {
+            // If language save failed, clean up the created landing page
+            wp_delete_post($landing_page_result, true);
             $error = new \WP_Error('save_failed', __('Failed to save language to database.', 'ez-translate'));
-            Logger::error('Failed to save language', array('data' => $language_data));
+            Logger::error('Failed to save language, cleaned up landing page', array(
+                'code' => $language_data['code'],
+                'deleted_page_id' => $landing_page_result
+            ));
             return $error;
         }
     }
@@ -277,11 +286,13 @@ class LanguageManager {
         $languages = self::get_languages(false);
         $language_found = false;
         $updated_languages = array();
+        $deleted_language = null;
 
-        // Remove the language
+        // Remove the language and store reference for cleanup
         foreach ($languages as $language) {
             if (isset($language['code']) && $language['code'] === $code) {
                 $language_found = true;
+                $deleted_language = $language;
                 Logger::debug('Language found for deletion', array('code' => $code, 'name' => $language['name'] ?? 'Unknown'));
             } else {
                 $updated_languages[] = $language;
@@ -300,7 +311,25 @@ class LanguageManager {
         if ($result) {
             // Clear cache
             delete_transient(self::CACHE_KEY);
-            
+
+            // Delete associated landing page if it exists
+            if ($deleted_language && !empty($deleted_language['landing_page_id'])) {
+                $landing_page_id = $deleted_language['landing_page_id'];
+                $delete_result = wp_delete_post($landing_page_id, true); // Force delete permanently
+
+                if ($delete_result) {
+                    Logger::info('Associated landing page deleted', array(
+                        'language_code' => $code,
+                        'landing_page_id' => $landing_page_id
+                    ));
+                } else {
+                    Logger::warning('Failed to delete associated landing page', array(
+                        'language_code' => $code,
+                        'landing_page_id' => $landing_page_id
+                    ));
+                }
+            }
+
             Logger::info('Language deleted successfully', array('code' => $code));
             Logger::log_db_operation('delete', self::OPTION_NAME, array('code' => $code));
             return true;
@@ -427,6 +456,9 @@ class LanguageManager {
         $sanitized['site_title'] = isset($language_data['site_title']) ? sanitize_text_field($language_data['site_title']) : '';
         $sanitized['site_description'] = isset($language_data['site_description']) ? sanitize_textarea_field($language_data['site_description']) : '';
 
+        // Landing page ID (auto-created landing page reference)
+        $sanitized['landing_page_id'] = isset($language_data['landing_page_id']) ? absint($language_data['landing_page_id']) : 0;
+
         Logger::debug('Language data sanitized', array('original' => $language_data, 'sanitized' => $sanitized));
 
         return $sanitized;
@@ -535,11 +567,10 @@ class LanguageManager {
             'data' => $landing_page_data
         ));
 
-        // Validate language exists
-        $language = self::get_language($language_code);
-        if (!$language) {
-            $error = new \WP_Error('language_not_found', __('Language not found.', 'ez-translate'));
-            Logger::error('Cannot create landing page for non-existent language', array('code' => $language_code));
+        // Validate language code format
+        if (empty($language_code) || !preg_match('/^[a-zA-Z0-9]{2,5}$/', $language_code)) {
+            $error = new \WP_Error('invalid_language_code', __('Invalid language code format.', 'ez-translate'));
+            Logger::error('Invalid language code for landing page creation', array('code' => $language_code));
             return $error;
         }
 
@@ -619,7 +650,41 @@ class LanguageManager {
             return null;
         }
 
-        // Query for pages with this language
+        // First, try to get landing page ID from language configuration
+        $language = self::get_language($language_code);
+        if ($language && !empty($language['landing_page_id'])) {
+            $post = get_post($language['landing_page_id']);
+
+            // Verify the post exists and is still valid
+            if ($post && $post->post_type === 'page') {
+                $landing_page_data = array(
+                    'post_id' => $post->ID,
+                    'title' => $post->post_title,
+                    'slug' => $post->post_name,
+                    'status' => $post->post_status,
+                    'edit_url' => admin_url('post.php?post=' . $post->ID . '&action=edit'),
+                    'view_url' => get_permalink($post->ID),
+                    'seo_title' => get_post_meta($post->ID, '_ez_translate_seo_title', true),
+                    'seo_description' => get_post_meta($post->ID, '_ez_translate_seo_description', true),
+                    'group_id' => get_post_meta($post->ID, '_ez_translate_group', true)
+                );
+
+                Logger::debug('Landing page found via stored ID', array(
+                    'language_code' => $language_code,
+                    'post_id' => $post->ID,
+                    'title' => $post->post_title
+                ));
+
+                return $landing_page_data;
+            } else {
+                Logger::warning('Stored landing page ID is invalid, falling back to search', array(
+                    'language_code' => $language_code,
+                    'stored_id' => $language['landing_page_id']
+                ));
+            }
+        }
+
+        // Fallback: Query for pages with this language (legacy support)
         $posts = get_posts(array(
             'post_type' => 'page',
             'post_status' => array('draft', 'publish', 'private'),
@@ -638,7 +703,7 @@ class LanguageManager {
             return null;
         }
 
-        // For now, return the first page found (could be enhanced to detect "main" landing page)
+        // Return the first page found
         $post = $posts[0];
 
         $landing_page_data = array(
@@ -653,7 +718,7 @@ class LanguageManager {
             'group_id' => get_post_meta($post->ID, '_ez_translate_group', true)
         );
 
-        Logger::debug('Landing page found', array(
+        Logger::debug('Landing page found via search fallback', array(
             'language_code' => $language_code,
             'post_id' => $post->ID,
             'title' => $post->post_title
@@ -712,5 +777,51 @@ class LanguageManager {
         ));
 
         return true;
+    }
+
+    /**
+     * Generate default landing page data for a language
+     *
+     * @param array $language_data Language data
+     * @return array Default landing page data
+     * @since 1.0.0
+     */
+    private static function generate_default_landing_page_data($language_data) {
+        // Use site name if available, otherwise use language name
+        $site_name = !empty($language_data['site_name']) ? $language_data['site_name'] : get_bloginfo('name');
+        $language_name = $language_data['name'];
+
+        // Generate default title and description
+        $default_title = sprintf(
+            /* translators: %1$s: site name, %2$s: language name */
+            __('%1$s - %2$s', 'ez-translate'),
+            $site_name,
+            $language_name
+        );
+
+        $default_description = sprintf(
+            /* translators: %1$s: site name, %2$s: language name */
+            __('Welcome to %1$s in %2$s. Explore our content and discover what we have to offer.', 'ez-translate'),
+            $site_name,
+            $language_name
+        );
+
+        // Generate slug from language code (ISO format is cleaner)
+        $default_slug = $language_data['code'];
+
+        $landing_page_data = array(
+            'title' => $default_title,
+            'description' => $default_description,
+            'slug' => $default_slug,
+            'status' => 'publish' // Auto-publish landing pages by default
+        );
+
+        Logger::debug('Generated default landing page data', array(
+            'language_code' => $language_data['code'],
+            'title' => $default_title,
+            'slug' => $default_slug
+        ));
+
+        return $landing_page_data;
     }
 }

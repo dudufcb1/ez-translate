@@ -163,37 +163,17 @@ class Admin {
         // Sanitize input data
         $language_data = \EZTranslate\LanguageManager::sanitize_language_data($_POST);
 
-        // Check if landing page creation is requested
-        $create_landing_page = isset($_POST['create_landing_page']) && $_POST['create_landing_page'] === '1';
-        $landing_page_data = null;
-
-        if ($create_landing_page) {
-            // Sanitize landing page data
-            $landing_page_data = array(
-                'title' => sanitize_text_field($_POST['landing_page_title'] ?? ''),
-                'description' => sanitize_textarea_field($_POST['landing_page_description'] ?? ''),
-                'slug' => sanitize_title($_POST['landing_page_slug'] ?? ''),
-                'status' => in_array($_POST['landing_page_status'] ?? 'draft', array('draft', 'publish')) ? $_POST['landing_page_status'] : 'draft'
-            );
-
-            // Validate required fields for landing page
-            if (empty($landing_page_data['title']) || empty($landing_page_data['description'])) {
-                $this->add_admin_notice(__('Landing page title and description are required when creating a landing page.', 'ez-translate'), 'error');
-                return;
-            }
-        }
-
-        // Add the language
-        $result = \EZTranslate\LanguageManager::add_language($language_data, $landing_page_data);
+        // Add the language (landing page will be created automatically)
+        $result = \EZTranslate\LanguageManager::add_language($language_data);
 
         if (is_wp_error($result)) {
             $this->add_admin_notice($result->get_error_message(), 'error');
         } else {
-            if ($create_landing_page && isset($result['landing_page_id'])) {
+            if (isset($result['landing_page_id'])) {
                 $edit_url = admin_url('post.php?post=' . $result['landing_page_id'] . '&action=edit');
                 $this->add_admin_notice(
                     sprintf(
-                        __('Language added successfully! Landing page created: <a href="%s" target="_blank">Edit Landing Page</a>', 'ez-translate'),
+                        __('Language added successfully! Landing page created automatically: <a href="%s" target="_blank">Edit Landing Page</a>', 'ez-translate'),
                         esc_url($edit_url)
                     ),
                     'success'
@@ -609,71 +589,22 @@ class Admin {
                         </tr>
                     </table>
 
-                    <!-- Landing Page Creation Section -->
+                    <!-- Landing Page Information Section -->
                     <div class="card" style="margin-top: 20px;">
-                        <h3><?php _e('Landing Page Creation', 'ez-translate'); ?></h3>
+                        <h3><?php _e('Landing Page', 'ez-translate'); ?></h3>
                         <table class="form-table">
                             <tr>
-                                <th scope="row"><?php _e('Auto-create Landing Page', 'ez-translate'); ?></th>
+                                <th scope="row"><?php _e('Auto-creation', 'ez-translate'); ?></th>
                                 <td>
-                                    <label>
-                                        <input type="checkbox" id="create_landing_page" name="create_landing_page" value="1">
-                                        <?php _e('Automatically create a landing page for this language', 'ez-translate'); ?>
-                                    </label>
-                                    <p class="description"><?php _e('When enabled, a WordPress page will be created automatically and configured as the landing page for this language.', 'ez-translate'); ?></p>
+                                    <p class="description">
+                                        <span class="dashicons dashicons-info" style="color: #0073aa;"></span>
+                                        <?php _e('A landing page will be created automatically for this language with default content. You can edit it later from the Pages section or from the language settings.', 'ez-translate'); ?>
+                                    </p>
                                 </td>
                             </tr>
                         </table>
 
-                        <div id="landing_page_fields" style="display: none;">
-                            <table class="form-table">
-                                <tr>
-                                    <th scope="row">
-                                        <label for="landing_page_title"><?php _e('Landing Page Title', 'ez-translate'); ?> *</label>
-                                    </th>
-                                    <td>
-                                        <input type="text" id="landing_page_title" name="landing_page_title" class="regular-text"
-                                               placeholder="<?php esc_attr_e('e.g., Welcome to Our Site', 'ez-translate'); ?>">
-                                        <p class="description"><?php _e('Title for the landing page (will also be used as SEO title)', 'ez-translate'); ?></p>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row">
-                                        <label for="landing_page_description"><?php _e('Landing Page Description', 'ez-translate'); ?> *</label>
-                                    </th>
-                                    <td>
-                                        <textarea id="landing_page_description" name="landing_page_description" class="large-text" rows="3"
-                                                  placeholder="<?php esc_attr_e('Brief description of your site for this language...', 'ez-translate'); ?>"></textarea>
-                                        <p class="description"><?php _e('SEO description for the landing page (used in meta description and social media)', 'ez-translate'); ?></p>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row">
-                                        <label for="landing_page_slug"><?php _e('Landing Page Slug', 'ez-translate'); ?></label>
-                                    </th>
-                                    <td>
-                                        <input type="text" id="landing_page_slug" name="landing_page_slug" class="regular-text"
-                                               placeholder="<?php esc_attr_e('e.g., home, inicio, accueil', 'ez-translate'); ?>"
-                                               pattern="[a-z0-9\-_]+">
-                                        <p class="description"><?php _e('URL slug for the landing page (optional - will be auto-generated if empty)', 'ez-translate'); ?></p>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row"><?php _e('Page Status', 'ez-translate'); ?></th>
-                                    <td>
-                                        <label>
-                                            <input type="radio" name="landing_page_status" value="draft" checked>
-                                            <?php _e('Draft', 'ez-translate'); ?>
-                                        </label>
-                                        <label style="margin-left: 15px;">
-                                            <input type="radio" name="landing_page_status" value="publish">
-                                            <?php _e('Published', 'ez-translate'); ?>
-                                        </label>
-                                        <p class="description"><?php _e('Create as draft to edit content first, or publish immediately', 'ez-translate'); ?></p>
-                                    </td>
-                                </tr>
-                            </table>
-                        </div>
+
                     </div>
 
                     <?php submit_button(__('Add Language', 'ez-translate'), 'primary', 'submit', false); ?>
