@@ -1,0 +1,45 @@
+# EZ Translate Plugin - Git Ignore File
+
+# Test files that should not be publicly accessible
+# These files contain sensitive debugging information and test data
+debug-auto-landing.php
+debug-filter-test.php
+debug-title-test.php
+diagnose-admin.php
+direct-method-test.php
+minimal-test.php
+run-seo-tests.php
+simple-auto-landing-test.php
+simple-frontend-test.php
+simple-title-test.php
+test-admin-interface.php
+test-auto-landing-creation.php
+test-basic-functionality.php
+test-iso-slugs.php
+test-site-metadata-priority.php
+
+# Any future test files in root directory
+*-test.php
+test-*.php
+debug-*.php
+diagnose-*.php
+
+# Development and debugging files
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node modules (if any)
+node_modules/
+
+# Backup files
+*.bak
+*.backup
+*~
