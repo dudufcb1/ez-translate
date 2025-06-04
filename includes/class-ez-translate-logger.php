@@ -15,6 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+
 /**
  * Logger class for EZ Translate
  *
@@ -57,6 +58,10 @@ class Logger {
         }
     }
 
+    private static function should_log(){
+        return !(defined('EZ_TRANSLATE_TESTS') && EZ_TRANSLATE_TESTS);
+    }
+
     /**
      * Log an error message
      *
@@ -65,6 +70,9 @@ class Logger {
      * @since 1.0.0
      */
     public static function error($message, $context = array()) {
+        if (!self::should_log()) {
+            return;
+        }
         self::log('error', $message, $context);
     }
 
@@ -76,6 +84,9 @@ class Logger {
      * @since 1.0.0
      */
     public static function warning($message, $context = array()) {
+        if (!self::should_log()) {
+            return;
+        }
         self::log('warning', $message, $context);
     }
 
@@ -87,6 +98,9 @@ class Logger {
      * @since 1.0.0
      */
     public static function info($message, $context = array()) {
+        if (!self::should_log()) {
+            return;
+        }
         self::log('info', $message, $context);
     }
 
@@ -98,6 +112,9 @@ class Logger {
      * @since 1.0.0
      */
     public static function debug($message, $context = array()) {
+        if (!self::should_log()) {
+            return;
+        }
         self::log('debug', $message, $context);
     }
 
@@ -110,6 +127,10 @@ class Logger {
      * @since 1.0.0
      */
     private static function log($level, $message, $context = array()) {
+        if (!self::should_log()) {
+            return;
+        }
+        
         // Check if we should log this level
         if (!isset(self::LOG_LEVELS[$level]) || self::LOG_LEVELS[$level] > self::$log_level) {
             return;
@@ -200,6 +221,9 @@ class Logger {
      * @since 1.0.0
      */
     public static function log_validation_error($field, $value, $reason) {
+        if (!self::should_log()) {
+            return;
+        }
         $context = array(
             'field'  => $field,
             'value'  => $value,
