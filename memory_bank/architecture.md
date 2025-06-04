@@ -852,3 +852,186 @@ add_action('admin_footer-edit.php', array($this, 'add_landing_pages_table'));
 - **Performance**: Impacto mínimo (solo en admin de páginas)
 
 Esta funcionalidad mejora significativamente la experiencia de gestión de landing pages multiidioma, proporcionando visibilidad clara y acceso directo a todas las funciones relacionadas desde la interfaz estándar de WordPress.
+
+## 🤖 MEJORA 7: Integración de API Key para Gemini AI
+
+### Descripción General
+Implementación de una sección de configuración para almacenar y gestionar la API key de Google Gemini AI, preparando la infraestructura para futuras funcionalidades de inteligencia artificial en el plugin.
+
+### Características Implementadas
+
+#### 1. **Sección "AI Integration" en Admin**
+- **Ubicación**: Página principal de EZ Translate admin, después de Statistics
+- **Estilo**: Postbox colapsible estilo WordPress nativo
+- **Descripción**: Interfaz clara para configuración de servicios de IA
+
+#### 2. **Campo de API Key Seguro**
+- **Tipo**: Input password con botón Show/Hide
+- **Placeholder**: "Enter your Gemini AI API key..."
+- **Validación**: Formato básico y longitud mínima
+- **Autocomplete**: Deshabilitado para seguridad
+
+#### 3. **Validación en Tiempo Real**
+- **JavaScript**: Validación inmediata al escribir
+- **Indicadores visuales**: Estados con iconos y colores
+- **Habilitación condicional**: Checkbox de AI Features solo disponible con API key válida
+
+#### 4. **Gestión de Estado**
+- **Indicadores**: ✅ Configurado, ❌ No configurado, ⚠️ Formato inválido
+- **Timestamp**: Fecha de última actualización
+- **Enlace directo**: Link a Google AI Studio para obtener API key
+
+### Implementación Técnica
+
+#### Estructura de Datos
+```php
+// Nueva opción en wp_options: 'ez_translate_api_settings'
+$api_settings = array(
+    'api_key' => '',           // String: API key de Gemini
+    'enabled' => false,        // Boolean: Estado de activación
+    'last_updated' => ''       // Timestamp: Última actualización
+);
+```
+
+#### Métodos en LanguageManager
+
+**`get_api_settings()`**:
+- Obtiene configuración con valores por defecto
+- Validación de integridad de datos
+- Logging de acceso para auditoría
+
+**`update_api_settings($settings)`**:
+- Sanitización y validación completa
+- Merge con configuración existente
+- Timestamp automático de actualización
+- Manejo de errores con WP_Error
+
+**`sanitize_api_settings($settings)`**:
+- Sanitización con `sanitize_text_field()`
+- Validación de formato de API key
+- Conversión de tipos apropiada
+
+**`validate_api_key($api_key)`**:
+- Validación de longitud (20-100 caracteres)
+- Caracteres permitidos: alphanumeric, guiones, underscores
+- Permite valores vacíos para desactivación
+
+**Métodos Helper**:
+- `is_api_enabled()`: Verifica si API está lista para usar
+- `get_api_key()`: Obtiene API key para uso interno
+
+#### Interfaz de Usuario
+
+**Formulario de Configuración**:
+```php
+// Nonce de seguridad
+wp_nonce_field('ez_translate_admin', 'ez_translate_nonce');
+
+// Campo de API key con toggle show/hide
+<input type="password" id="api_key" name="api_key" />
+<button type="button" id="toggle_api_key">Show</button>
+
+// Checkbox de habilitación (condicional)
+<input type="checkbox" id="api_enabled" name="api_enabled" />
+```
+
+**JavaScript Interactivo**:
+- Toggle show/hide para API key
+- Validación en tiempo real con feedback visual
+- Habilitación/deshabilitación automática del checkbox
+- Actualización dinámica de indicadores de estado
+
+#### Manejo de Formularios
+
+**Nuevo caso en `handle_form_submissions()`**:
+```php
+case 'update_api_settings':
+    $this->handle_update_api_settings();
+    break;
+```
+
+**Método `handle_update_api_settings()`**:
+- Sanitización de datos POST
+- Llamada a LanguageManager para actualización
+- Manejo de errores con mensajes de admin
+- Logging de operaciones para auditoría
+
+### Características de Seguridad
+
+#### Sanitización y Validación
+- **Input**: `sanitize_text_field()` para API key
+- **Formato**: Regex para caracteres permitidos
+- **Longitud**: Validación de rango 20-100 caracteres
+- **Nonce**: Verificación de seguridad en formularios
+
+#### Almacenamiento Seguro
+- **WordPress Options**: Uso de `wp_options` nativo
+- **No exposición**: API key nunca se muestra en logs
+- **Autocomplete**: Deshabilitado en campos sensibles
+
+#### Logging y Auditoría
+- **Operaciones**: Log de todas las actualizaciones
+- **Sin datos sensibles**: Solo metadata en logs
+- **Estados**: Tracking de configuración y cambios
+
+### Experiencia de Usuario
+
+#### Feedback Visual Inmediato
+- **Estados claros**: Iconos y colores distintivos
+- **Validación en vivo**: Sin necesidad de submit para validar
+- **Mensajes contextuales**: Explicaciones claras de cada estado
+
+#### Flujo de Configuración Intuitivo
+1. **Obtener API Key**: Link directo a Google AI Studio
+2. **Pegar API Key**: Campo con placeholder explicativo
+3. **Validación automática**: Feedback inmediato
+4. **Habilitar funciones**: Checkbox se activa automáticamente
+5. **Guardar configuración**: Confirmación de éxito
+
+#### Gestión de Errores
+- **Formato inválido**: Mensaje específico sobre el problema
+- **Longitud incorrecta**: Indicación de requisitos
+- **Fallos de guardado**: Error detallado con posible solución
+
+### Integración con Arquitectura Existente
+
+#### Compatibilidad
+- **Hooks estándar**: Uso de APIs nativas de WordPress
+- **Estilo consistente**: Integración con diseño admin existente
+- **No conflictos**: No interfiere con otras funcionalidades
+
+#### Extensibilidad
+- **Base sólida**: Preparado para funciones de IA futuras
+- **API limpia**: Métodos helper para acceso a configuración
+- **Modular**: Fácil agregar nuevos proveedores de IA
+
+#### Performance
+- **Carga condicional**: JavaScript solo en página admin
+- **Consultas eficientes**: Uso de opciones de WordPress
+- **Cache friendly**: Compatible con sistemas de cache
+
+### Preparación para Futuras Funcionalidades
+
+#### Infraestructura Lista
+- **API Key Management**: Sistema completo implementado
+- **Estado de habilitación**: Control granular de funciones
+- **Logging**: Base para monitoreo de uso de IA
+
+#### Posibles Integraciones Futuras
+- **Traducción automática**: Sugerencias de Gemini
+- **Optimización SEO**: Análisis de contenido con IA
+- **Generación de metadatos**: Títulos y descripciones automáticas
+- **Detección de idioma**: Identificación automática de contenido
+
+### Métricas de Implementación
+
+- **Nuevos Métodos**: 6 métodos en LanguageManager
+- **Nueva Constante**: `API_OPTION_NAME`
+- **Nuevo Handler**: `handle_update_api_settings` en Admin
+- **JavaScript**: ~30 líneas para interactividad
+- **Líneas de Código**: ~200 líneas nuevas total
+- **Archivos Modificados**: 2 archivos principales
+- **Compatibilidad**: WordPress 5.8+ (APIs estándar)
+- **Seguridad**: Validación completa y sanitización
+
+Esta implementación establece una base sólida para la integración de servicios de inteligencia artificial, manteniendo los estándares de seguridad y usabilidad del plugin mientras prepara el terreno para funcionalidades avanzadas futuras.

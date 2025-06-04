@@ -45,6 +45,14 @@ class LanguageManager {
     const CACHE_EXPIRATION = 3600;
 
     /**
+     * Option name for storing API settings
+     *
+     * @var string
+     * @since 1.0.0
+     */
+    const API_OPTION_NAME = 'ez_translate_api_settings';
+
+    /**
      * Get all languages
      *
      * @param bool $use_cache Whether to use cached data
@@ -798,5 +806,159 @@ class LanguageManager {
         );
 
         return $landing_page_data;
+    }
+
+    /**
+     * Get API settings
+     *
+     * @return array API settings array
+     * @since 1.0.0
+     */
+    public static function get_api_settings() {
+        $default_settings = array(
+            'api_key' => '',
+            'enabled' => false,
+            'last_updated' => ''
+        );
+
+        $settings = get_option(self::API_OPTION_NAME, $default_settings);
+
+        // Ensure settings is always an array with required keys
+        if (!is_array($settings)) {
+            $settings = $default_settings;
+            Logger::warning('API settings option was not an array, resetting to defaults');
+        }
+
+        // Merge with defaults to ensure all keys exist
+        $settings = array_merge($default_settings, $settings);
+
+        Logger::info('API settings retrieved', array(
+            'has_api_key' => !empty($settings['api_key']),
+            'enabled' => $settings['enabled'],
+            'last_updated' => $settings['last_updated']
+        ));
+
+        return $settings;
+    }
+
+    /**
+     * Update API settings
+     *
+     * @param array $settings API settings to update
+     * @return bool|WP_Error True on success, WP_Error on failure
+     * @since 1.0.0
+     */
+    public static function update_api_settings($settings) {
+        Logger::info('Updating API settings', array('has_api_key' => !empty($settings['api_key'])));
+
+        // Validate input
+        if (!is_array($settings)) {
+            $error = new \WP_Error('invalid_settings', __('API settings must be an array.', 'ez-translate'));
+            Logger::error('Invalid API settings format provided');
+            return $error;
+        }
+
+        // Get current settings
+        $current_settings = self::get_api_settings();
+
+        // Sanitize and validate new settings
+        $sanitized_settings = self::sanitize_api_settings($settings);
+        if (is_wp_error($sanitized_settings)) {
+            return $sanitized_settings;
+        }
+
+        // Merge with current settings
+        $updated_settings = array_merge($current_settings, $sanitized_settings);
+        $updated_settings['last_updated'] = current_time('mysql');
+
+        // Save to database
+        $result = update_option(self::API_OPTION_NAME, $updated_settings);
+
+        if ($result) {
+            Logger::info('API settings updated successfully', array(
+                'has_api_key' => !empty($updated_settings['api_key']),
+                'enabled' => $updated_settings['enabled']
+            ));
+            return true;
+        } else {
+            $error = new \WP_Error('save_failed', __('Failed to save API settings to database.', 'ez-translate'));
+            Logger::error('Failed to save API settings');
+            return $error;
+        }
+    }
+
+    /**
+     * Sanitize API settings
+     *
+     * @param array $settings Raw API settings
+     * @return array|WP_Error Sanitized settings or WP_Error on validation failure
+     * @since 1.0.0
+     */
+    private static function sanitize_api_settings($settings) {
+        $sanitized = array();
+
+        // Sanitize API key
+        if (isset($settings['api_key'])) {
+            $api_key = sanitize_text_field($settings['api_key']);
+
+            // Validate API key format if not empty
+            if (!empty($api_key) && !self::validate_api_key($api_key)) {
+                $error = new \WP_Error('invalid_api_key', __('Invalid API key format.', 'ez-translate'));
+                Logger::error('Invalid API key format provided');
+                return $error;
+            }
+
+            $sanitized['api_key'] = $api_key;
+        }
+
+        // Sanitize enabled flag
+        if (isset($settings['enabled'])) {
+            $sanitized['enabled'] = (bool) $settings['enabled'];
+        }
+
+        return $sanitized;
+    }
+
+    /**
+     * Validate API key format
+     *
+     * @param string $api_key API key to validate
+     * @return bool True if valid, false otherwise
+     * @since 1.0.0
+     */
+    private static function validate_api_key($api_key) {
+        if (empty($api_key)) {
+            return true; // Allow empty
+        }
+
+        // Basic validation: length and character set
+        if (strlen($api_key) < 20 || strlen($api_key) > 100) {
+            return false;
+        }
+
+        // Allow alphanumeric characters, hyphens, and underscores
+        return preg_match('/^[A-Za-z0-9_-]+$/', $api_key);
+    }
+
+    /**
+     * Check if API is configured and enabled
+     *
+     * @return bool True if API is ready to use
+     * @since 1.0.0
+     */
+    public static function is_api_enabled() {
+        $settings = self::get_api_settings();
+        return !empty($settings['api_key']) && $settings['enabled'];
+    }
+
+    /**
+     * Get API key (for internal use)
+     *
+     * @return string API key or empty string if not configured
+     * @since 1.0.0
+     */
+    public static function get_api_key() {
+        $settings = self::get_api_settings();
+        return $settings['api_key'];
     }
 }

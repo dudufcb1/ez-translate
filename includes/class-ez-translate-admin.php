@@ -149,6 +149,9 @@ class Admin {
             case 'update_landing_page_seo':
                 $this->handle_update_landing_page_seo();
                 break;
+            case 'update_api_settings':
+                $this->handle_update_api_settings();
+                break;
             default:
                 Logger::warning('Unknown form action', array('action' => $action));
                 break;
@@ -308,6 +311,42 @@ class Admin {
             Logger::info('Landing page SEO updated successfully', array(
                 'post_id' => $post_id,
                 'language_code' => $language_code
+            ));
+        }
+    }
+
+    /**
+     * Handle API settings update
+     *
+     * @since 1.0.0
+     */
+    private function handle_update_api_settings() {
+        Logger::info('Processing API settings update');
+
+        // Sanitize input data
+        $api_key = isset($_POST['api_key']) ? sanitize_text_field($_POST['api_key']) : '';
+        $enabled = isset($_POST['api_enabled']) && $_POST['api_enabled'] === '1';
+
+        $settings = array(
+            'api_key' => $api_key,
+            'enabled' => $enabled
+        );
+
+        $result = \EZTranslate\LanguageManager::update_api_settings($settings);
+
+        if (is_wp_error($result)) {
+            $this->add_admin_notice(
+                sprintf(__('Failed to update API settings: %s', 'ez-translate'), $result->get_error_message()),
+                'error'
+            );
+            Logger::error('Failed to update API settings', array(
+                'error' => $result->get_error_message()
+            ));
+        } else {
+            $this->add_admin_notice(__('API settings updated successfully!', 'ez-translate'), 'success');
+            Logger::info('API settings updated successfully', array(
+                'has_api_key' => !empty($api_key),
+                'enabled' => $enabled
             ));
         }
     }
@@ -781,6 +820,108 @@ class Admin {
                         <td><?php echo esc_html(EZ_TRANSLATE_VERSION); ?></td>
                     </tr>
                 </table>
+            </div>
+
+            <!-- AI Integration Section -->
+            <div class="postbox">
+                <div class="postbox-header">
+                    <h2 class="hndle"><?php _e('AI Integration', 'ez-translate'); ?></h2>
+                </div>
+                <div class="inside">
+                    <p class="description">
+                        <?php _e('Configure AI services for enhanced translation capabilities.', 'ez-translate'); ?>
+                    </p>
+
+                    <?php
+                    $api_settings = \EZTranslate\LanguageManager::get_api_settings();
+                    $has_api_key = !empty($api_settings['api_key']);
+                    $api_enabled = $api_settings['enabled'];
+                    ?>
+
+                    <form method="post" action="" id="ez-translate-api-form">
+                        <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce'); ?>
+                        <input type="hidden" name="ez_translate_action" value="update_api_settings">
+
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row">
+                                    <label for="api_key"><?php _e('Gemini API Key', 'ez-translate'); ?></label>
+                                </th>
+                                <td>
+                                    <div style="position: relative;">
+                                        <input type="password"
+                                               id="api_key"
+                                               name="api_key"
+                                               class="regular-text"
+                                               value="<?php echo esc_attr($api_settings['api_key']); ?>"
+                                               placeholder="<?php esc_attr_e('Enter your Gemini AI API key...', 'ez-translate'); ?>"
+                                               autocomplete="off">
+                                        <button type="button"
+                                                id="toggle_api_key"
+                                                class="button button-secondary"
+                                                style="margin-left: 5px;">
+                                            <?php _e('Show', 'ez-translate'); ?>
+                                        </button>
+                                    </div>
+                                    <p class="description">
+                                        <?php _e('Enter your Google Gemini API key for AI-powered translation features.', 'ez-translate'); ?>
+                                        <a href="https://makersuite.google.com/app/apikey" target="_blank">
+                                            <?php _e('Get API Key', 'ez-translate'); ?>
+                                        </a>
+                                    </p>
+
+                                    <!-- API Key Status -->
+                                    <div id="api_key_status" style="margin-top: 10px;">
+                                        <?php if ($has_api_key): ?>
+                                            <span class="ez-translate-status-enabled">
+                                                ✅ <?php _e('API Key Configured', 'ez-translate'); ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="ez-translate-status-disabled">
+                                                ❌ <?php _e('No API Key Configured', 'ez-translate'); ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php _e('AI Features', 'ez-translate'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox"
+                                               id="api_enabled"
+                                               name="api_enabled"
+                                               value="1"
+                                               <?php checked($api_enabled); ?>
+                                               <?php disabled(!$has_api_key); ?>>
+                                        <?php _e('Enable AI-powered features', 'ez-translate'); ?>
+                                    </label>
+                                    <p class="description">
+                                        <?php _e('Enable AI features for automatic translation suggestions and content optimization.', 'ez-translate'); ?>
+                                        <?php if (!$has_api_key): ?>
+                                            <br><em style="color: #d63638;"><?php _e('Requires API key to be configured first.', 'ez-translate'); ?></em>
+                                        <?php endif; ?>
+                                    </p>
+                                </td>
+                            </tr>
+                            <?php if (!empty($api_settings['last_updated'])): ?>
+                            <tr>
+                                <th scope="row"><?php _e('Last Updated', 'ez-translate'); ?></th>
+                                <td>
+                                    <code><?php echo esc_html(date('M j, Y \a\t g:i A', strtotime($api_settings['last_updated']))); ?></code>
+                                </td>
+                            </tr>
+                            <?php endif; ?>
+                        </table>
+
+                        <p class="submit">
+                            <input type="submit"
+                                   name="save_api_settings"
+                                   class="button-primary"
+                                   value="<?php _e('Save AI Settings', 'ez-translate'); ?>">
+                        </p>
+                    </form>
+                </div>
             </div>
 
             <!-- Testing Section -->
@@ -1575,6 +1716,38 @@ class Admin {
 
             // Update counters on input
             $('#seo_title, #seo_description').on('input', updateSeoCounters);
+
+            // API Key Show/Hide toggle
+            $('#toggle_api_key').on('click', function() {
+                var apiKeyField = $('#api_key');
+                var button = $(this);
+
+                if (apiKeyField.attr('type') === 'password') {
+                    apiKeyField.attr('type', 'text');
+                    button.text('<?php _e('Hide', 'ez-translate'); ?>');
+                } else {
+                    apiKeyField.attr('type', 'password');
+                    button.text('<?php _e('Show', 'ez-translate'); ?>');
+                }
+            });
+
+            // API Key validation and status update
+            $('#api_key').on('input', function() {
+                var apiKey = $(this).val().trim();
+                var statusDiv = $('#api_key_status');
+                var enabledCheckbox = $('#api_enabled');
+
+                if (apiKey.length === 0) {
+                    statusDiv.html('<span class="ez-translate-status-disabled">❌ <?php _e('No API Key Configured', 'ez-translate'); ?></span>');
+                    enabledCheckbox.prop('disabled', true).prop('checked', false);
+                } else if (apiKey.length < 20) {
+                    statusDiv.html('<span class="ez-translate-status-disabled">⚠️ <?php _e('API Key too short', 'ez-translate'); ?></span>');
+                    enabledCheckbox.prop('disabled', true).prop('checked', false);
+                } else {
+                    statusDiv.html('<span class="ez-translate-status-enabled">✅ <?php _e('API Key Configured', 'ez-translate'); ?></span>');
+                    enabledCheckbox.prop('disabled', false);
+                }
+            });
         });
         </script>
         <?php
