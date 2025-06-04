@@ -109,11 +109,26 @@ final class EZTranslate {
             return;
         }
 
-        // Convert namespace to file path
+        // Remove namespace prefix
         $class_name = str_replace('EZTranslate\\', '', $class_name);
-        $class_name = str_replace('_', '-', strtolower($class_name));
-        $file_path = EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-' . $class_name . '.php';
-
+        
+        // Split remaining namespace parts
+        $parts = explode('\\', $class_name);
+        $class_file = array_pop($parts); // Get the actual class name
+        
+        // Convert class name to filename
+        $class_file = str_replace('_', '-', strtolower($class_file));
+        $class_file = 'class-ez-translate-' . $class_file . '.php';
+        
+        // Build the path based on namespace
+        $subdir = '';
+        if (!empty($parts)) {
+            $subdir = strtolower(implode('/', $parts)) . '/';
+        }
+        
+        // Try to find the file in the includes directory
+        $file_path = EZ_TRANSLATE_PLUGIN_DIR . 'includes/' . $subdir . $class_file;
+        
         if (file_exists($file_path)) {
             require_once $file_path;
         }
