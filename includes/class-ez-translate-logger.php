@@ -174,16 +174,8 @@ class Logger {
      * @since 1.0.0
      */
     public static function log_db_operation($operation, $table, $data = null) {
-        $context = array(
-            'operation' => $operation,
-            'table'     => $table,
-        );
-
-        if ($data !== null) {
-            $context['data'] = $data;
-        }
-
-        self::debug("Database operation: {$operation} on {$table}", $context);
+        // Database operations logging removed for performance
+        // Parameters kept for backward compatibility
     }
 
     /**
@@ -195,13 +187,8 @@ class Logger {
      * @since 1.0.0
      */
     public static function log_api_request($endpoint, $method, $data = array()) {
-        $context = array(
-            'endpoint' => $endpoint,
-            'method'   => $method,
-            'data'     => $data,
-        );
-
-        self::debug("API request: {$method} {$endpoint}", $context);
+        // API request logging removed for performance
+        // Parameters kept for backward compatibility
     }
 
     /**

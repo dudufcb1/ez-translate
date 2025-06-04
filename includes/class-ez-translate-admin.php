@@ -777,6 +777,7 @@ class Admin {
             </div>
 
             <!-- Testing Section -->
+            <?php if (defined('EZ_TRANSLATE_TESTS') && EZ_TRANSLATE_TESTS === true): ?>
             <?php if (isset($_GET['run_ez_translate_tests']) && $_GET['run_ez_translate_tests'] === '1'): ?>
                 <div class="card">
                     <h2><?php _e('Test Results', 'ez-translate'); ?></h2>
@@ -1020,6 +1021,7 @@ class Admin {
                     </a>
                 </div>
             <?php endif; ?>
+            <?php endif; // EZ_TRANSLATE_TESTS ?>
         </div>
 
         <!-- Edit Language Modal -->

@@ -188,12 +188,8 @@ final class EZTranslate {
             return;
         }
 
-        $this->log_message('Plugin initialization started', 'debug');
-
         // Initialize core components
         $this->init_core_components();
-
-        $this->log_message('Plugin initialization completed', 'debug');
     }
 
     /**
@@ -240,8 +236,6 @@ final class EZTranslate {
         if (!is_admin()) {
             $this->init_frontend();
         }
-
-        $this->log_message('Core components initialized', 'debug');
     }
 
     /**
@@ -255,8 +249,6 @@ final class EZTranslate {
 
         // Initialize post meta manager
         new \EZTranslate\PostMetaManager();
-
-        $this->log_message('Post meta manager initialized', 'debug');
     }
 
     /**
@@ -279,8 +271,6 @@ final class EZTranslate {
 
         // Initialize REST API
         new \EZTranslate\RestAPI();
-
-        $this->log_message('REST API initialized', 'debug');
     }
 
     /**
@@ -294,8 +284,6 @@ final class EZTranslate {
 
         // Initialize Gutenberg integration
         new \EZTranslate\Gutenberg();
-
-        $this->log_message('Gutenberg integration initialized', 'debug');
     }
 
     /**
@@ -309,8 +297,6 @@ final class EZTranslate {
 
         // Initialize admin
         new \EZTranslate\Admin();
-
-        $this->log_message('Admin components initialized', 'debug');
     }
 
     /**
@@ -324,8 +310,6 @@ final class EZTranslate {
 
         // Initialize frontend
         new \EZTranslate\Frontend();
-
-        $this->log_message('Frontend components initialized', 'debug');
     }
 
     /**
@@ -339,8 +323,6 @@ final class EZTranslate {
             false,
             dirname(EZ_TRANSLATE_PLUGIN_BASENAME) . '/languages'
         );
-
-        $this->log_message('Text domain loaded', 'debug');
     }
 
     /**
