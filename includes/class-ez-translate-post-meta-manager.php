@@ -239,21 +239,7 @@ class PostMetaManager {
         }
     }
 
-    /**
-     * Set landing page status for a post (LEGACY - REMOVED)
-     * This method is kept as a stub for backward compatibility
-     *
-     * @param int  $post_id    Post ID
-     * @param bool $is_landing Landing page status
-     * @return bool Always returns true for compatibility
-     * @since 1.0.0
-     */
-    public static function set_post_landing_status($post_id, $is_landing) {
-        // Legacy method - landing page functionality removed
-        // Return true for backward compatibility with existing tests
 
-        return true;
-    }
 
     /**
      * Set SEO title for a post
@@ -468,44 +454,9 @@ class PostMetaManager {
         return !empty($group) ? $group : null;
     }
 
-    /**
-     * Check if post is a landing page (LEGACY - REMOVED)
-     * This method is kept as a stub for backward compatibility
-     *
-     * @param int $post_id Post ID
-     * @return bool Always returns false (no landing pages)
-     * @since 1.0.0
-     */
-    public static function is_post_landing_page($post_id) {
-        // Legacy method - landing page functionality removed
-        // Return false for backward compatibility with existing tests
 
-        return false;
-    }
 
-    /**
-     * Get post SEO title
-     *
-     * @param int $post_id Post ID
-     * @return string|null SEO title or null if not set
-     * @since 1.0.0
-     */
-    public static function get_post_seo_title($post_id) {
-        $seo_title = get_post_meta($post_id, self::META_SEO_TITLE, true);
-        return !empty($seo_title) ? $seo_title : null;
-    }
 
-    /**
-     * Get post SEO description
-     *
-     * @param int $post_id Post ID
-     * @return string|null SEO description or null if not set
-     * @since 1.0.0
-     */
-    public static function get_post_seo_description($post_id) {
-        $seo_description = get_post_meta($post_id, self::META_SEO_DESCRIPTION, true);
-        return !empty($seo_description) ? $seo_description : null;
-    }
 
     /**
      * Set complete post metadata
@@ -530,11 +481,7 @@ class PostMetaManager {
             if (!$result) $success = false;
         }
 
-        // Set landing page status
-        if (isset($metadata['is_landing'])) {
-            $result = self::set_post_landing_status($post_id, $metadata['is_landing']);
-            if (!$result) $success = false;
-        }
+        // Landing page functionality removed - skip is_landing metadata
 
         // Set SEO title
         if (isset($metadata['seo_title'])) {

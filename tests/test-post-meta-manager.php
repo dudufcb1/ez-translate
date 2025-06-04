@@ -101,21 +101,7 @@ function ez_translate_test_post_meta_manager() {
             'data' => array('post_id' => $test_post_id, 'retrieved_group' => $retrieved_group)
         );
 
-        // Test 7: Set Landing Page Status (now that language is set)
-        $landing_result = \EZTranslate\PostMetaManager::set_post_landing_status($test_post_id, true);
-        $results['set_landing_status'] = array(
-            'status' => $landing_result,
-            'message' => $landing_result ? 'Landing page status set successfully' : 'Failed to set landing page status',
-            'data' => array('post_id' => $test_post_id, 'is_landing' => true)
-        );
-
-        // Test 8: Check Landing Page Status
-        $is_landing = \EZTranslate\PostMetaManager::is_post_landing_page($test_post_id);
-        $results['is_landing_page'] = array(
-            'status' => $is_landing === true,
-            'message' => $is_landing === true ? 'Landing page status retrieved correctly' : 'Failed to retrieve landing page status',
-            'data' => array('post_id' => $test_post_id, 'is_landing' => $is_landing)
-        );
+        // Test 7: Landing page functionality removed - skip legacy tests
 
         // Test 9: Set SEO Title
         $seo_title = 'Test SEO Title for Landing Page';
@@ -126,8 +112,8 @@ function ez_translate_test_post_meta_manager() {
             'data' => array('post_id' => $test_post_id, 'seo_title' => $seo_title)
         );
 
-        // Test 10: Get SEO Title
-        $retrieved_seo_title = \EZTranslate\PostMetaManager::get_post_seo_title($test_post_id);
+        // Test 10: Get SEO Title (using get_post_meta directly)
+        $retrieved_seo_title = get_post_meta($test_post_id, '_ez_translate_seo_title', true);
         $results['get_seo_title'] = array(
             'status' => $retrieved_seo_title === $seo_title,
             'message' => $retrieved_seo_title === $seo_title ? 'SEO title retrieved correctly' : 'Failed to retrieve SEO title',
@@ -143,8 +129,8 @@ function ez_translate_test_post_meta_manager() {
             'data' => array('post_id' => $test_post_id, 'seo_description' => $seo_description)
         );
 
-        // Test 12: Get SEO Description
-        $retrieved_seo_desc = \EZTranslate\PostMetaManager::get_post_seo_description($test_post_id);
+        // Test 12: Get SEO Description (using get_post_meta directly)
+        $retrieved_seo_desc = get_post_meta($test_post_id, '_ez_translate_seo_description', true);
         $results['get_seo_description'] = array(
             'status' => $retrieved_seo_desc === $seo_description,
             'message' => $retrieved_seo_desc === $seo_description ? 'SEO description retrieved correctly' : 'Failed to retrieve SEO description',
