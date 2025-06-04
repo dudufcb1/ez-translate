@@ -4,6 +4,7 @@ namespace EZTranslate\Providers;
 
 use EZTranslate\Interfaces\AIProviderInterface;
 use EZTranslate\LanguageManager;
+use EZTranslate\Helpers\ConstructPrompt;
 use Exception;
 
 class GeminiProvider implements AIProviderInterface {
@@ -16,14 +17,16 @@ class GeminiProvider implements AIProviderInterface {
     }
 
     /**
-     * Genera texto a partir del input usando la API de Gemini.
+     * Genera texto a partir del ConstructPrompt usando la API de Gemini.
      *
-     * @param array $input Texto de entrada.
+     * @param ConstructPrompt $prompt Objeto que contiene el título, contenido y lenguaje objetivo.
      * @return array Texto generado con título y contenido traducido.
      * @throws Exception Si ocurre algún error en la petición o en la respuesta.
      */
-    public function generarTexto(string $input): array {
+    public function generarTexto(ConstructPrompt $prompt): array {
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model_id}:{$this->generate_content_api}?key={$this->api_key}";
+
+        $promptData = $prompt->build();
 
         $payload = [
             "contents" => [
@@ -31,7 +34,7 @@ class GeminiProvider implements AIProviderInterface {
                     "role" => "user",
                     "parts" => [
                         [
-                            "text" => $input,
+                            "text" => $promptData['text'],
                         ],
                     ],
                 ],

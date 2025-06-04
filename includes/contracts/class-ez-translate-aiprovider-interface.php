@@ -1,12 +1,14 @@
 <?php
 namespace EZTranslate\Interfaces;
 
+use EZTranslate\Helpers\ConstructPrompt;
+
 interface AIProviderInterface {
     /**
-     * Genera texto a partir del input.
+     * Genera texto a partir de un objeto ConstructPrompt.
      *
-     * @param string $input Texto de entrada.
+     * @param ConstructPrompt $prompt Objeto que contiene el título, contenido y lenguaje objetivo.
      * @return array Texto generado con título y contenido traducido.
      */
-    public function generarTexto(string $input): array;
+    public function generarTexto(ConstructPrompt $prompt): array;
 }
