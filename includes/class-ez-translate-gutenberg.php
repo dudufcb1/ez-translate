@@ -79,8 +79,6 @@ class Gutenberg {
             'auth_callback' => array($this, 'meta_auth_callback'),
             'sanitize_callback' => 'sanitize_textarea_field',
         ));
-
-        Logger::debug('Gutenberg meta fields registered');
     }
 
     /**
@@ -188,11 +186,6 @@ class Gutenberg {
                 EZ_TRANSLATE_VERSION
             );
         }
-
-        Logger::debug('Gutenberg assets enqueued', array(
-            'script_handle' => 'ez-translate-gutenberg-sidebar',
-            'post_id' => get_the_ID()
-        ));
     }
 
     /**

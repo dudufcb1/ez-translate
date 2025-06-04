@@ -51,8 +51,6 @@ class Admin {
         
         // Admin styles and scripts
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
-        
-        Logger::debug('Admin hooks initialized');
     }
 
     /**
@@ -111,10 +109,6 @@ class Admin {
 
         // Enqueue WordPress admin styles (we'll use native styling)
         wp_enqueue_style('wp-admin');
-        
-        Logger::debug('Admin assets enqueued', array(
-            'hook_suffix' => $hook_suffix
-        ));
     }
 
     /**
@@ -1575,8 +1569,6 @@ class Admin {
         });
         </script>
         <?php
-
-        Logger::debug('Languages admin page rendered successfully');
     }
 
     /**

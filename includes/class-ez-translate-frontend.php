@@ -66,8 +66,6 @@ class Frontend {
 
         // Hook into wp_head for hreflang tags
         add_action('wp_head', array($this, 'inject_hreflang_tags'), 20);
-
-        Logger::debug('Frontend hooks initialized with metadata control');
     }
 
     /**
@@ -104,12 +102,6 @@ class Frontend {
             } else {
                 $output .= ' lang="' . esc_attr($lang_code) . '"';
             }
-
-            Logger::debug('Frontend: Language attribute set', array(
-                'post_id' => $post->ID,
-                'language' => $current_language,
-                'lang_attribute' => $lang_code
-            ));
         }
 
         return $output;
@@ -158,25 +150,8 @@ class Frontend {
 
         // Only process pages with language metadata (assigned or detected)
         if (empty($current_language)) {
-            Logger::debug('Frontend: Skipping metadata generation - no language assigned or detected', array(
-                'post_id' => $post->ID,
-                'post_title' => $post->post_title,
-                'post_type' => $post->post_type,
-                'is_singular' => is_singular(),
-                'current_language' => $current_language,
-                'is_landing' => $is_landing
-            ));
             return;
         }
-
-        Logger::debug('Frontend: Processing metadata generation', array(
-            'post_id' => $post->ID,
-            'post_title' => $post->post_title,
-            'current_language' => $current_language,
-            'is_landing' => $is_landing,
-            'seo_title' => $seo_title,
-            'seo_description' => $seo_description
-        ));
 
 
 
@@ -308,10 +283,6 @@ class Frontend {
         $is_landing = get_post_meta($post->ID, '_ez_translate_is_landing', true);
         
         if (!$is_landing) {
-            Logger::debug('Frontend: Not a landing page, skipping SEO injection', array(
-                'post_id' => $post->ID,
-                'post_title' => $post->post_title
-            ));
             return;
         }
 
@@ -357,73 +328,24 @@ class Frontend {
             return $title_parts;
         }
 
-        // Debug: Log the current state
-        if ($this->test_mode) {
-            error_log('[EZ-Translate DEBUG] filter_document_title called with post ID: ' . $post->ID);
-        }
-
         // Check if this page has custom SEO title or language
         $seo_title = get_post_meta($post->ID, '_ez_translate_seo_title', true);
         $current_language = get_post_meta($post->ID, '_ez_translate_language', true);
-
-        // Debug: Log metadata values
-        if ($this->test_mode) {
-            error_log('[EZ-Translate DEBUG] SEO Title: "' . $seo_title . '"');
-            error_log('[EZ-Translate DEBUG] Language: "' . $current_language . '"');
-        }
 
         // Only process if page has a language assigned (indicating it's managed by EZ Translate)
         if (!empty($current_language)) {
             // Get language-specific site metadata
             $language_site_metadata = \EZTranslate\LanguageManager::get_language_site_metadata($current_language);
 
-            // Debug: Log site metadata
-            if ($this->test_mode) {
-                error_log('[EZ-Translate DEBUG] Site metadata: ' . print_r($language_site_metadata, true));
-            }
-
             // Apply custom SEO title if available
             if (!empty($seo_title)) {
-                $original_title = isset($title_parts['title']) ? $title_parts['title'] : 'N/A';
                 $title_parts['title'] = sanitize_text_field($seo_title);
-
-                if ($this->test_mode) {
-                    error_log('[EZ-Translate DEBUG] Title changed from "' . $original_title . '" to "' . $seo_title . '"');
-                }
-
-                Logger::debug('Frontend: Document title overridden with custom SEO title', array(
-                    'post_id' => $post->ID,
-                    'language' => $current_language,
-                    'original_title' => $original_title,
-                    'seo_title' => $seo_title
-                ));
             }
 
             // Apply custom site name if available
             if (!empty($language_site_metadata['site_name'])) {
-                $original_site = isset($title_parts['site']) ? $title_parts['site'] : 'N/A';
                 $title_parts['site'] = sanitize_text_field($language_site_metadata['site_name']);
-
-                if ($this->test_mode) {
-                    error_log('[EZ-Translate DEBUG] Site name changed from "' . $original_site . '" to "' . $language_site_metadata['site_name'] . '"');
-                }
-
-                Logger::debug('Frontend: Site name overridden with language-specific name', array(
-                    'post_id' => $post->ID,
-                    'language' => $current_language,
-                    'original_site' => $original_site,
-                    'custom_site_name' => $language_site_metadata['site_name']
-                ));
             }
-        } else {
-            if ($this->test_mode) {
-                error_log('[EZ-Translate DEBUG] No language assigned, skipping title filter');
-            }
-        }
-
-        // Debug: Log final title parts
-        if ($this->test_mode) {
-            error_log('[EZ-Translate DEBUG] Final title parts: ' . print_r($title_parts, true));
         }
 
         return $title_parts;
@@ -457,12 +379,6 @@ class Frontend {
         if (!empty($seo_description) && !empty($current_language)) {
             $clean_description = sanitize_text_field($seo_description);
             echo '<meta name="description" content="' . esc_attr($clean_description) . '">' . "\n";
-
-            Logger::debug('Frontend: Meta description injected with custom SEO description', array(
-                'post_id' => $post->ID,
-                'language' => $current_language,
-                'description_length' => strlen($clean_description)
-            ));
         }
     }
 
@@ -500,11 +416,6 @@ class Frontend {
                 echo '<meta property="og:image" content="' . esc_url($thumbnail_url) . '">' . "\n";
             }
         }
-
-        Logger::debug('Frontend: Open Graph metadata injected', array(
-            'post_id' => $post->ID,
-            'language' => $language
-        ));
     }
 
     /**
@@ -534,10 +445,6 @@ class Frontend {
                 echo '<meta name="twitter:image" content="' . esc_url($thumbnail_url) . '">' . "\n";
             }
         }
-
-        Logger::debug('Frontend: Twitter Card metadata injected', array(
-            'post_id' => $post->ID
-        ));
     }
 
     /**
@@ -583,11 +490,6 @@ class Frontend {
         echo '<script type="application/ld+json">' . "\n";
         echo wp_json_encode($json_ld, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
         echo '</script>' . "\n";
-
-        Logger::debug('Frontend: JSON-LD structured data injected', array(
-            'post_id' => $post->ID,
-            'language' => $language
-        ));
     }
 
     /**
@@ -678,11 +580,6 @@ class Frontend {
 
         // Skip if still no language or translation group
         if (empty($current_language) || empty($translation_group)) {
-            Logger::debug('Frontend: No hreflang tags needed - missing language or group', array(
-                'post_id' => $post->ID,
-                'language' => $current_language,
-                'group' => $translation_group
-            ));
             return;
         }
 
@@ -691,11 +588,6 @@ class Frontend {
 
         // Skip if no related posts found or only current post
         if (empty($related_posts) || count($related_posts) <= 1) {
-            Logger::debug('Frontend: No hreflang tags needed - no related translations', array(
-                'post_id' => $post->ID,
-                'group' => $translation_group,
-                'related_count' => count($related_posts)
-            ));
             return;
         }
 
@@ -981,12 +873,6 @@ class Frontend {
         echo '<script type="application/ld+json">' . "\n";
         echo wp_json_encode($jsonld, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         echo "\n" . '</script>' . "\n";
-
-        Logger::debug('Frontend: JSON-LD structured data generated', array(
-            'post_id' => $post->ID,
-            'language' => $language,
-            'title' => $title
-        ));
     }
 
     /**

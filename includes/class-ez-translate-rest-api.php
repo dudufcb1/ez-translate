@@ -204,11 +204,6 @@ class RestAPI {
                 $languages = LanguageManager::get_enabled_languages();
             }
 
-            Logger::debug('REST API: Languages retrieved', array(
-                'count' => count($languages),
-                'admin_request' => $is_admin_request
-            ));
-
             return rest_ensure_response($languages);
         } catch (Exception $e) {
             Logger::error('REST API: Failed to get languages', array(
@@ -368,11 +363,6 @@ class RestAPI {
 
             $metadata = PostMetaManager::get_post_metadata($post_id);
 
-            Logger::debug('REST API: Post metadata retrieved', array(
-                'post_id' => $post_id,
-                'metadata' => $metadata
-            ));
-
             return rest_ensure_response($metadata);
         } catch (Exception $e) {
             Logger::error('REST API: Failed to get post metadata', array(
@@ -409,7 +399,6 @@ class RestAPI {
             // Landing page functionality removed - legacy parameter ignored
             if ($request->has_param('is_landing')) {
                 // Legacy parameter - no longer processed
-                Logger::debug('REST API: is_landing parameter ignored (legacy functionality removed)');
             }
 
             if ($request->has_param('seo_title')) {
@@ -701,20 +690,8 @@ class RestAPI {
             $existing_translations = array();
             $group_id = $source_metadata['group'] ?? '';
 
-            Logger::debug('REST API: Looking for translations in group', array(
-                'post_id' => $post_id,
-                'group_id' => $group_id,
-                'source_metadata' => $source_metadata
-            ));
-
             if (!empty($group_id)) {
                 $related_post_ids = PostMetaManager::get_posts_in_group($group_id);
-
-                Logger::debug('REST API: Found related post IDs', array(
-                    'group_id' => $group_id,
-                    'related_posts_count' => count($related_post_ids),
-                    'related_post_ids' => $related_post_ids
-                ));
 
                 foreach ($related_post_ids as $related_post_id) {
                     $related_post = get_post($related_post_id);
@@ -724,14 +701,6 @@ class RestAPI {
 
                     $related_metadata = PostMetaManager::get_post_metadata($related_post_id);
                     $related_language = $related_metadata['language'] ?? '';
-
-                    Logger::debug('REST API: Processing related post', array(
-                        'post_id' => $related_post_id,
-                        'title' => $related_post->post_title,
-                        'language' => $related_language,
-                        'metadata' => $related_metadata,
-                        'is_current_post' => ($related_post_id == $post_id)
-                    ));
 
                     if (!empty($related_language)) {
                         $translation_info = array(
@@ -748,7 +717,6 @@ class RestAPI {
                     }
                 }
             } else {
-                Logger::debug('REST API: No group ID found, trying auto-detection');
                 // If no group, try to find related posts through auto-detection
                 // This handles cases where the source post doesn't have explicit metadata
                 $frontend = new \EZTranslate\Frontend();
@@ -757,11 +725,6 @@ class RestAPI {
                 if (!empty($group_info['translation_group']['group_id'])) {
                     $auto_group_id = $group_info['translation_group']['group_id'];
                     $related_post_ids = PostMetaManager::get_posts_in_group($auto_group_id);
-
-                    Logger::debug('REST API: Auto-detected group', array(
-                        'auto_group_id' => $auto_group_id,
-                        'related_posts_count' => count($related_post_ids)
-                    ));
 
                     foreach ($related_post_ids as $related_post_id) {
                         $related_post = get_post($related_post_id);
@@ -817,13 +780,6 @@ class RestAPI {
                         $translation['is_original'] = ($lang === $original_language);
                     }
                     unset($translation); // Break reference
-
-                    Logger::debug('REST API: Identified original post by language', array(
-                        'original_language' => $original_language,
-                        'original_post_id' => $existing_translations[$original_language]['post_id'],
-                        'site_language' => $site_language,
-                        'default_language' => $default_language
-                    ));
                 } else {
                     Logger::warning('REST API: Could not identify original post', array(
                         'available_languages' => array_keys($existing_translations),
@@ -831,11 +787,6 @@ class RestAPI {
                     ));
                 }
             }
-
-            Logger::debug('REST API: Final existing translations', array(
-                'existing_translations' => $existing_translations,
-                'count' => count($existing_translations)
-            ));
 
             // Process all languages to determine availability
             foreach ($all_languages as $language) {
@@ -855,14 +806,6 @@ class RestAPI {
                     $result['available_languages'][] = $language;
                 }
             }
-
-            Logger::debug('REST API: Translation verification completed', array(
-                'post_id' => $post_id,
-                'source_language' => $source_language,
-                'existing_count' => count($result['existing_translations']),
-                'available_count' => count($result['available_languages']),
-                'auto_detected' => $result['source_language_detected']
-            ));
 
             return rest_ensure_response($result);
 

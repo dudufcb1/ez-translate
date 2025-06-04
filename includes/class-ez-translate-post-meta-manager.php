@@ -89,8 +89,6 @@ class PostMetaManager {
         
         // Hook into post deletion
         add_action('before_delete_post', array($this, 'handle_post_delete'));
-        
-        Logger::debug('Post meta hooks initialized');
     }
 
     /**
@@ -118,9 +116,6 @@ class PostMetaManager {
             'post_title' => $post->post_title,
             'is_update' => $update
         ));
-
-        // Process metadata if present in $_POST
-        $this->process_post_metadata($post_id);
     }
 
     /**
@@ -142,26 +137,7 @@ class PostMetaManager {
         }
     }
 
-    /**
-     * Process post metadata from form submission
-     *
-     * @param int $post_id Post ID
-     * @since 1.0.0
-     */
-    private function process_post_metadata($post_id) {
-        // For now, just log that we're ready to process metadata
-        // This will be expanded when we add the Gutenberg interface
-        Logger::debug('Ready to process post metadata', array('post_id' => $post_id));
-        
-        // Check if we have any existing metadata
-        $existing_metadata = self::get_post_metadata($post_id);
-        if (!empty($existing_metadata)) {
-            Logger::debug('Existing metadata found', array(
-                'post_id' => $post_id,
-                'metadata' => $existing_metadata
-            ));
-        }
-    }
+
 
     /**
      * Get all multilingual metadata for a post
@@ -183,11 +159,6 @@ class PostMetaManager {
         $metadata = array_filter($metadata, function($value) {
             return !empty($value);
         });
-
-        Logger::debug('Retrieved post metadata', array(
-            'post_id' => $post_id,
-            'metadata' => $metadata
-        ));
 
         return $metadata;
     }
@@ -280,11 +251,6 @@ class PostMetaManager {
     public static function set_post_landing_status($post_id, $is_landing) {
         // Legacy method - landing page functionality removed
         // Return true for backward compatibility with existing tests
-        Logger::debug('PostMetaManager: set_post_landing_status called (legacy stub)', array(
-            'post_id' => $post_id,
-            'is_landing' => $is_landing,
-            'note' => 'Landing page functionality has been removed'
-        ));
 
         return true;
     }
@@ -358,8 +324,6 @@ class PostMetaManager {
             $group_id .= $characters[wp_rand(0, strlen($characters) - 1)];
         }
 
-        Logger::debug('Generated translation group ID', array('group_id' => $group_id));
-
         return $group_id;
     }
 
@@ -375,11 +339,6 @@ class PostMetaManager {
         $pattern = '/^' . preg_quote(self::GROUP_PREFIX, '/') . '[a-z0-9]{16}$/';
         $is_valid = preg_match($pattern, $group_id);
 
-        Logger::debug('Validating group ID', array(
-            'group_id' => $group_id,
-            'is_valid' => $is_valid
-        ));
-
         return $is_valid;
     }
 
@@ -394,10 +353,6 @@ class PostMetaManager {
     public static function get_landing_page_for_language($language_code) {
         // Legacy method - landing page functionality removed
         // Return null for backward compatibility with existing tests
-        Logger::debug('PostMetaManager: get_landing_page_for_language called (legacy stub)', array(
-            'language_code' => $language_code,
-            'note' => 'Landing page functionality has been removed'
-        ));
 
         return null;
     }
@@ -423,12 +378,6 @@ class PostMetaManager {
         ", self::META_GROUP, $group_id);
 
         $results = $wpdb->get_col($query);
-
-        Logger::debug('Retrieved posts in translation group', array(
-            'group_id' => $group_id,
-            'post_count' => count($results),
-            'post_ids' => $results
-        ));
 
         return array_map('intval', $results);
     }
@@ -470,12 +419,6 @@ class PostMetaManager {
         }
 
         $results = $wpdb->get_col($query);
-
-        Logger::debug('Retrieved posts by language', array(
-            'language_code' => $language_code,
-            'post_count' => count($results),
-            'args' => $args
-        ));
 
         return array_map('intval', $results);
     }
@@ -549,10 +492,6 @@ class PostMetaManager {
     public static function is_post_landing_page($post_id) {
         // Legacy method - landing page functionality removed
         // Return false for backward compatibility with existing tests
-        Logger::debug('PostMetaManager: is_post_landing_page called (legacy stub)', array(
-            'post_id' => $post_id,
-            'note' => 'Landing page functionality has been removed'
-        ));
 
         return false;
     }

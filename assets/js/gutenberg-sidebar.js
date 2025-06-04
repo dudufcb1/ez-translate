@@ -66,14 +66,6 @@
         const currentSeoTitle = postMeta._ez_translate_seo_title || '';
         const currentSeoDescription = postMeta._ez_translate_seo_description || '';
 
-        // Debug logging
-        console.log('EZ Translate: Current meta values:', {
-            language: currentLanguage,
-            seoTitle: currentSeoTitle,
-            seoDescription: currentSeoDescription,
-            allPostMeta: postMeta
-        });
-
         // Detect original language (from WordPress config or current page)
         const wpLanguage = window.ezTranslateGutenberg?.wpLanguage || 'en';
 
@@ -98,12 +90,6 @@
 
         // Monitor post save status
         useEffect(() => {
-            console.log('EZ Translate: Post save status changed', {
-                isSaving: isSaving,
-                isAutosaving: isAutosaving,
-                hasEdits: hasEdits,
-                postMeta: postMeta
-            });
         }, [isSaving, isAutosaving, hasEdits]);
 
         /**
@@ -157,22 +143,17 @@
          * Load existing translations for this post
          */
         const loadExistingTranslations = async () => {
-            console.log('EZ Translate: loadExistingTranslations called, postId:', postId);
             if (!postId) {
-                console.log('EZ Translate: No postId, skipping translation verification');
                 return;
             }
 
             try {
-                console.log('EZ Translate: Starting translation verification for post:', postId);
                 setLoadingTranslations(true);
 
                 const response = await apiFetch({
                     path: `ez-translate/v1/verify-translations/${postId}`,
                     method: 'GET'
                 });
-
-                console.log('Translation verification response:', response);
                 setTranslationData(response);
 
                 // Filter existing languages to exclude those with existing translations
@@ -198,14 +179,10 @@
          * Update post meta field
          */
         const updateMeta = (key, value) => {
-            console.log('EZ Translate: updateMeta called with:', { key, value, currentMeta: postMeta });
-
             const newMeta = {
                 ...postMeta,
                 [key]: value
             };
-
-            console.log('EZ Translate: About to call editPost with meta:', newMeta);
 
             editPost({
                 meta: newMeta
@@ -213,8 +190,6 @@
 
             // Clear any previous messages
             setError(null);
-
-            console.log('EZ Translate: editPost called successfully with new meta');
         };
 
         /**
@@ -238,8 +213,6 @@
             setError(null);
 
             try {
-                console.log('Creating translation from', originalLanguage, 'to', selectedTargetLanguage);
-
                 // Call the REST API to create translation
                 const response = await wp.apiFetch({
                     path: `/ez-translate/v1/create-translation/${postId}`,
@@ -295,10 +268,8 @@
                     path: `ez-translate/v1/post-meta/${postId}`,
                     method: 'GET'
                 });
-                console.log('EZ Translate: Database value check:', response);
                 alert('Database value: ' + JSON.stringify(response.metadata, null, 2));
             } catch (error) {
-                console.error('EZ Translate: Failed to check database value:', error);
                 alert('Error checking database: ' + error.message);
             }
         };

@@ -52,12 +52,9 @@ class LanguageManager {
      * @since 1.0.0
      */
     public static function get_languages($use_cache = true) {
-        Logger::debug('Getting languages', array('use_cache' => $use_cache));
-
         if ($use_cache) {
             $cached_languages = get_transient(self::CACHE_KEY);
             if ($cached_languages !== false) {
-                Logger::debug('Languages retrieved from cache', array('count' => count($cached_languages)));
                 return $cached_languages;
             }
         }
@@ -87,23 +84,19 @@ class LanguageManager {
      * @since 1.0.0
      */
     public static function get_language($code) {
-        Logger::debug('Getting language by code', array('code' => $code));
-
         if (empty($code)) {
             Logger::warning('Empty language code provided');
             return null;
         }
 
         $languages = self::get_languages();
-        
+
         foreach ($languages as $language) {
             if (isset($language['code']) && $language['code'] === $code) {
-                Logger::debug('Language found', array('code' => $code, 'name' => $language['name'] ?? 'Unknown'));
                 return $language;
             }
         }
 
-        Logger::debug('Language not found', array('code' => $code));
         return null;
     }
 
@@ -142,7 +135,6 @@ class LanguageManager {
         // Auto-create landing page data if not provided
         if (empty($landing_page_data)) {
             $landing_page_data = self::generate_default_landing_page_data($language_data);
-            Logger::debug('Auto-generated landing page data', array('data' => $landing_page_data));
         }
 
         // Create landing page first (before saving language to ensure we have the ID)
@@ -293,7 +285,6 @@ class LanguageManager {
             if (isset($language['code']) && $language['code'] === $code) {
                 $language_found = true;
                 $deleted_language = $language;
-                Logger::debug('Language found for deletion', array('code' => $code, 'name' => $language['name'] ?? 'Unknown'));
             } else {
                 $updated_languages[] = $language;
             }
@@ -459,8 +450,6 @@ class LanguageManager {
         // Landing page ID (auto-created landing page reference)
         $sanitized['landing_page_id'] = isset($language_data['landing_page_id']) ? absint($language_data['landing_page_id']) : 0;
 
-        Logger::debug('Language data sanitized', array('original' => $language_data, 'sanitized' => $sanitized));
-
         return $sanitized;
     }
 
@@ -508,7 +497,6 @@ class LanguageManager {
             }
         }
 
-        Logger::debug('Retrieved enabled languages', array('count' => count($enabled_languages)));
         return $enabled_languages;
     }
 
@@ -523,7 +511,6 @@ class LanguageManager {
         $language = self::get_language($language_code);
 
         if (!$language) {
-            Logger::debug('Language not found for site metadata', array('language_code' => $language_code));
             return array();
         }
 
@@ -532,13 +519,6 @@ class LanguageManager {
             'site_title' => isset($language['site_title']) ? $language['site_title'] : '',
             'site_description' => isset($language['site_description']) ? $language['site_description'] : ''
         );
-
-        Logger::debug('Retrieved language site metadata', array(
-            'language_code' => $language_code,
-            'has_name' => !empty($metadata['site_name']),
-            'has_title' => !empty($metadata['site_title']),
-            'has_description' => !empty($metadata['site_description'])
-        ));
 
         return $metadata;
     }
@@ -550,7 +530,6 @@ class LanguageManager {
      */
     public static function clear_cache() {
         delete_transient(self::CACHE_KEY);
-        Logger::debug('Language cache cleared');
     }
 
     /**
@@ -589,7 +568,6 @@ class LanguageManager {
         if ($existing_post) {
             // Append language code to make it unique
             $slug = $slug . '-' . $language_code;
-            Logger::debug('Slug already exists, appending language code', array('new_slug' => $slug));
         }
 
         // Prepare post data
@@ -644,8 +622,6 @@ class LanguageManager {
      * @since 1.0.0
      */
     public static function get_landing_page_for_language($language_code) {
-        Logger::debug('Getting landing page for language', array('language_code' => $language_code));
-
         if (empty($language_code)) {
             return null;
         }
@@ -668,12 +644,6 @@ class LanguageManager {
                     'seo_description' => get_post_meta($post->ID, '_ez_translate_seo_description', true),
                     'group_id' => get_post_meta($post->ID, '_ez_translate_group', true)
                 );
-
-                Logger::debug('Landing page found via stored ID', array(
-                    'language_code' => $language_code,
-                    'post_id' => $post->ID,
-                    'title' => $post->post_title
-                ));
 
                 return $landing_page_data;
             } else {
@@ -699,7 +669,6 @@ class LanguageManager {
         ));
 
         if (empty($posts)) {
-            Logger::debug('No pages found for language', array('language_code' => $language_code));
             return null;
         }
 
@@ -717,12 +686,6 @@ class LanguageManager {
             'seo_description' => get_post_meta($post->ID, '_ez_translate_seo_description', true),
             'group_id' => get_post_meta($post->ID, '_ez_translate_group', true)
         );
-
-        Logger::debug('Landing page found via search fallback', array(
-            'language_code' => $language_code,
-            'post_id' => $post->ID,
-            'title' => $post->post_title
-        ));
 
         return $landing_page_data;
     }
@@ -833,12 +796,6 @@ class LanguageManager {
             'slug' => $default_slug,
             'status' => 'publish' // Auto-publish landing pages by default
         );
-
-        Logger::debug('Generated default landing page data', array(
-            'language_code' => $language_data['code'],
-            'title' => $default_title,
-            'slug' => $default_slug
-        ));
 
         return $landing_page_data;
     }
