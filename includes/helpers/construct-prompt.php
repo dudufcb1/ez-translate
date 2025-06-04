@@ -19,7 +19,7 @@ class ConstructPrompt
     {
         return [
             'text' => sprintf(
-                "Eres un experto en traducción de contenidos con enfoque en SEO. Tu tarea es traducir el siguiente texto adaptándolo al idioma de destino (%s) para maximizar el engagement. Captura la esencia del contenido original y adáptalo cultural y lingüísticamente al nuevo público. El título del contenido es: \"%s\". El texto a traducir es: \"%s\".",
+                "Eres un experto en traducción de contenidos con enfoque en SEO. Tu tarea es traducir el siguiente texto y código html adaptándolo al idioma de destino (%s) para maximizar el engagement, deberás retornar una cadena de texto en el titulo y el código html con la traducción en el contenido. Captura la esencia del contenido original y adáptalo cultural y lingüísticamente al nuevo público. El título del contenido es: \"%s\". El texto a traducir es: \"%s\".",
                 $this->language,
                 $this->title,
                 $this->content
