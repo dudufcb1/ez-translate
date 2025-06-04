@@ -81,7 +81,7 @@ class EZTranslateFrontendSEOTest {
             $frontend = new \EZTranslate\Frontend();
             
             // Check if wp_head action is registered
-            $wp_head_priority = has_action('wp_head', array($frontend, 'inject_seo_metadata'));
+            $wp_head_priority = has_action('wp_head', array($frontend, 'override_head_metadata'));
             $title_filter_priority = has_filter('document_title_parts', array($frontend, 'filter_document_title'));
 
             if ($wp_head_priority === false || $title_filter_priority === false) {
@@ -146,11 +146,10 @@ class EZTranslateFrontendSEOTest {
 
             // Test metadata injection
             $frontend = new \EZTranslate\Frontend();
-            $frontend->enable_test_mode();
 
             // Capture output
             ob_start();
-            $frontend->inject_seo_metadata();
+            $frontend->override_head_metadata();
             $output = ob_get_clean();
 
             // Check if metadata was injected
@@ -220,7 +219,6 @@ class EZTranslateFrontendSEOTest {
 
             // Test title filtering
             $frontend = new \EZTranslate\Frontend();
-            $frontend->enable_test_mode();
 
             $title_parts = array('title' => 'Original Title');
             $filtered_parts = $frontend->filter_document_title($title_parts);
@@ -286,7 +284,6 @@ class EZTranslateFrontendSEOTest {
 
             // Test meta description injection
             $frontend = new \EZTranslate\Frontend();
-            $frontend->enable_test_mode();
 
             // Capture output
             ob_start();
@@ -586,11 +583,10 @@ class EZTranslateFrontendSEOTest {
 
             // Test that no SEO metadata is injected
             $frontend = new \EZTranslate\Frontend();
-            $frontend->enable_test_mode();
 
             // Capture output
             ob_start();
-            $frontend->inject_seo_metadata();
+            $frontend->override_head_metadata();
             $output = ob_get_clean();
 
             // Test title filtering (should not change)

@@ -342,20 +342,7 @@ class PostMetaManager {
         return $is_valid;
     }
 
-    /**
-     * Get landing page for a specific language (LEGACY - REMOVED)
-     * This method is kept as a stub for backward compatibility
-     *
-     * @param string $language_code Language code
-     * @return int|null Always returns null (no landing pages)
-     * @since 1.0.0
-     */
-    public static function get_landing_page_for_language($language_code) {
-        // Legacy method - landing page functionality removed
-        // Return null for backward compatibility with existing tests
 
-        return null;
-    }
 
     /**
      * Get all posts in a translation group

@@ -161,8 +161,9 @@ function ez_translate_test_post_meta_manager() {
             'data' => array('post_id' => $test_post_id, 'metadata' => $all_metadata)
         );
 
-        // Test 14: Get Landing Page for Language
-        $landing_page_id = \EZTranslate\PostMetaManager::get_landing_page_for_language('en');
+        // Test 14: Get Landing Page for Language (using LanguageManager)
+        $landing_page_data = \EZTranslate\LanguageManager::get_landing_page_for_language('en');
+        $landing_page_id = $landing_page_data ? $landing_page_data['id'] : null;
         $results['get_landing_for_language'] = array(
             'status' => $landing_page_id === $test_post_id,
             'message' => $landing_page_id === $test_post_id ? 'Landing page found for language' : 'Failed to find landing page for language',

@@ -23,13 +23,7 @@ if (!defined('ABSPATH')) {
  */
 class Frontend {
 
-    /**
-     * Test mode flag - bypasses WordPress conditional checks for testing
-     *
-     * @var bool
-     * @since 1.0.0
-     */
-    private $test_mode = false;
+
 
     /**
      * Constructor
@@ -40,14 +34,7 @@ class Frontend {
         $this->init();
     }
 
-    /**
-     * Enable test mode (for unit testing)
-     *
-     * @since 1.0.0
-     */
-    public function enable_test_mode() {
-        $this->test_mode = true;
-    }
+
 
     /**
      * Initialize frontend functionality
@@ -78,13 +65,15 @@ class Frontend {
     public function filter_language_attributes($output) {
         global $post;
 
-        // Only process on singular pages (skip check in test mode)
-        if (!$this->test_mode && (!is_singular() || !$post)) {
-            return $output;
+        // Only process on singular pages (skip check in debug mode)
+        if (!defined('WP_DEBUG') || !WP_DEBUG) {
+            if (!is_singular() || !$post) {
+                return $output;
+            }
         }
 
-        // In test mode, ensure we have a post
-        if ($this->test_mode && !$post) {
+        // In debug mode, ensure we have a post
+        if ((defined('WP_DEBUG') && WP_DEBUG) && !$post) {
             return $output;
         }
 
@@ -115,13 +104,15 @@ class Frontend {
     public function override_head_metadata() {
         global $post;
 
-        // Only process on singular pages (skip check in test mode)
-        if (!$this->test_mode && (!is_singular() || !$post)) {
-            return;
+        // Only process on singular pages (skip check in debug mode)
+        if (!defined('WP_DEBUG') || !WP_DEBUG) {
+            if (!is_singular() || !$post) {
+                return;
+            }
         }
 
-        // In test mode, ensure we have a post
-        if ($this->test_mode && !$post) {
+        // In debug mode, ensure we have a post
+        if ((defined('WP_DEBUG') && WP_DEBUG) && !$post) {
             return;
         }
 
@@ -260,53 +251,7 @@ class Frontend {
         ));
     }
 
-    /**
-     * Inject SEO metadata for landing pages (DEPRECATED - replaced by override_head_metadata)
-     *
-     * @since 1.0.0
-     * @deprecated Will be removed in future version
-     */
-    public function inject_seo_metadata() {
-        global $post;
 
-        // Only process on singular pages (skip check in test mode)
-        if (!$this->test_mode && (!is_singular() || !$post)) {
-            return;
-        }
-
-        // In test mode, ensure we have a post
-        if ($this->test_mode && !$post) {
-            return;
-        }
-
-        // Check if this is a landing page
-        $is_landing = get_post_meta($post->ID, '_ez_translate_is_landing', true);
-        
-        if (!$is_landing) {
-            return;
-        }
-
-        // Get SEO metadata
-        $seo_title = get_post_meta($post->ID, '_ez_translate_seo_title', true);
-        $seo_description = get_post_meta($post->ID, '_ez_translate_seo_description', true);
-        $language = get_post_meta($post->ID, '_ez_translate_language', true);
-
-        Logger::info('Frontend: Injecting SEO metadata for landing page', array(
-            'post_id' => $post->ID,
-            'language' => $language,
-            'has_seo_title' => !empty($seo_title),
-            'has_seo_description' => !empty($seo_description)
-        ));
-
-        // Inject Open Graph metadata
-        $this->inject_open_graph_metadata($seo_title, $seo_description, $language);
-
-        // Inject Twitter Card metadata
-        $this->inject_twitter_card_metadata($seo_title, $seo_description);
-
-        // Inject JSON-LD structured data
-        $this->inject_json_ld_metadata($seo_title, $seo_description, $language);
-    }
 
     /**
      * Filter document title for pages with custom SEO titles and site names
@@ -318,13 +263,15 @@ class Frontend {
     public function filter_document_title($title_parts) {
         global $post;
 
-        // Only process on singular pages (skip check in test mode)
-        if (!$this->test_mode && (!is_singular() || !$post)) {
-            return $title_parts;
+        // Only process on singular pages (skip check in debug mode)
+        if (!defined('WP_DEBUG') || !WP_DEBUG) {
+            if (!is_singular() || !$post) {
+                return $title_parts;
+            }
         }
 
-        // In test mode, ensure we have a post
-        if ($this->test_mode && !$post) {
+        // In debug mode, ensure we have a post
+        if ((defined('WP_DEBUG') && WP_DEBUG) && !$post) {
             return $title_parts;
         }
 
@@ -359,13 +306,15 @@ class Frontend {
     public function inject_meta_description() {
         global $post;
 
-        // Only process on singular pages (skip check in test mode)
-        if (!$this->test_mode && (!is_singular() || !$post)) {
-            return;
+        // Only process on singular pages (skip check in debug mode)
+        if (!defined('WP_DEBUG') || !WP_DEBUG) {
+            if (!is_singular() || !$post) {
+                return;
+            }
         }
 
-        // In test mode, ensure we have a post
-        if ($this->test_mode && !$post) {
+        // In debug mode, ensure we have a post
+        if ((defined('WP_DEBUG') && WP_DEBUG) && !$post) {
             return;
         }
 
@@ -382,115 +331,11 @@ class Frontend {
         }
     }
 
-    /**
-     * Inject Open Graph metadata
-     *
-     * @param string $title SEO title
-     * @param string $description SEO description
-     * @param string $language Language code
-     * @since 1.0.0
-     */
-    private function inject_open_graph_metadata($title, $description, $language) {
-        global $post;
 
-        if (!empty($title)) {
-            echo '<meta property="og:title" content="' . esc_attr($title) . '">' . "\n";
-        }
 
-        if (!empty($description)) {
-            echo '<meta property="og:description" content="' . esc_attr($description) . '">' . "\n";
-        }
 
-        // Always include basic Open Graph data
-        echo '<meta property="og:type" content="website">' . "\n";
-        echo '<meta property="og:url" content="' . esc_url(get_permalink($post->ID)) . '">' . "\n";
 
-        if (!empty($language)) {
-            echo '<meta property="og:locale" content="' . esc_attr($this->convert_language_to_locale($language)) . '">' . "\n";
-        }
 
-        // Include featured image if available
-        if (has_post_thumbnail($post->ID)) {
-            $thumbnail_url = get_the_post_thumbnail_url($post->ID, 'large');
-            if ($thumbnail_url) {
-                echo '<meta property="og:image" content="' . esc_url($thumbnail_url) . '">' . "\n";
-            }
-        }
-    }
-
-    /**
-     * Inject Twitter Card metadata
-     *
-     * @param string $title SEO title
-     * @param string $description SEO description
-     * @since 1.0.0
-     */
-    private function inject_twitter_card_metadata($title, $description) {
-        global $post;
-
-        echo '<meta name="twitter:card" content="summary_large_image">' . "\n";
-
-        if (!empty($title)) {
-            echo '<meta name="twitter:title" content="' . esc_attr($title) . '">' . "\n";
-        }
-
-        if (!empty($description)) {
-            echo '<meta name="twitter:description" content="' . esc_attr($description) . '">' . "\n";
-        }
-
-        // Include featured image if available
-        if (has_post_thumbnail($post->ID)) {
-            $thumbnail_url = get_the_post_thumbnail_url($post->ID, 'large');
-            if ($thumbnail_url) {
-                echo '<meta name="twitter:image" content="' . esc_url($thumbnail_url) . '">' . "\n";
-            }
-        }
-    }
-
-    /**
-     * Inject JSON-LD structured data
-     *
-     * @param string $title SEO title
-     * @param string $description SEO description
-     * @param string $language Language code
-     * @since 1.0.0
-     */
-    private function inject_json_ld_metadata($title, $description, $language) {
-        global $post;
-
-        $json_ld = array(
-            '@context' => 'https://schema.org',
-            '@type' => 'WebPage',
-            'url' => get_permalink($post->ID),
-            'name' => !empty($title) ? $title : get_the_title($post->ID),
-            'description' => !empty($description) ? $description : get_the_excerpt($post->ID),
-            'inLanguage' => !empty($language) ? $language : get_locale(),
-            'datePublished' => get_the_date('c', $post->ID),
-            'dateModified' => get_the_modified_date('c', $post->ID),
-        );
-
-        // Add author information
-        $author_id = $post->post_author;
-        if ($author_id) {
-            $json_ld['author'] = array(
-                '@type' => 'Person',
-                'name' => get_the_author_meta('display_name', $author_id),
-                'url' => get_author_posts_url($author_id)
-            );
-        }
-
-        // Add featured image if available
-        if (has_post_thumbnail($post->ID)) {
-            $thumbnail_url = get_the_post_thumbnail_url($post->ID, 'large');
-            if ($thumbnail_url) {
-                $json_ld['image'] = $thumbnail_url;
-            }
-        }
-
-        echo '<script type="application/ld+json">' . "\n";
-        echo wp_json_encode($json_ld, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
-        echo '</script>' . "\n";
-    }
 
     /**
      * Convert language code to locale format
@@ -548,13 +393,15 @@ class Frontend {
     public function inject_hreflang_tags() {
         global $post;
 
-        // Only process on singular pages (skip check in test mode)
-        if (!$this->test_mode && (!is_singular() || !$post)) {
-            return;
+        // Only process on singular pages (skip check in debug mode)
+        if (!defined('WP_DEBUG') || !WP_DEBUG) {
+            if (!is_singular() || !$post) {
+                return;
+            }
         }
 
-        // In test mode, ensure we have a post
-        if ($this->test_mode && !$post) {
+        // In debug mode, ensure we have a post
+        if ((defined('WP_DEBUG') && WP_DEBUG) && !$post) {
             return;
         }
 
