@@ -1,5 +1,5 @@
 <?php
-namespace EZTranslate\Interfaces;
+namespace EZTranslate\Contracts;
 
 use EZTranslate\Helpers\ConstructPrompt;
 

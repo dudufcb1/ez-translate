@@ -16,6 +16,8 @@ if (!defined('ABSPATH')) {
 use EZTranslate\Logger;
 use EZTranslate\LanguageManager;
 use EZTranslate\PostMetaManager;
+use EZTranslate\Providers\GeminiProvider;
+use EZTranslate\Helpers\ConstructPrompt;
 use Exception;
 
 /**
@@ -471,12 +473,12 @@ class RestAPI {
             // Check if translation already exists
             if ($source_metadata['group']) {
                 $existing_translations = PostMetaManager::get_posts_in_group($source_metadata['group']);
-                foreach ($existing_translations as $translation) {
-                    $translation_meta = PostMetaManager::get_post_metadata($translation->ID);
-                    if ($translation_meta['language'] === $target_language) {
+                foreach ($existing_translations as $translation_id) {
+                    $translation_meta = PostMetaManager::get_post_metadata($translation_id);
+                    if (isset($translation_meta['language']) && $translation_meta['language'] === $target_language) {
                         return new \WP_Error('translation_exists', 'Translation already exists for this language', array(
                             'status' => 409,
-                            'existing_post_id' => $translation->ID
+                            'existing_post_id' => $translation_id
                         ));
                     }
                 }
@@ -500,10 +502,67 @@ class RestAPI {
                 ));
             }
 
+            // Prepare translation content
+            $translated_title = $source_post->post_title . ' (' . $language['name'] . ')';
+            $translated_content = $source_post->post_content;
+            $translation_method = 'copy'; // Default method
+
+            // Check if AI translation is enabled and available
+            if (LanguageManager::is_api_enabled()) {
+                try {
+                    Logger::info('REST API: Attempting AI translation', array(
+                        'source_post_id' => $source_post_id,
+                        'target_language' => $target_language,
+                        'source_title' => $source_post->post_title
+                    ));
+
+                    // Create prompt for translation
+                    $prompt = new ConstructPrompt(
+                        $source_post->post_title,
+                        $source_post->post_content,
+                        $language['name'] // Use full language name for better context
+                    );
+
+                    // Use Gemini provider for translation
+                    $gemini_provider = new GeminiProvider();
+                    $translation_result = $gemini_provider->generarTexto($prompt);
+
+                    if (isset($translation_result['title']) && isset($translation_result['content'])) {
+                        $translated_title = $translation_result['title'];
+                        $translated_content = $translation_result['content'];
+                        $translation_method = 'ai';
+
+                        Logger::info('REST API: AI translation successful', array(
+                            'source_post_id' => $source_post_id,
+                            'target_language' => $target_language,
+                            'translated_title' => $translated_title
+                        ));
+                    } else {
+                        Logger::warning('REST API: AI translation returned incomplete data, falling back to copy', array(
+                            'source_post_id' => $source_post_id,
+                            'target_language' => $target_language,
+                            'translation_result' => $translation_result
+                        ));
+                    }
+
+                } catch (Exception $translation_error) {
+                    Logger::warning('REST API: AI translation failed, falling back to copy', array(
+                        'source_post_id' => $source_post_id,
+                        'target_language' => $target_language,
+                        'error' => $translation_error->getMessage()
+                    ));
+                }
+            } else {
+                Logger::info('REST API: AI translation not enabled, using copy method', array(
+                    'source_post_id' => $source_post_id,
+                    'target_language' => $target_language
+                ));
+            }
+
             // Create the translation post
             $translation_data = array(
-                'post_title' => $source_post->post_title . ' (' . $language['name'] . ')',
-                'post_content' => $source_post->post_content,
+                'post_title' => $translated_title,
+                'post_content' => $translated_content,
                 'post_excerpt' => $source_post->post_excerpt,
                 'post_status' => 'draft', // Always create as draft
                 'post_type' => $source_post->post_type,
@@ -579,7 +638,9 @@ class RestAPI {
                 'source_post_id' => $source_post_id,
                 'target_language' => $target_language,
                 'group_id' => $group_id,
-                'parent_page_id' => $parent_id
+                'parent_page_id' => $parent_id,
+                'translation_method' => $translation_method,
+                'translated_title' => $translated_title
             );
 
             // Add landing page info if available

@@ -2,7 +2,7 @@
 
 namespace EZTranslate\Providers;
 
-use EZTranslate\Interfaces\AIProviderInterface;
+use EZTranslate\Contracts\AIProviderInterface;
 use EZTranslate\LanguageManager;
 use EZTranslate\Helpers\ConstructPrompt;
 use Exception;
@@ -10,7 +10,7 @@ use Exception;
 class GeminiProvider implements AIProviderInterface {
     private $api_key;
     private $model_id = "gemini-2.0-flash";
-    private $generate_content_api = "streamGenerateContent";
+    private $generate_content_api = "generateContent";
 
     public function __construct() {
         $this->api_key = LanguageManager::get_api_key();
@@ -61,8 +61,18 @@ class GeminiProvider implements AIProviderInterface {
 
         $jsonPayload = json_encode($payload);
         if ($jsonPayload === false) {
+            \EZTranslate\Logger::error('GeminiProvider: Error al codificar JSON del payload', array(
+                'payload' => $payload,
+                'json_error' => json_last_error_msg()
+            ));
             throw new Exception("Error al codificar JSON del payload.");
         }
+
+        \EZTranslate\Logger::info('GeminiProvider: Enviando request a la API', array(
+            'url' => $url,
+            'payload_size' => strlen($jsonPayload),
+            'prompt_text_length' => strlen($promptData['text'])
+        ));
 
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -84,25 +94,64 @@ class GeminiProvider implements AIProviderInterface {
         curl_close($ch);
 
         if ($httpCode !== 200) {
+            \EZTranslate\Logger::error('GeminiProvider: Error HTTP de la API', array(
+                'http_code' => $httpCode,
+                'response' => $response,
+                'url' => $url
+            ));
             throw new Exception("Error HTTP: código $httpCode");
         }
 
         $result = json_decode($response, true);
 
         if ($result === null) {
+            \EZTranslate\Logger::error('GeminiProvider: Error al decodificar JSON de la respuesta', array(
+                'response' => $response,
+                'json_error' => json_last_error_msg()
+            ));
             throw new Exception("Error al decodificar JSON de la respuesta.");
         }
 
+        // Log the complete API response for debugging
+        \EZTranslate\Logger::info('GeminiProvider: Respuesta completa de la API', array(
+            'response_structure' => $this->getResponseStructure($result),
+            'full_response' => $result
+        ));
+
         if (isset($result['candidates'][0]['content']['parts'][0]['text'])) {
-            $translationData = json_decode($result['candidates'][0]['content']['parts'][0]['text'], true);
-            
+            $translationText = $result['candidates'][0]['content']['parts'][0]['text'];
+
+            \EZTranslate\Logger::info('GeminiProvider: Texto de traducción extraído', array(
+                'translation_text' => $translationText
+            ));
+
+            $translationData = json_decode($translationText, true);
+
             if (json_last_error() !== JSON_ERROR_NONE) {
+                \EZTranslate\Logger::error('GeminiProvider: Error al decodificar la respuesta de traducción', array(
+                    'translation_text' => $translationText,
+                    'json_error' => json_last_error_msg()
+                ));
                 throw new Exception("Error al decodificar la respuesta de traducción.");
             }
 
+            \EZTranslate\Logger::info('GeminiProvider: Datos de traducción decodificados', array(
+                'translation_data' => $translationData
+            ));
+
             if (!isset($translationData['translated_title']) || !isset($translationData['translated_content'])) {
+                \EZTranslate\Logger::error('GeminiProvider: La respuesta no contiene los campos requeridos', array(
+                    'translation_data' => $translationData,
+                    'has_title' => isset($translationData['translated_title']),
+                    'has_content' => isset($translationData['translated_content'])
+                ));
                 throw new Exception("La respuesta no contiene los campos requeridos de traducción.");
             }
+
+            \EZTranslate\Logger::info('GeminiProvider: Traducción exitosa', array(
+                'translated_title' => $translationData['translated_title'],
+                'content_length' => strlen($translationData['translated_content'])
+            ));
 
             return [
                 'title' => $translationData['translated_title'],
@@ -110,6 +159,40 @@ class GeminiProvider implements AIProviderInterface {
             ];
         }
 
+        \EZTranslate\Logger::error('GeminiProvider: Estructura de respuesta inesperada', array(
+            'response_structure' => $this->getResponseStructure($result),
+            'expected_path' => 'candidates[0].content.parts[0].text'
+        ));
+
         throw new Exception("Respuesta inesperada de la API.");
+    }
+
+    /**
+     * Helper method to get the structure of the API response for debugging
+     *
+     * @param array $data The response data
+     * @return array Structure description
+     */
+    private function getResponseStructure($data) {
+        if (!is_array($data)) {
+            return ['type' => gettype($data)];
+        }
+
+        $structure = [];
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                $structure[$key] = [
+                    'type' => 'array',
+                    'count' => count($value),
+                    'keys' => is_array($value) && !empty($value) ? array_keys($value) : []
+                ];
+            } else {
+                $structure[$key] = [
+                    'type' => gettype($value),
+                    'length' => is_string($value) ? strlen($value) : null
+                ];
+            }
+        }
+        return $structure;
     }
 }
