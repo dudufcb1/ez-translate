@@ -48,9 +48,16 @@ class Admin {
     private function init_hooks() {
         // Admin menu
         add_action('admin_menu', array($this, 'add_admin_menu'));
-        
+
         // Admin styles and scripts
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
+
+        // Landing Page column in pages list
+        add_filter('manage_pages_columns', array($this, 'add_landing_page_column'));
+        add_action('manage_pages_custom_column', array($this, 'show_landing_page_column_content'), 10, 2);
+
+        // Landing Pages table below main pages list
+        add_action('all_admin_notices', array($this, 'add_landing_pages_table'));
     }
 
     /**
@@ -1570,6 +1577,217 @@ class Admin {
             $('#seo_title, #seo_description').on('input', updateSeoCounters);
         });
         </script>
+        <?php
+    }
+
+    /**
+     * Add Landing Page column to pages list
+     *
+     * @param array $columns Existing columns
+     * @return array Modified columns
+     * @since 1.0.0
+     */
+    public function add_landing_page_column($columns) {
+        // Insert after the 'title' column
+        $new_columns = array();
+        foreach ($columns as $key => $value) {
+            $new_columns[$key] = $value;
+            if ($key === 'title') {
+                $new_columns['ez_translate_landing'] = __('Landing Page', 'ez-translate');
+            }
+        }
+        return $new_columns;
+    }
+
+    /**
+     * Show Landing Page column content
+     *
+     * @param string $column_name Column name
+     * @param int    $post_id     Post ID
+     * @since 1.0.0
+     */
+    public function show_landing_page_column_content($column_name, $post_id) {
+        if ($column_name === 'ez_translate_landing') {
+            // Get all languages to check if this page is a landing page
+            require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-manager.php';
+            $languages = \EZTranslate\LanguageManager::get_languages();
+
+            // Check if this post ID matches any landing_page_id
+            foreach ($languages as $language) {
+                if (!empty($language['landing_page_id']) && $language['landing_page_id'] == $post_id) {
+                    $language_code = strtoupper(esc_html($language['code']));
+                    echo '<strong style="color: #0073aa;">LP-' . $language_code . '</strong>';
+                    return;
+                }
+            }
+            // If not a landing page, show nothing (empty column)
+        }
+    }
+
+    /**
+     * Add Landing Pages table below main pages list
+     *
+     * @since 1.0.0
+     */
+    public function add_landing_pages_table() {
+        global $typenow, $pagenow;
+
+        // Only on the pages edit screen
+        if ($pagenow !== 'edit.php' || $typenow !== 'page') {
+            return;
+        }
+
+        // Get all landing pages
+        $landing_pages = $this->get_all_landing_pages();
+
+        if (empty($landing_pages)) {
+            return;
+        }
+
+        // Render the table
+        $this->render_landing_pages_table($landing_pages);
+    }
+
+    /**
+     * Get all landing pages
+     *
+     * @return array Array of landing page data
+     * @since 1.0.0
+     */
+    private function get_all_landing_pages() {
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-manager.php';
+        $languages = \EZTranslate\LanguageManager::get_languages();
+
+        $landing_pages = array();
+
+        foreach ($languages as $language) {
+            if (!empty($language['landing_page_id'])) {
+                $post = get_post($language['landing_page_id']);
+
+                if ($post && $post->post_type === 'page') {
+                    $landing_pages[] = array(
+                        'id' => $post->ID,
+                        'title' => $post->post_title,
+                        'language' => $language['code'],
+                        'language_name' => $language['name'],
+                        'seo_title' => get_post_meta($post->ID, '_ez_translate_seo_title', true),
+                        'seo_description' => get_post_meta($post->ID, '_ez_translate_seo_description', true),
+                        'status' => $post->post_status,
+                        'edit_url' => get_edit_post_link($post->ID),
+                        'view_url' => get_permalink($post->ID),
+                        'last_modified' => $post->post_modified
+                    );
+                }
+            }
+        }
+
+        // Sort by language code
+        usort($landing_pages, function($a, $b) {
+            return strcmp($a['language'], $b['language']);
+        });
+
+        return $landing_pages;
+    }
+
+    /**
+     * Render Landing Pages table
+     *
+     * @param array $landing_pages Array of landing page data
+     * @since 1.0.0
+     */
+    private function render_landing_pages_table($landing_pages) {
+        ?>
+        <div class="ez-translate-landing-pages-section" style="margin: 20px 0; clear: both;">
+            <div class="postbox" style="margin-top: 20px;">
+                <div class="postbox-header">
+                    <h2 class="hndle"><?php _e('Landing Pages', 'ez-translate'); ?></h2>
+                </div>
+                <div class="inside">
+                    <p class="description" style="margin-bottom: 15px;">
+                        <?php _e('All pages configured as Landing Pages for different languages.', 'ez-translate'); ?>
+                    </p>
+
+            <table class="wp-list-table widefat fixed striped">
+                <thead>
+                    <tr>
+                        <th scope="col" style="width: 35%;"><?php _e('Title', 'ez-translate'); ?></th>
+                        <th scope="col" style="width: 15%;"><?php _e('Language', 'ez-translate'); ?></th>
+                        <th scope="col" style="width: 15%;"><?php _e('Status', 'ez-translate'); ?></th>
+                        <th scope="col" style="width: 20%;"><?php _e('Last Modified', 'ez-translate'); ?></th>
+                        <th scope="col" style="width: 15%;"><?php _e('Actions', 'ez-translate'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($landing_pages as $page): ?>
+                    <tr>
+                        <td>
+                            <strong>
+                                <a href="<?php echo esc_url($page['edit_url']); ?>">
+                                    <?php echo esc_html($page['title']); ?>
+                                </a>
+                            </strong>
+                            <?php if (!empty($page['seo_title'])): ?>
+                                <br><small style="color: #666;">
+                                    SEO: <?php echo esc_html($page['seo_title']); ?>
+                                </small>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <span class="ez-translate-language-badge" style="background: #0073aa; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 600;">
+                                <?php echo strtoupper(esc_html($page['language'])); ?>
+                            </span>
+                            <br><small style="color: #666;">
+                                <?php echo esc_html($page['language_name']); ?>
+                            </small>
+                        </td>
+                        <td>
+                            <?php
+                            $status_colors = array(
+                                'publish' => '#00a32a',
+                                'draft' => '#d63638',
+                                'private' => '#dba617'
+                            );
+                            $status_color = $status_colors[$page['status']] ?? '#666';
+                            ?>
+                            <span style="color: <?php echo $status_color; ?>; font-weight: 600;">
+                                <?php echo ucfirst(esc_html($page['status'])); ?>
+                            </span>
+                        </td>
+                        <td>
+                            <?php echo esc_html(date('M j, Y \a\t g:i A', strtotime($page['last_modified']))); ?>
+                        </td>
+                        <td>
+                            <a href="<?php echo esc_url($page['edit_url']); ?>" class="button button-small">
+                                <?php _e('Edit', 'ez-translate'); ?>
+                            </a>
+                            <?php if ($page['status'] === 'publish'): ?>
+                                <a href="<?php echo esc_url($page['view_url']); ?>" class="button button-small" target="_blank">
+                                    <?php _e('View', 'ez-translate'); ?>
+                                </a>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+                    </table>
+
+                    <p style="margin-top: 15px;">
+                        <a href="<?php echo admin_url('admin.php?page=ez-translate'); ?>" class="button button-primary">
+                            <?php _e('Manage Languages', 'ez-translate'); ?>
+                        </a>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <style>
+        .ez-translate-landing-pages-section {
+            max-width: none !important;
+        }
+        .ez-translate-landing-pages-section .postbox {
+            max-width: none !important;
+        }
+        </style>
         <?php
     }
 

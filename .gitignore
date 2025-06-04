@@ -43,3 +43,7 @@ node_modules/
 *.bak
 *.backup
 *~
+
+# Documentation files (exclude all .md files except architecture.md)
+*.md
+!memory_bank/architecture.md

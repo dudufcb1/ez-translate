@@ -718,3 +718,137 @@ EZ Translate Plugin (Post-Eliminación)
 - **Performance**: Mínimo impacto (carga bajo demanda)
 
 Esta implementación completa el sistema de verificación de traducciones, proporcionando una experiencia de usuario fluida y previniendo errores comunes en la gestión de contenido multilingüe.
+
+## 📊 MEJORA 6: Landing Pages en Lista de Páginas del Admin
+
+### Descripción General
+Implementación de una columna "Landing Page" en la lista de páginas de WordPress (`wp-admin/edit.php?post_type=page`) que identifica visualmente las landing pages y una tabla adicional que muestra todas las landing pages configuradas.
+
+### Características Implementadas
+
+#### 1. **Columna "Landing Page" en Lista Principal**
+- **Ubicación**: Insertada después de la columna "Title"
+- **Contenido**: Muestra "LP-{CÓDIGO}" para landing pages (ej: "LP-EN", "LP-ES")
+- **Estilo**: Texto en negrita con color azul WordPress (#0073aa)
+- **Comportamiento**: Columna vacía para páginas regulares
+
+#### 2. **Tabla Adicional de Landing Pages**
+- **Ubicación**: Debajo de la tabla principal de páginas
+- **Visibilidad**: Solo aparece si existen landing pages configuradas
+- **Información mostrada**:
+  - Título de la página con enlace de edición
+  - Título SEO (si está configurado)
+  - Código de idioma con badge visual
+  - Nombre completo del idioma
+  - Estado de publicación con colores
+  - Fecha de última modificación
+  - Botones de acción (Edit/View)
+
+#### 3. **Integración con Sistema de Idiomas**
+- **Detección**: Mapea IDs de páginas contra `landing_page_id` en configuración de idiomas
+- **Datos**: Obtiene información desde `LanguageManager::get_languages()`
+- **Ordenamiento**: Páginas ordenadas alfabéticamente por código de idioma
+- **Metadatos**: Incluye títulos y descripciones SEO desde post meta
+
+### Implementación Técnica
+
+#### Hooks de WordPress Utilizados
+```php
+// Agregar columna a lista de páginas
+add_filter('manage_pages_columns', array($this, 'add_landing_page_column'));
+
+// Mostrar contenido de la columna
+add_action('manage_pages_custom_column', array($this, 'show_landing_page_column_content'), 10, 2);
+
+// Tabla adicional en footer de página
+add_action('admin_footer-edit.php', array($this, 'add_landing_pages_table'));
+```
+
+#### Métodos Implementados en Admin Class
+
+**`add_landing_page_column($columns)`**:
+- Inserta nueva columna después de "Title"
+- Retorna array modificado de columnas
+
+**`show_landing_page_column_content($column_name, $post_id)`**:
+- Verifica si el post ID coincide con algún `landing_page_id`
+- Muestra "LP-{CÓDIGO}" para landing pages
+- Columna vacía para páginas regulares
+
+**`add_landing_pages_table()`**:
+- Solo ejecuta en páginas de tipo 'page'
+- Obtiene landing pages y renderiza tabla si existen
+
+**`get_all_landing_pages()`**:
+- Consulta configuración de idiomas
+- Valida existencia de páginas
+- Recopila metadatos completos
+- Ordena por código de idioma
+
+**`render_landing_pages_table($landing_pages)`**:
+- Renderiza tabla HTML completa
+- Estilos integrados con WordPress admin
+- Enlaces de acción contextuales
+- Información SEO cuando disponible
+
+### Características de UX
+
+#### Identificación Visual
+- **Landing Pages**: Badge azul con código de idioma en mayúsculas
+- **Estados**: Colores diferenciados (Publish: verde, Draft: rojo, Private: amarillo)
+- **Metadatos SEO**: Mostrados como texto secundario bajo el título
+
+#### Navegación Mejorada
+- **Enlaces directos**: Edit y View desde la tabla
+- **Gestión centralizada**: Botón "Manage Languages" al final de la tabla
+- **Información contextual**: Descripción explicativa de la funcionalidad
+
+#### Responsive Design
+- **Anchos de columna**: Optimizados para diferentes tamaños de pantalla
+- **Estilos nativos**: Usa clases CSS de WordPress admin
+- **Compatibilidad**: Funciona con temas admin personalizados
+
+### Beneficios para el Usuario
+
+#### Visibilidad Mejorada
+- **Identificación rápida**: Landing pages claramente marcadas en lista principal
+- **Vista consolidada**: Todas las landing pages en una tabla dedicada
+- **Información completa**: Estado, idioma, SEO y fechas en un solo lugar
+
+#### Gestión Eficiente
+- **Acceso directo**: Enlaces de edición desde la lista principal
+- **Contexto claro**: Código de idioma siempre visible
+- **Navegación fluida**: Integración con sistema de gestión de idiomas
+
+#### Prevención de Errores
+- **Identificación clara**: Evita modificar landing pages por error
+- **Estado visible**: Información de publicación inmediatamente disponible
+- **Metadatos accesibles**: Títulos SEO visibles para verificación rápida
+
+### Integración con Arquitectura Existente
+
+#### Compatibilidad
+- **Sin conflictos**: No interfiere con otros plugins de gestión de páginas
+- **Hooks estándar**: Usa APIs nativas de WordPress
+- **Performance**: Ejecución condicional solo en páginas relevantes
+
+#### Mantenibilidad
+- **Código modular**: Métodos separados por responsabilidad
+- **Documentación**: PHPDoc completo para todos los métodos
+- **Estándares**: Sigue convenciones de WordPress y del plugin
+
+#### Escalabilidad
+- **Extensible**: Estructura preparada para funcionalidades adicionales
+- **Configurable**: Fácil modificación de estilos y contenido
+- **Optimizado**: Consultas eficientes para grandes cantidades de páginas
+
+### Métricas de Implementación
+
+- **Nuevos Métodos**: 5 métodos en clase Admin
+- **Hooks Agregados**: 3 hooks de WordPress
+- **Líneas de Código**: ~150 líneas nuevas
+- **Archivos Modificados**: 1 archivo (`class-ez-translate-admin.php`)
+- **Compatibilidad**: WordPress 5.8+ (hooks estándar)
+- **Performance**: Impacto mínimo (solo en admin de páginas)
+
+Esta funcionalidad mejora significativamente la experiencia de gestión de landing pages multiidioma, proporcionando visibilidad clara y acceso directo a todas las funciones relacionadas desde la interfaz estándar de WordPress.
