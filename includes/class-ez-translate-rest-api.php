@@ -1222,20 +1222,46 @@ class RestAPI {
                 'threshold' => $threshold
             ));
 
-            // Get existing post titles (excluding current post)
+            // Get existing post titles with IDs (excluding current post)
             global $wpdb;
-            $existing_titles = $wpdb->get_col($wpdb->prepare(
-                "SELECT post_title FROM {$wpdb->posts}
+            $existing_posts = $wpdb->get_results($wpdb->prepare(
+                "SELECT ID, post_title, post_type FROM {$wpdb->posts}
                  WHERE post_status = 'publish'
                  AND post_type IN ('post', 'page')
                  AND ID != %d
                  AND post_title != ''",
                 $post_id
-            ));
+            ), ARRAY_A);
+
+            // Extract just titles for similarity check
+            $existing_titles = array_column($existing_posts, 'post_title');
 
             // Use SEO Gemini provider for similarity check
             $seo_provider = new \EZTranslate\Providers\SeoGeminiProvider();
             $similarity_result = $seo_provider->checkTitleSimilarity($title, $existing_titles, $threshold);
+
+            // If similar titles found, add post details (ID, URL)
+            if ($similarity_result['is_similar'] && !empty($similarity_result['similar_titles'])) {
+                $similar_posts_details = array();
+
+                foreach ($similarity_result['similar_titles'] as $similar_title) {
+                    // Find the post with this title
+                    foreach ($existing_posts as $post_data) {
+                        if ($post_data['post_title'] === $similar_title) {
+                            $similar_posts_details[] = array(
+                                'id' => $post_data['ID'],
+                                'title' => $post_data['post_title'],
+                                'type' => $post_data['post_type'],
+                                'url' => get_permalink($post_data['ID']),
+                                'edit_url' => get_edit_post_link($post_data['ID'])
+                            );
+                            break;
+                        }
+                    }
+                }
+
+                $similarity_result['similar_posts'] = $similar_posts_details;
+            }
 
             Logger::info('REST API: Title similarity check completed', array(
                 'post_id' => $post_id,

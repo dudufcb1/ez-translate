@@ -47,6 +47,7 @@
         const [aiError, setAiError] = useState(null);
         const [seoValidation, setSeoValidation] = useState({});
         const [similarityCheck, setSimilarityCheck] = useState({});
+        const [manualCheckResult, setManualCheckResult] = useState(null);
 
         // Landing page functionality removed - legacy state removed
 
@@ -111,6 +112,14 @@
                 });
             }
         }, [currentSeoTitle, currentSeoDescription, currentOgTitle]);
+
+        // Clear manual check result when post title changes
+        useEffect(() => {
+            if (manualCheckResult && manualCheckResult.title !== postTitle) {
+                setManualCheckResult(null);
+                setSimilarityCheck({}); // Also clear similarity check
+            }
+        }, [postTitle, manualCheckResult]);
 
         /**
          * Load available languages from API
@@ -404,6 +413,24 @@
         };
 
         /**
+         * Get current title from editor (including unsaved changes)
+         */
+        const getCurrentEditorTitle = () => {
+            // Try to get from Gutenberg data store first (most reliable)
+            if (postTitle) {
+                return postTitle.trim();
+            }
+
+            // Fallback: try to get from DOM if data store is empty
+            const titleElement = document.querySelector('.editor-post-title__input, .wp-block-post-title');
+            if (titleElement) {
+                return titleElement.textContent.trim();
+            }
+
+            return '';
+        };
+
+        /**
          * Check title similarity
          */
         const checkTitleSimilarity = async (title) => {
@@ -423,6 +450,50 @@
                 }
             } catch (err) {
                 console.error('Failed to check title similarity:', err);
+            }
+        };
+
+        /**
+         * Manual similarity check for current title
+         */
+        const checkCurrentTitleSimilarity = async () => {
+            const currentTitle = getCurrentEditorTitle();
+
+            if (!currentTitle || currentTitle.length < 3) {
+                setAiError(__('Please enter a title of at least 3 characters to check for similarities.', 'ez-translate'));
+                return;
+            }
+
+            setAiLoading(true);
+            setAiError(null);
+            setManualCheckResult(null);
+
+            try {
+                const response = await apiFetch({
+                    path: 'ez-translate/v1/check-title-similarity',
+                    method: 'POST',
+                    data: {
+                        post_id: postId,
+                        title: currentTitle,
+                        threshold: 0.85
+                    }
+                });
+
+                if (response.success) {
+                    setSimilarityCheck(response.data);
+                    setManualCheckResult({
+                        title: currentTitle,
+                        checked: true,
+                        timestamp: new Date().toLocaleTimeString()
+                    });
+                } else {
+                    setAiError(__('Failed to check title similarity. Please try again.', 'ez-translate'));
+                }
+            } catch (err) {
+                console.error('Failed to check title similarity:', err);
+                setAiError(__('Failed to check title similarity. Please try again.', 'ez-translate'));
+            } finally {
+                setAiLoading(false);
             }
         };
 
@@ -759,6 +830,166 @@
                     )
                 ),
 
+                // Manual Title Similarity Check
+                el('div', {
+                    style: {
+                        marginBottom: '20px',
+                        padding: '12px',
+                        backgroundColor: '#f8f9fa',
+                        border: '1px solid #dee2e6',
+                        borderRadius: '4px'
+                    }
+                },
+                    el('div', { style: { display: 'flex', alignItems: 'center', marginBottom: '10px' } },
+                        el('span', { className: 'dashicons dashicons-search', style: { marginRight: '8px', color: '#6c757d' } }),
+                        el('strong', { style: { color: '#495057', fontSize: '13px' } }, __('Title Similarity Check', 'ez-translate'))
+                    ),
+
+                    el('div', { style: { display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' } },
+                        el('button', {
+                            className: 'components-button is-secondary',
+                            onClick: checkCurrentTitleSimilarity,
+                            disabled: aiLoading,
+                            style: { flex: '1' }
+                        },
+                            aiLoading
+                                ? el('span', null,
+                                    el('span', { className: 'dashicons dashicons-update', style: { animation: 'rotation 1s infinite linear', marginRight: '6px' } }),
+                                    __('Checking...', 'ez-translate')
+                                  )
+                                : el('span', null,
+                                    el('span', { className: 'dashicons dashicons-search', style: { marginRight: '6px' } }),
+                                    __('Check Current Title', 'ez-translate')
+                                  )
+                        ),
+
+                        manualCheckResult && el('span', {
+                            style: {
+                                fontSize: '11px',
+                                color: '#6c757d',
+                                fontStyle: 'italic'
+                            }
+                        }, __('Last check:', 'ez-translate') + ' ' + manualCheckResult.timestamp)
+                    ),
+
+                    el('p', { style: { margin: '0', fontSize: '11px', color: '#6c757d' } },
+                        __('Check if your current title is similar to existing content before saving. Helps prevent SEO cannibalization.', 'ez-translate')
+                    ),
+
+                    // Manual check result
+                    manualCheckResult && !similarityCheck.is_similar && el('div', {
+                        style: {
+                            marginTop: '8px',
+                            padding: '8px',
+                            backgroundColor: '#d1edff',
+                            border: '1px solid #0073aa',
+                            borderRadius: '3px'
+                        }
+                    },
+                        el('div', { style: { display: 'flex', alignItems: 'center' } },
+                            el('span', { className: 'dashicons dashicons-yes-alt', style: { color: '#00a32a', marginRight: '6px' } }),
+                            el('span', { style: { fontSize: '12px', color: '#0073aa', fontWeight: 'bold' } },
+                                __('✓ Title is unique!', 'ez-translate')
+                            )
+                        ),
+                        el('p', { style: { margin: '4px 0 0 0', fontSize: '11px', color: '#0073aa' } },
+                            __('No similar titles found. This title should work well for SEO.', 'ez-translate')
+                        )
+                    ),
+
+                    // Similarity Warning (right after manual check)
+                    similarityCheck.is_similar && el('div', {
+                        style: {
+                            marginTop: '12px',
+                            padding: '12px',
+                            backgroundColor: '#fff3cd',
+                            border: '1px solid #ffeaa7',
+                            borderRadius: '4px'
+                        }
+                    },
+                        el('div', { style: { display: 'flex', alignItems: 'center', marginBottom: '8px' } },
+                            el('span', { className: 'dashicons dashicons-warning', style: { color: '#856404', marginRight: '8px' } }),
+                            el('strong', { style: { color: '#856404' } }, __('⚠️ Similar Title Detected', 'ez-translate'))
+                        ),
+                        el('p', { style: { margin: '0 0 8px 0', fontSize: '13px', color: '#856404' } },
+                            __('Your title is similar to existing content. This may cause SEO cannibalization.', 'ez-translate')
+                        ),
+                        el('div', { style: { marginBottom: '8px' } },
+                            el('p', { style: { margin: '0 0 4px 0', fontSize: '12px', color: '#6c757d' } },
+                                __('Similarity score:', 'ez-translate') + ' ' + Math.round(similarityCheck.similarity_score * 100) + '%'
+                            ),
+                            similarityCheck.similar_posts && similarityCheck.similar_posts.length > 0 && el('div', { style: { margin: '4px 0' } },
+                                el('p', { style: { margin: '0 0 6px 0', fontSize: '12px', color: '#6c757d', fontWeight: 'bold' } },
+                                    __('Similar content found:', 'ez-translate')
+                                ),
+                                ...similarityCheck.similar_posts.slice(0, 3).map((post, index) =>
+                                    el('div', {
+                                        key: index,
+                                        style: {
+                                            margin: '3px 0',
+                                            padding: '6px 8px',
+                                            backgroundColor: '#f8f9fa',
+                                            border: '1px solid #e9ecef',
+                                            borderRadius: '3px',
+                                            fontSize: '11px'
+                                        }
+                                    },
+                                        el('div', { style: { marginBottom: '3px' } },
+                                            el('span', { style: { color: '#495057', fontWeight: 'bold' } }, post.title),
+                                            el('span', {
+                                                style: {
+                                                    marginLeft: '6px',
+                                                    fontSize: '10px',
+                                                    color: '#6c757d',
+                                                    textTransform: 'uppercase'
+                                                }
+                                            }, post.type)
+                                        ),
+                                        el('div', { style: { display: 'flex', gap: '8px' } },
+                                            el('a', {
+                                                href: post.url,
+                                                target: '_blank',
+                                                style: {
+                                                    color: '#0073aa',
+                                                    textDecoration: 'none',
+                                                    fontSize: '10px'
+                                                },
+                                                title: __('View in frontend (new tab)', 'ez-translate')
+                                            }, '🔗 ' + __('View', 'ez-translate')),
+                                            el('a', {
+                                                href: post.edit_url,
+                                                target: '_blank',
+                                                style: {
+                                                    color: '#d63638',
+                                                    textDecoration: 'none',
+                                                    fontSize: '10px'
+                                                },
+                                                title: __('Edit post (new tab)', 'ez-translate')
+                                            }, '✏️ ' + __('Edit', 'ez-translate'))
+                                        )
+                                    )
+                                ),
+                                similarityCheck.similar_posts && similarityCheck.similar_posts.length > 3 && el('p', {
+                                    style: { margin: '4px 0 0 0', fontSize: '11px', color: '#6c757d', fontStyle: 'italic' }
+                                }, __('...and', 'ez-translate') + ' ' + (similarityCheck.similar_posts.length - 3) + ' ' + __('more similar posts', 'ez-translate'))
+                            )
+                        ),
+                        el('div', { style: { display: 'flex', gap: '8px', marginTop: '8px' } },
+                            el('button', {
+                                className: 'components-button is-small is-tertiary',
+                                onClick: () => generateAlternativeTitle(getCurrentEditorTitle()),
+                                disabled: aiLoading
+                            }, __('💡 Suggest Alternative', 'ez-translate')),
+
+                            el('button', {
+                                className: 'components-button is-small is-link',
+                                onClick: checkCurrentTitleSimilarity,
+                                disabled: aiLoading
+                            }, __('🔄 Recheck', 'ez-translate'))
+                        )
+                    )
+                ),
+
                 // Generate All SEO Fields Button
                 el('div', { style: { marginBottom: '20px', textAlign: 'center' } },
                     el('button', {
@@ -937,28 +1168,6 @@
                     ),
                     el('p', { style: { margin: '4px 0 0 0', fontSize: '11px', color: '#666' } },
                         __('Used when sharing on social media. Defaults to SEO title if empty.', 'ez-translate')
-                    )
-                ),
-
-                // Similarity Warning
-                similarityCheck.is_similar && el('div', {
-                    style: {
-                        padding: '12px',
-                        backgroundColor: '#fff3cd',
-                        border: '1px solid #ffeaa7',
-                        borderRadius: '4px',
-                        marginBottom: '16px'
-                    }
-                },
-                    el('div', { style: { display: 'flex', alignItems: 'center', marginBottom: '8px' } },
-                        el('span', { className: 'dashicons dashicons-warning', style: { color: '#856404', marginRight: '8px' } }),
-                        el('strong', { style: { color: '#856404' } }, __('Similar Title Detected', 'ez-translate'))
-                    ),
-                    el('p', { style: { margin: '0 0 8px 0', fontSize: '13px', color: '#856404' } },
-                        __('Your title is similar to existing content. This may cause SEO cannibalization.', 'ez-translate')
-                    ),
-                    el('p', { style: { margin: '0', fontSize: '12px', color: '#6c757d' } },
-                        __('Similarity score:', 'ez-translate') + ' ' + Math.round(similarityCheck.similarity_score * 100) + '%'
                     )
                 ),
 
