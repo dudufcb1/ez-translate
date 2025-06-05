@@ -411,6 +411,12 @@ class Frontend {
             return;
         }
 
+        // Check if this is the homepage and we have landing pages configured
+        if ($this->is_homepage($post->ID) && $this->has_landing_pages()) {
+            $this->inject_landing_page_hreflang_tags($post->ID);
+            return;
+        }
+
         // Regular translation group logic for non-landing pages
         $current_language = get_post_meta($post->ID, '_ez_translate_language', true);
         $translation_group = get_post_meta($post->ID, '_ez_translate_group', true);
@@ -1056,6 +1062,48 @@ class Frontend {
     }
 
     /**
+     * Check if a post is the homepage
+     *
+     * @param int $post_id Post ID
+     * @return bool True if it's the homepage
+     * @since 1.0.0
+     */
+    private function is_homepage($post_id) {
+        // Check if this is the front page
+        $front_page_id = get_option('page_on_front', 0);
+
+        if ($front_page_id && $front_page_id == $post_id) {
+            return true;
+        }
+
+        // Check if this is the blog page when front page shows posts
+        if (get_option('show_on_front') === 'posts' && is_home()) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if there are landing pages configured
+     *
+     * @return bool True if landing pages exist
+     * @since 1.0.0
+     */
+    private function has_landing_pages() {
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-manager.php';
+        $languages = \EZTranslate\LanguageManager::get_languages();
+
+        foreach ($languages as $language) {
+            if (!empty($language['landing_page_id'])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Inject hreflang tags specifically for landing pages
      *
      * @param int $current_post_id Current landing page post ID
@@ -1083,13 +1131,6 @@ class Frontend {
         $wp_locale = get_locale();
         $original_language = strstr($wp_locale, '_', true) ?: $wp_locale; // es_MX -> es
         $homepage_url = home_url('/');
-
-        // Always add homepage as the original site language
-        $original_language_post = array(
-            'url' => $homepage_url,
-            'language' => $original_language,
-            'post_id' => get_option('page_on_front', 0)
-        );
 
         // Set x-default (for usability - usually English)
         $default_language_post = null;
