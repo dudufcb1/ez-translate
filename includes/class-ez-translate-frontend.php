@@ -405,7 +405,13 @@ class Frontend {
             return;
         }
 
-        // Get the current post's language and translation group
+        // Check if this is a landing page first
+        if ($this->is_landing_page($post->ID)) {
+            $this->inject_landing_page_hreflang_tags($post->ID);
+            return;
+        }
+
+        // Regular translation group logic for non-landing pages
         $current_language = get_post_meta($post->ID, '_ez_translate_language', true);
         $translation_group = get_post_meta($post->ID, '_ez_translate_group', true);
 
@@ -1025,5 +1031,175 @@ class Frontend {
 
         // Default to English as it's most universally understood
         return 'en';
+    }
+
+    /**
+     * Check if a post is a landing page
+     *
+     * @param int $post_id Post ID
+     * @return bool True if it's a landing page
+     * @since 1.0.0
+     */
+    private function is_landing_page($post_id) {
+        // Load language manager to get languages configuration
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-manager.php';
+        $languages = \EZTranslate\LanguageManager::get_languages();
+
+        // Check if this post ID is configured as a landing page for any language
+        foreach ($languages as $language) {
+            if (!empty($language['landing_page_id']) && $language['landing_page_id'] == $post_id) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Inject hreflang tags specifically for landing pages
+     *
+     * @param int $current_post_id Current landing page post ID
+     * @since 1.0.0
+     */
+    private function inject_landing_page_hreflang_tags($current_post_id) {
+        // Load language manager to get all languages
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-manager.php';
+        $languages = \EZTranslate\LanguageManager::get_languages();
+
+        $hreflang_tags = array();
+        $current_language = null;
+        $default_language_post = null;
+        $configured_default_language = $this->get_default_language_for_hreflang();
+
+        // Get current page language
+        foreach ($languages as $language) {
+            if (!empty($language['landing_page_id']) && $language['landing_page_id'] == $current_post_id) {
+                $current_language = $language['code'];
+                break;
+            }
+        }
+
+        // Get WordPress original language (from locale)
+        $wp_locale = get_locale();
+        $original_language = strstr($wp_locale, '_', true) ?: $wp_locale; // es_MX -> es
+        $homepage_url = home_url('/');
+
+        // Always add homepage as the original site language
+        $original_language_post = array(
+            'url' => $homepage_url,
+            'language' => $original_language,
+            'post_id' => get_option('page_on_front', 0)
+        );
+
+        // Set x-default (for usability - usually English)
+        $default_language_post = null;
+
+        // Generate hreflang tags for all landing pages
+        foreach ($languages as $language) {
+            if (!empty($language['landing_page_id'])) {
+                $post = get_post($language['landing_page_id']);
+
+                if ($post && $post->post_status === 'publish') {
+                    $url = get_permalink($post->ID);
+                    $hreflang_code = $this->convert_language_to_hreflang($language['code']);
+
+                    $hreflang_tags[] = array(
+                        'language' => $hreflang_code,
+                        'url' => $url,
+                        'post_id' => $post->ID,
+                        'language_code' => $language['code']
+                    );
+
+                    // Set as x-default if this is the configured default language
+                    if ($language['code'] === $configured_default_language) {
+                        $default_language_post = array(
+                            'url' => $url,
+                            'language' => $language['code'],
+                            'post_id' => $post->ID
+                        );
+                    }
+                }
+            }
+        }
+
+        // Always add homepage as the original site language (WordPress locale)
+        $original_language_hreflang = $this->convert_language_to_hreflang($original_language);
+        $homepage_already_included = false;
+
+        // Check if homepage is already included with the same language
+        foreach ($hreflang_tags as $tag) {
+            if ($tag['url'] === $homepage_url && $tag['language'] === $original_language_hreflang) {
+                $homepage_already_included = true;
+                break;
+            }
+        }
+
+        if (!$homepage_already_included) {
+            $hreflang_tags[] = array(
+                'language' => $original_language_hreflang,
+                'url' => $homepage_url,
+                'post_id' => get_option('page_on_front', 0),
+                'language_code' => $original_language
+            );
+        }
+
+        // Set x-default: prefer configured default language, fallback to original language
+        if (!$default_language_post) {
+            // If no landing page exists for configured default, use homepage
+            $default_language_post = array(
+                'url' => $homepage_url,
+                'language' => $configured_default_language,
+                'post_id' => get_option('page_on_front', 0)
+            );
+        }
+
+        // Output hreflang tags
+        if (!empty($hreflang_tags)) {
+            echo "\n<!-- EZ Translate: Landing Page Hreflang Tags -->\n";
+
+            // Sort tags to ensure consistent order (current language first, then alphabetical)
+            $current_hreflang = $current_language ? $this->convert_language_to_hreflang($current_language) : '';
+            $sorted_tags = array();
+            $other_tags = array();
+
+            foreach ($hreflang_tags as $tag) {
+                if ($tag['language'] === $current_hreflang) {
+                    $sorted_tags[] = $tag; // Current language first
+                } else {
+                    $other_tags[] = $tag;
+                }
+            }
+
+            // Sort other tags alphabetically
+            usort($other_tags, function($a, $b) {
+                return strcmp($a['language'], $b['language']);
+            });
+
+            $all_tags = array_merge($sorted_tags, $other_tags);
+
+            // Output all language-specific hreflang tags (including self-reference)
+            foreach ($all_tags as $tag) {
+                echo '<link rel="alternate" hreflang="' . esc_attr($tag['language']) . '" href="' . esc_url($tag['url']) . '">' . "\n";
+            }
+
+            // Output x-default tag (points to configured default language)
+            if ($default_language_post) {
+                echo '<link rel="alternate" hreflang="x-default" href="' . esc_url($default_language_post['url']) . '">' . "\n";
+            }
+
+            echo '<!-- /EZ Translate: Landing Page Hreflang Tags -->' . "\n\n";
+
+            Logger::info('Frontend: Landing page hreflang tags injected', array(
+                'post_id' => $current_post_id,
+                'current_language' => $current_language,
+                'original_language' => $original_language,
+                'tags_count' => count($hreflang_tags),
+                'languages' => array_column($hreflang_tags, 'language'),
+                'configured_default' => $configured_default_language,
+                'x_default_language' => $default_language_post ? $default_language_post['language'] : 'none',
+                'includes_homepage' => true,
+                'includes_x_default' => !empty($default_language_post)
+            ));
+        }
     }
 }
