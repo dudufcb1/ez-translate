@@ -251,6 +251,9 @@ final class EZTranslate {
         if (!is_admin()) {
             $this->init_frontend();
         }
+
+        // Initialize sitemap manager for all contexts
+        $this->init_sitemap_manager();
     }
 
     /**
@@ -325,6 +328,19 @@ final class EZTranslate {
 
         // Initialize frontend
         new \EZTranslate\Frontend();
+    }
+
+    /**
+     * Initialize sitemap manager
+     *
+     * @since 1.0.0
+     */
+    private function init_sitemap_manager() {
+        // Load sitemap manager class
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/sitemap/class-ez-translate-sitemap-manager.php';
+
+        // Initialize sitemap manager
+        new \EZTranslate\Sitemap\SitemapManager();
     }
 
     /**

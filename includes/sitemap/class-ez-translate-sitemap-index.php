@@ -1,0 +1,311 @@
+<?php
+/**
+ * Sitemap Index Generator for EZ Translate
+ *
+ * @package EZTranslate
+ * @since 1.0.0
+ */
+
+namespace EZTranslate\Sitemap;
+
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+use EZTranslate\Logger;
+
+/**
+ * Sitemap Index Generator class
+ *
+ * Generates the main sitemap index that lists all available sitemaps
+ *
+ * @since 1.0.0
+ */
+class SitemapIndex extends SitemapGenerator {
+
+    /**
+     * Generate sitemap index XML
+     *
+     * @param string $language Not used for index
+     * @return string
+     * @since 1.0.0
+     */
+    public function generate($language = '') {
+        Logger::debug('Generating sitemap index');
+        
+        $xml = $this->get_xml_header();
+        $xml .= $this->get_sitemapindex_opening();
+        
+        $site_url = $this->get_site_url();
+        $enabled_languages = $this->get_enabled_languages();
+        
+        // Add posts sitemaps
+        if (in_array('post', $this->settings['post_types'])) {
+            if (empty($enabled_languages)) {
+                // Single language site
+                $xml .= $this->generate_sitemap_entry(
+                    $site_url . '/sitemap-posts.xml',
+                    $this->get_posts_last_modified()
+                );
+            } else {
+                // Multi-language site - include default language sitemap
+                $xml .= $this->generate_sitemap_entry(
+                    $site_url . '/sitemap-posts.xml',
+                    $this->get_posts_last_modified('')
+                );
+
+                // Add language-specific sitemaps
+                foreach ($enabled_languages as $lang_code) {
+                    $xml .= $this->generate_sitemap_entry(
+                        $site_url . '/sitemap-posts-' . $lang_code . '.xml',
+                        $this->get_posts_last_modified($lang_code)
+                    );
+                }
+            }
+        }
+        
+        // Add pages sitemaps
+        if (in_array('page', $this->settings['post_types'])) {
+            if (empty($enabled_languages)) {
+                // Single language site
+                $xml .= $this->generate_sitemap_entry(
+                    $site_url . '/sitemap-pages.xml',
+                    $this->get_pages_last_modified()
+                );
+            } else {
+                // Multi-language site - include default language sitemap
+                $xml .= $this->generate_sitemap_entry(
+                    $site_url . '/sitemap-pages.xml',
+                    $this->get_pages_last_modified('')
+                );
+
+                // Add language-specific sitemaps
+                foreach ($enabled_languages as $lang_code) {
+                    $xml .= $this->generate_sitemap_entry(
+                        $site_url . '/sitemap-pages-' . $lang_code . '.xml',
+                        $this->get_pages_last_modified($lang_code)
+                    );
+                }
+            }
+        }
+        
+        // Add taxonomy sitemaps
+        if (!empty($this->settings['taxonomies'])) {
+            if (empty($enabled_languages)) {
+                // Single language site - add general taxonomy sitemap
+                $xml .= $this->generate_sitemap_entry(
+                    $site_url . '/sitemap-taxonomies.xml',
+                    $this->get_taxonomies_last_modified()
+                );
+            } else {
+                // Multi-language site - include default language sitemap
+                $xml .= $this->generate_sitemap_entry(
+                    $site_url . '/sitemap-taxonomies.xml',
+                    $this->get_taxonomies_last_modified('')
+                );
+
+                // Add language-specific sitemaps
+                foreach ($enabled_languages as $lang_code) {
+                    $xml .= $this->generate_sitemap_entry(
+                        $site_url . '/sitemap-taxonomies-' . $lang_code . '.xml',
+                        $this->get_taxonomies_last_modified($lang_code)
+                    );
+                }
+            }
+        }
+        
+        $xml .= $this->get_sitemapindex_closing();
+        
+        Logger::info('Sitemap index generated', array(
+            'languages' => count($enabled_languages),
+            'size' => strlen($xml)
+        ));
+        
+        return $xml;
+    }
+
+    /**
+     * Get last modification time for sitemap index
+     *
+     * @param string $language Not used for index
+     * @return string
+     * @since 1.0.0
+     */
+    public function get_last_modified($language = '') {
+        // Get the most recent modification from all content types
+        $last_modified_times = array();
+        
+        // Posts
+        $posts_modified = $this->get_posts_last_modified();
+        if (!empty($posts_modified)) {
+            $last_modified_times[] = strtotime($posts_modified);
+        }
+        
+        // Pages
+        $pages_modified = $this->get_pages_last_modified();
+        if (!empty($pages_modified)) {
+            $last_modified_times[] = strtotime($pages_modified);
+        }
+        
+        // Taxonomies
+        $taxonomies_modified = $this->get_taxonomies_last_modified();
+        if (!empty($taxonomies_modified)) {
+            $last_modified_times[] = strtotime($taxonomies_modified);
+        }
+        
+        if (empty($last_modified_times)) {
+            return $this->format_sitemap_date(current_time('timestamp'));
+        }
+        
+        $latest = max($last_modified_times);
+        return $this->format_sitemap_date($latest);
+    }
+
+    /**
+     * Get last modified time for posts
+     *
+     * @param string $language Language code (optional)
+     * @return string
+     * @since 1.0.0
+     */
+    private function get_posts_last_modified($language = '') {
+        global $wpdb;
+
+        $sql = "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts} WHERE post_type = 'post' AND post_status = 'publish'";
+
+        if (!empty($language)) {
+            // Specific language content
+            $sql .= $wpdb->prepare(" AND ID IN (
+                SELECT post_id FROM {$wpdb->postmeta}
+                WHERE meta_key = '_ez_translate_language' AND meta_value = %s
+            )", $language);
+        } else {
+            // Default language content (Spanish or no language metadata)
+            $enabled_languages = $this->get_enabled_languages();
+            if (!empty($enabled_languages)) {
+                $sql .= " AND (
+                    ID NOT IN (SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_ez_translate_language')
+                    OR ID IN (
+                        SELECT post_id FROM {$wpdb->postmeta}
+                        WHERE meta_key = '_ez_translate_language' AND meta_value = 'es'
+                    )
+                )";
+            }
+        }
+
+        $last_modified = $wpdb->get_var($sql);
+        return $this->format_sitemap_date($last_modified);
+    }
+
+    /**
+     * Get last modified time for pages
+     *
+     * @param string $language Language code (optional)
+     * @return string
+     * @since 1.0.0
+     */
+    private function get_pages_last_modified($language = '') {
+        global $wpdb;
+
+        $sql = "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts} WHERE post_type = 'page' AND post_status = 'publish'";
+
+        if (!empty($language)) {
+            // Specific language content
+            $sql .= $wpdb->prepare(" AND ID IN (
+                SELECT post_id FROM {$wpdb->postmeta}
+                WHERE meta_key = '_ez_translate_language' AND meta_value = %s
+            )", $language);
+        } else {
+            // Default language content (Spanish or no language metadata)
+            $enabled_languages = $this->get_enabled_languages();
+            if (!empty($enabled_languages)) {
+                $sql .= " AND (
+                    ID NOT IN (SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_ez_translate_language')
+                    OR ID IN (
+                        SELECT post_id FROM {$wpdb->postmeta}
+                        WHERE meta_key = '_ez_translate_language' AND meta_value = 'es'
+                    )
+                )";
+            }
+        }
+
+        $last_modified = $wpdb->get_var($sql);
+        return $this->format_sitemap_date($last_modified);
+    }
+
+    /**
+     * Get last modified time for taxonomies
+     *
+     * @param string $language Language code (optional)
+     * @return string
+     * @since 1.0.0
+     */
+    private function get_taxonomies_last_modified($language = '') {
+        global $wpdb;
+
+        // Get the most recent post modification that affects taxonomies
+        $taxonomies = implode("','", array_map('esc_sql', $this->settings['taxonomies']));
+
+        $sql = "SELECT MAX(p.post_modified_gmt)
+                FROM {$wpdb->posts} p
+                INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
+                INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+                WHERE p.post_status = 'publish'
+                AND tt.taxonomy IN ('{$taxonomies}')";
+
+        if (!empty($language)) {
+            // Specific language content
+            $sql .= $wpdb->prepare(" AND p.ID IN (
+                SELECT post_id FROM {$wpdb->postmeta}
+                WHERE meta_key = '_ez_translate_language' AND meta_value = %s
+            )", $language);
+        } else {
+            // Default language content (Spanish or no language metadata)
+            $enabled_languages = $this->get_enabled_languages();
+            if (!empty($enabled_languages)) {
+                $sql .= " AND (
+                    p.ID NOT IN (SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_ez_translate_language')
+                    OR p.ID IN (
+                        SELECT post_id FROM {$wpdb->postmeta}
+                        WHERE meta_key = '_ez_translate_language' AND meta_value = 'es'
+                    )
+                )";
+            }
+        }
+
+        $last_modified = $wpdb->get_var($sql);
+        return $this->format_sitemap_date($last_modified);
+    }
+
+    /**
+     * Get count of sitemaps that will be generated
+     *
+     * @return int
+     * @since 1.0.0
+     */
+    public function get_sitemap_count() {
+        $count = 0;
+        $enabled_languages = $this->get_enabled_languages();
+
+        $language_multiplier = empty($enabled_languages) ? 1 : count($enabled_languages);
+
+        // Posts sitemaps
+        if (in_array('post', $this->settings['post_types'])) {
+            $count += $language_multiplier;
+        }
+
+        // Pages sitemaps
+        if (in_array('page', $this->settings['post_types'])) {
+            $count += $language_multiplier;
+        }
+
+        // Taxonomy sitemaps
+        if (!empty($this->settings['taxonomies'])) {
+            $count += $language_multiplier;
+        }
+
+        return $count;
+    }
+
+}

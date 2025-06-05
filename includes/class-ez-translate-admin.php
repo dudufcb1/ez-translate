@@ -37,6 +37,7 @@ class Admin {
      */
     public function __construct() {
         $this->init_hooks();
+        $this->init_sitemap_admin();
         Logger::info('Admin class initialized');
     }
 
@@ -1972,5 +1973,20 @@ class Admin {
      */
     public static function get_menu_slug() {
         return self::MENU_SLUG;
+    }
+
+    /**
+     * Initialize sitemap admin
+     *
+     * @since 1.0.0
+     */
+    private function init_sitemap_admin() {
+        // Load sitemap admin class
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-sitemap-admin.php';
+
+        // Initialize sitemap admin
+        new \EZTranslate\Admin\SitemapAdmin();
+
+        Logger::debug('Sitemap admin initialized');
     }
 }

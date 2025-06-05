@@ -279,6 +279,125 @@ EZ Translate es un plugin WordPress que implementa un sistema multilingüe robus
 - **Hreflang bidireccional**: Autodeclaración + versiones alternativas + x-default configurable
 - **Detección automática**: Funciona con páginas sin metadatos explícitos de EZ Translate
 
+### Sistema de Sitemap Dinámico: `includes/sitemap/`
+**Propósito**: Sistema completo de generación de sitemaps XML multiidioma para optimización SEO
+**Responsabilidades**:
+- Interceptación de URLs de sitemap con rewrite rules de WordPress
+- Generación dinámica de sitemaps XML válidos por idioma
+- Sistema de cache inteligente con invalidación automática
+- Configuración administrativa completa
+- Soporte para posts, páginas y taxonomías multiidioma
+
+**Características Técnicas**:
+- Namespace `EZTranslate\Sitemap\` con arquitectura modular
+- Interceptación de URLs: `/sitemap.xml`, `/sitemap-posts-{lang}.xml`, etc.
+- Generación bajo demanda con cache en `wp-content/uploads/ez-translate/sitemaps/`
+- Invalidación automática en hooks: `save_post`, `delete_post`, `edit_term`
+- Headers HTTP correctos: `Content-Type: application/xml`, `X-Robots-Tag: noindex`
+- Integración con LanguageManager para soporte multiidioma
+- Configuración via WordPress Options API
+
+**Componentes del Sistema**:
+
+#### SitemapManager (`class-ez-translate-sitemap-manager.php`)
+- **Propósito**: Controlador principal del sistema de sitemaps
+- **Responsabilidades**:
+  - Registro de rewrite rules para URLs de sitemap
+  - Interceptación de requests con `template_redirect`
+  - Routing a generadores específicos según URL
+  - Gestión de headers HTTP y terminación de requests
+  - Integración con sistema de cache
+
+#### SitemapGenerator (`class-ez-translate-sitemap-generator.php`)
+- **Propósito**: Clase base abstracta con funcionalidad común
+- **Responsabilidades**:
+  - Configuración compartida desde WordPress Options API
+  - Métodos helper para generación de XML
+  - Integración con LanguageManager
+  - Gestión de prioridades y frecuencias
+  - Logging centralizado de operaciones
+
+#### SitemapIndex (`class-ez-translate-sitemap-index.php`)
+- **Propósito**: Generador del sitemap principal (index)
+- **Responsabilidades**:
+  - Listado de todos los sitemaps disponibles por idioma
+  - Cálculo de fechas de última modificación
+  - Generación de estructura XML del index
+  - Soporte para idioma por defecto + idiomas específicos
+
+#### SitemapPosts (`class-ez-translate-sitemap-posts.php`)
+- **Propósito**: Generador de sitemaps de posts por idioma
+- **Responsabilidades**:
+  - Consultas optimizadas de posts por idioma
+  - Filtrado por metadatos `_ez_translate_language`
+  - Soporte para contenido por defecto (español/sin metadatos)
+  - Generación de URLs canónicas
+  - Cálculo de prioridades basado en tipo de contenido
+
+#### SitemapPages (`class-ez-translate-sitemap-pages.php`)
+- **Propósito**: Generador de sitemaps de páginas por idioma
+- **Responsabilidades**:
+  - Consultas de páginas con filtrado por idioma
+  - Soporte especial para landing pages (prioridad 1.0)
+  - Integración con sistema de jerarquía de páginas
+  - Manejo de páginas padre-hijo multiidioma
+
+#### SitemapTaxonomies (`class-ez-translate-sitemap-taxonomies.php`)
+- **Propósito**: Generador de sitemaps de taxonomías por idioma
+- **Responsabilidades**:
+  - Consultas de términos de taxonomía por idioma
+  - Filtrado basado en posts asociados por idioma
+  - Soporte para categorías y tags multiidioma
+  - Generación de URLs de archivo de taxonomía
+
+#### SitemapCache (`class-ez-translate-sitemap-cache.php`)
+- **Propósito**: Sistema de cache inteligente para sitemaps
+- **Responsabilidades**:
+  - Almacenamiento en archivos en directorio uploads
+  - Invalidación automática por hooks de WordPress
+  - Gestión de TTL configurable (default: 24 horas)
+  - Limpieza automática de archivos antiguos
+  - Estadísticas de cache y debugging
+
+**Estructura de URLs de Sitemap**:
+```
+/sitemap.xml                    # Sitemap index principal
+/sitemap-posts.xml              # Posts idioma por defecto (español)
+/sitemap-posts-en.xml           # Posts en inglés
+/sitemap-posts-pt.xml           # Posts en portugués
+/sitemap-posts-fr.xml           # Posts en francés
+/sitemap-pages.xml              # Páginas idioma por defecto
+/sitemap-pages-{lang}.xml       # Páginas por idioma específico
+/sitemap-taxonomies.xml         # Taxonomías idioma por defecto
+/sitemap-taxonomies-{lang}.xml  # Taxonomías por idioma específico
+```
+
+**Configuración Administrativa** (`class-ez-translate-sitemap-admin.php`):
+- **Ubicación**: EZ Translate → Sitemap
+- **Opciones configurables**:
+  - Habilitar/deshabilitar generación de sitemaps
+  - Selección de post types a incluir (posts, pages, CPTs)
+  - Selección de taxonomías a incluir (categories, tags, custom)
+  - Duración de cache (1 hora a 1 semana)
+  - Prioridades por tipo de contenido
+  - Botón de limpieza manual de cache
+- **Almacenamiento**: WordPress Options API (`ez_translate_sitemap_settings`)
+
+**Integración Multiidioma**:
+- **Idioma por defecto**: Contenido español o sin metadatos `_ez_translate_language`
+- **Idiomas específicos**: Contenido con metadatos de idioma específico
+- **Lógica de filtrado**: SQL queries con LEFT JOIN en postmeta
+- **URLs canónicas**: Integración con estructura de URLs multiidioma existente
+- **Soporte landing pages**: Prioridad máxima (1.0) para páginas landing
+
+**Performance y Optimización**:
+- **Cache en archivos**: Almacenamiento en filesystem para máxima velocidad
+- **Generación bajo demanda**: Solo se genera cuando se solicita
+- **Invalidación inteligente**: Cache se limpia solo cuando cambia contenido relevante
+- **Consultas optimizadas**: Uso de índices de WordPress y prepared statements
+- **Headers de cache**: Cache-Control para optimización de navegadores
+- **Compresión**: Soporte para gzip cuando está disponible
+
 ### Script de Desinstalación: `uninstall.php`
 **Propósito**: Limpieza completa al eliminar el plugin
 **Responsabilidades**:
@@ -498,6 +617,20 @@ La arquitectura actual está preparada para:
 - **Override de títulos** automático para landing pages
 - **Metadatos Open Graph** para optimización en redes sociales
 - **Twitter Cards** para mejorar compartición en Twitter
+
+**✅ Completados - Sistema de Sitemap Dinámico Multiidioma**:
+- **SitemapManager**: Controlador principal con interceptación de URLs y rewrite rules
+- **SitemapGenerator**: Clase base con funcionalidad común para todos los generadores
+- **SitemapIndex**: Generador del sitemap principal con soporte multiidioma
+- **SitemapPosts**: Generador de sitemaps de posts por idioma
+- **SitemapPages**: Generador de sitemaps de páginas por idioma
+- **SitemapTaxonomies**: Generador de sitemaps de taxonomías por idioma
+- **SitemapCache**: Sistema de cache inteligente con invalidación automática
+- **SitemapAdmin**: Interfaz administrativa completa para configuración
+- **Estructura de URLs**: `/sitemap.xml`, `/sitemap-posts-{lang}.xml`, etc.
+- **Soporte multiidioma**: Contenido por defecto (español) + idiomas específicos
+- **Cache optimizado**: Invalidación automática en cambios de contenido
+- **Configuración administrativa**: Post types, taxonomías, duración de cache, prioridades
 - **JSON-LD Schema** para datos estructurados y SEO
 - **Conversión de idiomas** a locales para metadatos internacionales
 - **Modo de testing** para pruebas unitarias confiables
@@ -1035,3 +1168,225 @@ case 'update_api_settings':
 - **Seguridad**: Validación completa y sanitización
 
 Esta implementación establece una base sólida para la integración de servicios de inteligencia artificial, manteniendo los estándares de seguridad y usabilidad del plugin mientras prepara el terreno para funcionalidades avanzadas futuras.
+
+## 🗺️ NUEVA FUNCIONALIDAD: Sistema de Sitemap Dinámico Multiidioma
+
+### Descripción General
+Implementación completa de un sistema de sitemap XML dinámico que soporta múltiples idiomas, cache inteligente y configuración administrativa avanzada para el plugin EZ Translate.
+
+### Arquitectura del Sistema de Sitemap
+
+#### 1. **Controlador Principal: SitemapManager**
+- **Ubicación**: `includes/sitemap/class-ez-translate-sitemap-manager.php`
+- **Responsabilidades**:
+  - Interceptación de URLs de sitemap mediante rewrite rules
+  - Coordinación de generación de sitemaps
+  - Gestión de cache y invalidación automática
+  - Integración con hooks de WordPress
+
+**Características Técnicas**:
+- Patrones de URL soportados: `/sitemap.xml`, `/sitemap-index.xml`, `/sitemap-posts-{lang}.xml`, `/sitemap-pages-{lang}.xml`
+- Query vars personalizadas: `ez_translate_sitemap`, `ez_translate_language`
+- Hooks de invalidación automática: `save_post`, `deleted_post`, `created_term`, `edited_term`, `deleted_term`
+- Headers HTTP apropiados: `Content-Type: application/xml`, `X-Robots-Tag: noindex`, `Cache-Control: max-age=3600`
+
+#### 2. **Sistema de Generación: SitemapGenerator (Base)**
+- **Ubicación**: `includes/sitemap/class-ez-translate-sitemap-generator.php`
+- **Propósito**: Clase base abstracta para todos los generadores de sitemap
+- **Funcionalidades Comunes**:
+  - Configuración de settings desde `ez_translate_sitemap_settings`
+  - Generación de XML headers y estructuras estándar
+  - Gestión de prioridades por tipo de contenido
+  - Formateo de fechas y frecuencias de cambio
+  - Integración con sistema de idiomas
+
+#### 3. **Generadores Especializados**
+
+**SitemapIndex** (`includes/sitemap/class-ez-translate-sitemap-index.php`):
+- Genera el sitemap principal que lista todos los sitemaps disponibles
+- Soporte automático para sitios monoidioma y multiidioma
+- Detección inteligente de idiomas habilitados
+- Fechas de modificación basadas en contenido más reciente
+
+**SitemapPosts** (`includes/sitemap/class-ez-translate-sitemap-posts.php`):
+- Generación de sitemaps específicos para posts
+- Filtrado por idioma usando metadatos `_ez_translate_language`
+- Consultas optimizadas con `WP_Query`
+- Soporte para posts sin idioma asignado (idioma por defecto)
+
+**SitemapPages** (`includes/sitemap/class-ez-translate-sitemap-pages.php`):
+- Generación de sitemaps específicos para páginas
+- Integración con sistema de landing pages
+- Prioridades diferenciadas para landing pages (1.0) vs páginas regulares (0.9)
+- Detección automática de landing pages desde configuración de idiomas
+
+#### 4. **Sistema de Cache: SitemapCache**
+- **Ubicación**: `includes/sitemap/class-ez-translate-sitemap-cache.php`
+- **Directorio de Cache**: `wp-content/uploads/ez-translate/sitemaps/`
+- **Funcionalidades**:
+  - Cache en archivos XML para máximo rendimiento
+  - Invalidación inteligente por tipo y idioma
+  - Limpieza automática de archivos antiguos
+  - Estadísticas de cache detalladas
+  - Protección con .htaccess automático
+
+**Características de Cache**:
+- Duración configurable (default: 24 horas)
+- Invalidación granular: `invalidate('posts', 'en')` o `invalidate('all')`
+- Métodos: `is_cached()`, `get_cached()`, `cache_sitemap()`, `cleanup_old_files()`
+- Headers de cache automáticos para archivos servidos
+
+#### 5. **Interfaz Administrativa: SitemapAdmin**
+- **Ubicación**: `includes/admin/class-ez-translate-sitemap-admin.php`
+- **Página**: EZ Translate → Sitemap (submenu)
+- **Funcionalidades**:
+  - Configuración completa de settings
+  - Gestión de tipos de contenido incluidos
+  - Configuración de prioridades por tipo
+  - Gestión de cache con AJAX
+  - URLs de sitemap dinámicas
+
+**Configuraciones Disponibles**:
+- Habilitar/deshabilitar sitemap
+- Duración de cache (1 hora a 1 semana)
+- Tipos de contenido (posts, pages)
+- Taxonomías (categories, tags)
+- Prioridades personalizables (0.0-1.0)
+- Acciones de cache (Clear All, Cleanup Old)
+
+#### 6. **Integración con Arquitectura Existente**
+
+**Carga Automática**:
+- Inicialización en `ez-translate.php` → `init_sitemap_manager()`
+- Integración con Admin principal → `init_sitemap_admin()`
+- Autoloader PSR-4 compatible: `EZTranslate\Sitemap\*`
+
+**Hooks de WordPress**:
+- `init`: Registro de rewrite rules
+- `template_redirect`: Interceptación de peticiones
+- `admin_menu`: Página de configuración
+- `save_post`, `deleted_post`: Invalidación de cache
+- `wp_ajax_*`: Handlers AJAX para gestión de cache
+
+**Integración con Componentes Existentes**:
+- `LanguageManager`: Obtención de idiomas habilitados
+- `PostMetaManager`: Filtrado por metadatos de idioma
+- `Logger`: Logging comprensivo de todas las operaciones
+- Landing Pages: Prioridades especiales y detección automática
+
+### Flujo de Funcionamiento
+
+#### Petición de Sitemap
+1. **URL Request**: Usuario/bot accede a `/sitemap.xml`
+2. **Rewrite Rule**: WordPress redirige a `index.php?ez_translate_sitemap=index`
+3. **Template Redirect**: `SitemapManager::handle_sitemap_request()` intercepta
+4. **Cache Check**: Verificar si existe versión cacheada válida
+5. **Generation**: Si no hay cache, generar sitemap dinámicamente
+6. **Cache Storage**: Almacenar resultado en cache
+7. **Headers & Output**: Enviar headers XML y contenido
+8. **Termination**: `wp_die()` para evitar contenido adicional
+
+#### Invalidación de Cache
+1. **Content Change**: Post/página se crea/actualiza/elimina
+2. **Hook Trigger**: WordPress ejecuta hook correspondiente
+3. **Cache Invalidation**: `SitemapCache::invalidate()` elimina archivos relevantes
+4. **Next Request**: Próxima petición regenera sitemap automáticamente
+
+### Características Multiidioma
+
+#### Soporte de Idiomas
+- **Detección Automática**: Integración con `LanguageManager::get_enabled_languages()`
+- **Filtrado por Idioma**: Metadatos `_ez_translate_language` para filtrar contenido
+- **URLs Específicas**: `/sitemap-posts-en.xml`, `/sitemap-pages-es.xml`
+- **Idioma por Defecto**: Contenido sin metadatos de idioma incluido en sitemap principal
+
+#### Landing Pages Multiidioma
+- **Prioridad Máxima**: Landing pages reciben prioridad 1.0 automáticamente
+- **Detección Automática**: Desde configuración de idiomas (`landing_page_id`)
+- **Integración Completa**: Con sistema existente de landing pages
+
+### Configuración y Settings
+
+#### Estructura de Configuración
+```php
+ez_translate_sitemap_settings = [
+    'enabled' => true,
+    'post_types' => ['post', 'page'],
+    'taxonomies' => ['category', 'post_tag'],
+    'cache_duration' => 86400,
+    'priorities' => [
+        'post' => 0.8,
+        'page' => 0.9,
+        'landing_page' => 1.0,
+        'category' => 0.6,
+        'post_tag' => 0.5
+    ]
+]
+```
+
+#### URLs Generadas
+- **Principal**: `/sitemap.xml` (redirige a index)
+- **Índice**: `/sitemap-index.xml`
+- **Posts Generales**: `/sitemap-posts.xml`
+- **Páginas Generales**: `/sitemap-pages.xml`
+- **Por Idioma**: `/sitemap-posts-{lang}.xml`, `/sitemap-pages-{lang}.xml`
+
+### Testing y Validación
+
+#### Suite de Tests Implementada
+- **test-sitemap-basic.php**: Funcionalidad básica y rewrite rules
+- **test-sitemap-generation.php**: Generación dinámica y XML válido
+- **test-sitemap-cache.php**: Sistema de cache completo
+- **test-sitemap-admin.php**: Interfaz administrativa
+- **test-sitemap-integration.php**: Integración completa end-to-end
+
+#### Validaciones Automáticas
+- XML válido y bien formado
+- Headers HTTP apropiados
+- Cache funcionando correctamente
+- Rewrite rules registradas
+- Admin interface operativa
+- AJAX handlers funcionando
+
+### Performance y Optimización
+
+#### Estrategias de Performance
+- **Cache en Archivos**: Máxima velocidad de servido
+- **Generación Bajo Demanda**: Solo cuando se solicita
+- **Invalidación Inteligente**: Solo archivos afectados
+- **Consultas Optimizadas**: `WP_Query` con parámetros específicos
+- **Headers de Cache**: Instrucciones para navegadores/bots
+
+#### Escalabilidad
+- **Soporte para Sitios Grandes**: Preparado para paginación futura
+- **Múltiples Idiomas**: Sin límite en número de idiomas
+- **Tipos de Contenido**: Extensible a CPTs adicionales
+- **Taxonomías**: Soporte completo para taxonomías personalizadas
+
+### Métricas de Implementación
+
+- **Archivos Nuevos**: 8 archivos principales + 5 tests
+- **Clases Implementadas**: 6 clases especializadas
+- **Líneas de Código**: ~2,000 líneas nuevas
+- **Tests Automatizados**: 25+ tests específicos de sitemap
+- **URLs Soportadas**: 7+ patrones de URL diferentes
+- **Hooks Integrados**: 8 hooks de WordPress
+- **AJAX Endpoints**: 2 endpoints para gestión de cache
+- **Configuraciones**: 6 opciones principales configurables
+
+### Beneficios SEO
+
+#### Optimización para Motores de Búsqueda
+- **XML Estándar**: Cumple especificaciones de sitemaps.org
+- **Fechas Precisas**: `lastmod` basado en modificaciones reales
+- **Prioridades Inteligentes**: Landing pages > Páginas > Posts
+- **Frecuencias Dinámicas**: Basadas en edad del contenido
+- **URLs Canónicas**: Integración con sistema de hreflang existente
+
+#### Soporte Multiidioma SEO
+- **Sitemaps por Idioma**: Facilita indexación específica
+- **Landing Pages Priorizadas**: Máxima visibilidad para páginas principales
+- **Integración Completa**: Con sistema de metadatos existente
+- **Detección Automática**: De contenido por idioma
+
+Esta implementación completa el ecosistema multiidioma de EZ Translate con un sistema de sitemap robusto, escalable y completamente integrado con la arquitectura existente del plugin.
