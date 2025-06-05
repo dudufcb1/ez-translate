@@ -38,6 +38,7 @@ class Admin {
     public function __construct() {
         $this->init_hooks();
         $this->init_sitemap_admin();
+        $this->init_robots_admin();
         Logger::info('Admin class initialized');
     }
 
@@ -984,6 +985,12 @@ class Admin {
                         require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-site-metadata.php';
                         ez_translate_display_site_metadata_tests();
                     }
+
+                    // Run Robots tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-robots-basic.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-robots-basic.php';
+                        \EZTranslateRobotsBasicTest::run_tests();
+                    }
                     ?>
                 </div>
             <?php elseif (isset($_GET['run_ez_translate_landing_tests']) && $_GET['run_ez_translate_landing_tests'] === '1'): ?>
@@ -1128,6 +1135,19 @@ class Admin {
                     }
                     ?>
                 </div>
+            <?php elseif (isset($_GET['run_ez_translate_robots_tests']) && $_GET['run_ez_translate_robots_tests'] === '1'): ?>
+                <div class="card">
+                    <h2><?php _e('Robots.txt Test Results', 'ez-translate'); ?></h2>
+                    <?php
+                    // Run Robots tests only
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-robots-basic.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-robots-basic.php';
+                        \EZTranslateRobotsBasicTest::run_tests();
+                    } else {
+                        echo '<p style="color: red;">Robots.txt test file not found.</p>';
+                    }
+                    ?>
+                </div>
             <?php else: ?>
                 <div class="card">
                     <h2><?php _e('Testing', 'ez-translate'); ?></h2>
@@ -1167,6 +1187,9 @@ class Admin {
                     </a>
                     <a href="<?php echo esc_url(add_query_arg('run_ez_translate_seo_title_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
                         <?php _e('Run SEO Title Tests', 'ez-translate'); ?>
+                    </a>
+                    <a href="<?php echo esc_url(add_query_arg('run_ez_translate_robots_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
+                        <?php _e('Run Robots.txt Tests', 'ez-translate'); ?>
                     </a>
                 </div>
             <?php endif; ?>
@@ -1988,5 +2011,18 @@ class Admin {
         new \EZTranslate\Admin\SitemapAdmin();
 
         Logger::debug('Sitemap admin initialized');
+    }
+
+    /**
+     * Initialize robots admin
+     *
+     * @since 1.0.0
+     */
+    private function init_robots_admin() {
+        // Load robots admin class
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-robots-admin.php';
+
+        // Initialize robots admin
+        new \EZTranslate\Admin\RobotsAdmin();
     }
 }

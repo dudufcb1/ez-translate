@@ -169,6 +169,42 @@ final class EZTranslate {
             $this->log_message('Default language options initialized', 'info');
         }
 
+        // Initialize robots settings if they don't exist
+        if (false === get_option('ez_translate_robots_settings')) {
+            add_option('ez_translate_robots_settings', array(
+                'enabled' => false,
+                'include_sitemap' => true,
+                'default_rules' => array(
+                    'wp_admin' => true,           // Block WordPress Admin
+                    'wp_login' => true,           // Block Login Page
+                    'wp_includes' => true,        // Block WordPress Core Files
+                    'wp_plugins' => true,         // Block Plugin Files
+                    'wp_themes' => true,          // Block Theme Files
+                    'wp_uploads' => false,        // Allow Media/Images by default
+                    'readme_files' => true,       // Block Readme Files
+                    'wp_config' => true,          // Block Config File
+                    'xmlrpc' => true,             // Block XML-RPC
+                    'wp_json' => false,           // Allow REST API by default
+                    'feed' => false,              // Allow RSS Feeds by default
+                    'trackback' => true,          // Block Trackbacks
+                    'wp_cron' => true,            // Block WordPress Cron
+                    'search' => false,            // Allow Search Results by default
+                    'author' => false,            // Allow Author Pages by default
+                    'date_archives' => false,     // Allow Date Archives by default
+                    'tag_archives' => false,      // Allow Tag Archives by default
+                    'attachment' => false,        // Allow Attachment Pages by default
+                    'private_pages' => true       // Block Private Content
+                ),
+                'custom_rules' => array(),
+                'additional_content' => '',
+                'last_updated' => ''
+            ));
+            $this->log_message('Default robots settings initialized', 'info');
+        }
+
+        // Flush rewrite rules to ensure robots.txt works
+        flush_rewrite_rules();
+
         // Set activation flag for any initialization needed on first load
         add_option('ez_translate_activation_redirect', true);
 
@@ -254,6 +290,9 @@ final class EZTranslate {
 
         // Initialize sitemap manager for all contexts
         $this->init_sitemap_manager();
+
+        // Initialize robots manager for all contexts
+        $this->init_robots_manager();
     }
 
     /**
@@ -341,6 +380,19 @@ final class EZTranslate {
 
         // Initialize sitemap manager
         new \EZTranslate\Sitemap\SitemapManager();
+    }
+
+    /**
+     * Initialize robots manager
+     *
+     * @since 1.0.0
+     */
+    private function init_robots_manager() {
+        // Load robots class
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-robots.php';
+
+        // Initialize robots manager
+        new \EZTranslate\Robots();
     }
 
     /**

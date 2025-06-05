@@ -398,6 +398,143 @@ EZ Translate es un plugin WordPress que implementa un sistema multilingüe robus
 - **Headers de cache**: Cache-Control para optimización de navegadores
 - **Compresión**: Soporte para gzip cuando está disponible
 
+### Sistema de Robots.txt Dinámico: `includes/class-ez-translate-robots.php`
+**Propósito**: Sistema completo de generación dinámica de robots.txt con control granular para optimización SEO
+**Responsabilidades**:
+- Interceptación de peticiones a `/robots.txt` con hooks de WordPress
+- Generación dinámica de contenido robots.txt basado en configuración
+- Control granular de reglas predeterminadas de WordPress
+- Sistema de reglas personalizadas Allow/Disallow por User-Agent
+- Integración automática con sitemap multiidioma existente
+- Interfaz administrativa completa con presets inteligentes
+
+**Características Técnicas**:
+- Namespace `EZTranslate\Robots` con hooks específicos de robots.txt
+- Hook `robots_txt` para interceptación de contenido (prioridad 10)
+- Hook `template_redirect` para manejo directo de peticiones
+- Rewrite rules para interceptación robusta de URLs
+- Almacenamiento en WordPress Options API (`ez_translate_robots_settings`)
+- Sanitización completa de todas las reglas personalizadas
+- Logging comprensivo de todas las operaciones
+
+**Componentes del Sistema**:
+
+#### Robots (`class-ez-translate-robots.php`)
+- **Propósito**: Controlador principal del sistema de robots.txt
+- **Responsabilidades**:
+  - Interceptación de peticiones `/robots.txt` con múltiples métodos
+  - Generación dinámica de contenido basado en configuración
+  - Gestión de reglas predeterminadas con control granular
+  - Procesamiento de reglas personalizadas por User-Agent
+  - Integración automática con sitemap multiidioma
+  - Validación y sanitización de todas las configuraciones
+
+#### RobotsAdmin (`class-ez-translate-robots-admin.php`)
+- **Propósito**: Interfaz administrativa completa para gestión de robots.txt
+- **Responsabilidades**:
+  - Página de configuración en EZ Translate → Robots.txt
+  - Interfaz visual con grupos organizados (Seguridad vs Contenido/SEO)
+  - Sistema de presets inteligentes por tipo de sitio
+  - Botones de selección grupal (Select All/None)
+  - Preview en tiempo real del robots.txt generado
+  - Sistema de recomendaciones visuales y advertencias contextuales
+
+**Estructura de Configuración Granular**:
+```php
+'default_rules' => array(
+    // 🔒 Core WordPress Security (Recomendadas)
+    'wp_admin' => true,           // WordPress Admin (/wp-admin/)
+    'wp_login' => true,           // Login Page (/wp-login.php)
+    'wp_includes' => true,        // WordPress Core Files (/wp-includes/)
+    'wp_plugins' => true,         // Plugin Files (/wp-content/plugins/)
+    'wp_themes' => true,          // Theme Files (/wp-content/themes/)
+    'wp_config' => true,          // Config File (/wp-config.php)
+    'xmlrpc' => true,             // XML-RPC (/xmlrpc.php)
+    'wp_cron' => true,            // WordPress Cron (/wp-cron.php)
+    'readme_files' => true,       // Readme Files (readme.html, license.txt)
+
+    // 📄 Content & SEO Options (Personalizables)
+    'wp_uploads' => false,        // Media/Images - FALSE = indexable por Google
+    'wp_json' => false,           // REST API - FALSE = no rompe plugins
+    'feed' => false,              // RSS Feeds - FALSE = accesible para suscriptores
+    'search' => false,            // Search Results - TRUE recomendado para evitar duplicados
+    'author' => false,            // Author Pages - Depende de estrategia de contenido
+    'date_archives' => false,     // Date Archives - TRUE para sitios de noticias
+    'tag_archives' => false,      // Tag Archives - Depende de estrategia SEO
+    'attachment' => false,        // Attachment Pages - FALSE para portfolios
+    'trackback' => true,          // Trackbacks - TRUE generalmente seguro
+    'private_pages' => true       // Private Content - TRUE recomendado
+)
+```
+
+**Presets Inteligentes Implementados**:
+- **📰 Blog/News Site**: Permite imágenes, feeds, autores; bloquea archivos de fecha
+- **🛍️ E-commerce**: Permite imágenes y API; bloquea autores y archivos para evitar duplicados
+- **🎨 Portfolio/Photography**: Permite imágenes, páginas de adjuntos, autores; optimizado para contenido visual
+
+**Sistema de Recomendaciones Visuales**:
+- **🟢 Recommended**: Opciones altamente recomendadas (principalmente seguridad)
+- **🟡 Optional**: Opciones que dependen del tipo de sitio y estrategia SEO
+- **🔴 Be Careful**: Opciones que pueden afectar funcionalidad (REST API, etc.)
+
+**Interfaz de Usuario Avanzada**:
+- **Grupos Organizados**: Separación clara entre reglas de seguridad y contenido/SEO
+- **Botones de Grupo**: Select All/None para configuración rápida por categoría
+- **Presets Rápidos**: Configuraciones predefinidas aplicables en 1 clic
+- **Advertencias Contextuales**: Explicaciones específicas del impacto de cada opción
+- **Preview en Tiempo Real**: Vista previa del robots.txt generado en la misma página
+
+**Integración con Sitemap Multiidioma**:
+- **Referencia Automática**: Inclusión opcional de `Sitemap: /sitemap.xml`
+- **Configuración Independiente**: Control separado de inclusión de sitemap
+- **Compatibilidad Completa**: Funciona con el sistema de sitemap dinámico existente
+
+**Ejemplo de Robots.txt Generado**:
+```
+User-agent: *
+Disallow: /wp-admin/
+Allow: /wp-admin/admin-ajax.php
+Disallow: /wp-login.php
+Disallow: /wp-includes/
+Disallow: /wp-content/plugins/
+Disallow: /wp-content/themes/
+Disallow: /wp-config.php
+Disallow: /xmlrpc.php
+Disallow: /wp-cron.php
+Disallow: /readme.html
+Disallow: /license.txt
+
+Sitemap: https://tu-sitio.com/sitemap.xml
+```
+
+**Compatibilidad y Seguridad**:
+- **No Interferencia**: Cuando está deshabilitado, no afecta robots.txt físico existente
+- **Validación Estricta**: Sanitización completa de reglas personalizadas
+- **Logging Comprensivo**: Registro de todas las operaciones para debugging
+- **Performance Optimizada**: Generación bajo demanda sin impacto en rendimiento
+
+### Sistema de Testing: `tests/`
+**Propósito**: Suite de tests básicos para verificación de funcionalidad
+**Responsabilidades**:
+- Tests de funcionalidad core del plugin
+- Verificación de integridad de datos
+- Tests de componentes específicos (sitemap, robots, etc.)
+- Interfaz administrativa para ejecución de tests
+
+**Características Técnicas**:
+- Tests ejecutables desde admin de WordPress
+- Verificación de clases, métodos y configuraciones
+- Tests específicos por componente con resultados detallados
+- Integración con sistema de logging para debugging
+
+**Tests Implementados**:
+- **`test-robots-basic.php`**: Verificación completa del sistema de robots.txt
+  - Existencia e instanciación de clases
+  - Configuración predeterminada y estructura de datos
+  - Actualización y recuperación de settings
+  - Generación de contenido robots.txt
+  - Validación de opciones granulares
+
 ### Script de Desinstalación: `uninstall.php`
 **Propósito**: Limpieza completa al eliminar el plugin
 **Responsabilidades**:
@@ -410,6 +547,7 @@ EZ Translate es un plugin WordPress que implementa un sistema multilingüe robus
 - Verificación de seguridad con `WP_UNINSTALL_PLUGIN`
 - Uso directo de `$wpdb` para operaciones de limpieza masiva
 - Eliminación selectiva por prefijos para evitar conflictos
+- **Limpieza de robots settings**: Eliminación de `ez_translate_robots_settings`
 
 ## 🏛️ Patrones Arquitectónicos Implementados
 
@@ -475,6 +613,13 @@ EZ Translate es un plugin WordPress que implementa un sistema multilingüe robus
 - **Transients**: Cache con prefijo `ez_translate_` (expiración 1 hora)
 - **Validación**: Códigos únicos, slugs únicos, formatos ISO 639-1
 
+**Opciones Adicionales del Sistema**:
+- **`ez_translate_sitemap_settings`**: Configuración del sistema de sitemap dinámico
+- **`ez_translate_robots_settings`**: Configuración del sistema de robots.txt dinámico
+  - Estructura: enabled, include_sitemap, default_rules (array granular), custom_rules, additional_content
+  - Validación: Sanitización completa de reglas personalizadas y paths
+  - Almacenamiento: WordPress Options API con logging de cambios
+
 ### Post Meta (Futuro)
 - **Prefijo**: `_ez_translate_`
 - **Campos planificados**:
@@ -498,6 +643,8 @@ EZ Translate es un plugin WordPress que implementa un sistema multilingüe robus
 10. **Inicialización de componentes core**:
     - **Detección de contexto admin** (`is_admin()`)
     - **Carga de clase Admin** si está en área administrativa
+    - **Inicialización del SitemapManager** para todos los contextos
+    - **Inicialización del sistema Robots** para todos los contextos
     - **Instanciación de EZTranslate\Admin**
     - **Registro de hooks administrativos** (admin_menu, admin_enqueue_scripts)
 

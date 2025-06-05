@@ -29,6 +29,7 @@ function ez_translate_uninstall_cleanup() {
     delete_option('ez_translate_languages');
     delete_option('ez_translate_activation_redirect');
     delete_option('ez_translate_version');
+    delete_option('ez_translate_robots_settings');
 
     // Clean up transients
     delete_transient('ez_translate_languages_cache');
