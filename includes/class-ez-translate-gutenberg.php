@@ -79,6 +79,15 @@ class Gutenberg {
             'auth_callback' => array($this, 'meta_auth_callback'),
             'sanitize_callback' => 'sanitize_textarea_field',
         ));
+
+        // Register OG title meta field for social media
+        register_meta('post', '_ez_translate_og_title', array(
+            'show_in_rest' => true,
+            'single' => true,
+            'type' => 'string',
+            'auth_callback' => array($this, 'meta_auth_callback'),
+            'sanitize_callback' => 'sanitize_text_field',
+        ));
     }
 
     /**

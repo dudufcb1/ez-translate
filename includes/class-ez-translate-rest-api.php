@@ -135,6 +135,112 @@ class RestAPI {
             ),
         ));
 
+        // SEO AI endpoints
+        register_rest_route(self::NAMESPACE, '/generate-seo', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'generate_seo_fields'),
+            'permission_callback' => array($this, 'check_post_permissions'),
+            'args' => array(
+                'post_id' => array(
+                    'required' => true,
+                    'validate_callback' => function($param, $request, $key) {
+                        return is_numeric($param);
+                    }
+                ),
+                'content' => array(
+                    'required' => false,
+                    'sanitize_callback' => 'wp_kses_post'
+                ),
+                'title' => array(
+                    'required' => false,
+                    'sanitize_callback' => 'sanitize_text_field'
+                )
+            )
+        ));
+
+        register_rest_route(self::NAMESPACE, '/generate-shorter-seo', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'generate_shorter_seo'),
+            'permission_callback' => array($this, 'check_post_permissions'),
+            'args' => array(
+                'post_id' => array(
+                    'required' => true,
+                    'validate_callback' => function($param, $request, $key) {
+                        return is_numeric($param);
+                    }
+                ),
+                'content' => array(
+                    'required' => true,
+                    'sanitize_callback' => 'sanitize_text_field'
+                ),
+                'type' => array(
+                    'required' => true,
+                    'validate_callback' => function($param, $request, $key) {
+                        return in_array($param, array('title', 'description'));
+                    }
+                ),
+                'max_length' => array(
+                    'required' => true,
+                    'validate_callback' => function($param, $request, $key) {
+                        return is_numeric($param) && $param > 0;
+                    }
+                )
+            )
+        ));
+
+        register_rest_route(self::NAMESPACE, '/generate-alternative-title', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'generate_alternative_title'),
+            'permission_callback' => array($this, 'check_post_permissions'),
+            'args' => array(
+                'post_id' => array(
+                    'required' => true,
+                    'validate_callback' => function($param, $request, $key) {
+                        return is_numeric($param);
+                    }
+                ),
+                'original_title' => array(
+                    'required' => true,
+                    'sanitize_callback' => 'sanitize_text_field'
+                ),
+                'similar_titles' => array(
+                    'required' => true,
+                    'validate_callback' => function($param, $request, $key) {
+                        return is_array($param);
+                    }
+                ),
+                'content' => array(
+                    'required' => false,
+                    'sanitize_callback' => 'wp_kses_post'
+                )
+            )
+        ));
+
+        register_rest_route(self::NAMESPACE, '/check-title-similarity', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'check_title_similarity'),
+            'permission_callback' => array($this, 'check_post_permissions'),
+            'args' => array(
+                'post_id' => array(
+                    'required' => true,
+                    'validate_callback' => function($param, $request, $key) {
+                        return is_numeric($param);
+                    }
+                ),
+                'title' => array(
+                    'required' => true,
+                    'sanitize_callback' => 'sanitize_text_field'
+                ),
+                'threshold' => array(
+                    'required' => false,
+                    'default' => 0.85,
+                    'validate_callback' => function($param, $request, $key) {
+                        return is_numeric($param) && $param >= 0 && $param <= 1;
+                    }
+                )
+            )
+        ));
+
         Logger::info('REST API routes registered');
     }
 
@@ -166,20 +272,37 @@ class RestAPI {
      * @since 1.0.0
      */
     public function check_post_permissions($request) {
-        $post_id = $request->get_param('id');
+        // Try to get post_id first (for SEO endpoints), then fallback to id (for other endpoints)
+        $post_id = $request->get_param('post_id') ?: $request->get_param('id');
+
+        if (!$post_id) {
+            Logger::warning('REST API: No post ID provided', array(
+                'user_id' => get_current_user_id(),
+                'endpoint' => $request->get_route(),
+                'params' => $request->get_params()
+            ));
+            return false;
+        }
+
         $post = get_post($post_id);
 
         if (!$post) {
+            Logger::warning('REST API: Post not found', array(
+                'user_id' => get_current_user_id(),
+                'post_id' => $post_id,
+                'endpoint' => $request->get_route()
+            ));
             return false;
         }
 
         $has_permission = current_user_can('edit_post', $post_id);
-        
+
         if (!$has_permission) {
             Logger::warning('REST API post access denied', array(
                 'user_id' => get_current_user_id(),
                 'post_id' => $post_id,
-                'endpoint' => $request->get_route()
+                'endpoint' => $request->get_route(),
+                'user_capabilities' => wp_get_current_user()->allcaps
             ));
         }
 
@@ -409,6 +532,10 @@ class RestAPI {
 
             if ($request->has_param('seo_description')) {
                 $metadata['seo_description'] = sanitize_textarea_field($request->get_param('seo_description'));
+            }
+
+            if ($request->has_param('og_title')) {
+                $metadata['og_title'] = sanitize_text_field($request->get_param('og_title'));
             }
 
             $result = PostMetaManager::set_post_metadata($post_id, $metadata);
@@ -877,6 +1004,259 @@ class RestAPI {
             ));
 
             return new \WP_Error('verify_translations_failed', 'Failed to verify existing translations', array('status' => 500));
+        }
+    }
+
+    /**
+     * Generate SEO fields using AI
+     *
+     * @param WP_REST_Request $request Request object
+     * @return WP_REST_Response
+     * @since 1.0.0
+     */
+    public function generate_seo_fields($request) {
+        try {
+            $post_id = (int) $request->get_param('post_id');
+            $custom_content = $request->get_param('content');
+            $custom_title = $request->get_param('title');
+
+            // Get post data
+            $post = get_post($post_id);
+            if (!$post) {
+                return new \WP_Error('post_not_found', 'Post not found', array('status' => 404));
+            }
+
+            // Check if AI is enabled
+            if (!LanguageManager::is_api_enabled()) {
+                return new \WP_Error('ai_not_enabled', 'AI features are not enabled', array('status' => 400));
+            }
+
+            // Use custom content/title if provided, otherwise use post data
+            $title = $custom_title ?: $post->post_title;
+            $content = $custom_content ?: $post->post_content;
+
+            // Get post language for context
+            $post_meta = PostMetaManager::get_post_metadata($post_id);
+            $language = $post_meta['language'] ?? 'es'; // Default to Spanish
+
+            // Get language info for better context
+            $language_info = LanguageManager::get_language($language);
+            $language_name = $language_info ? $language_info['name'] : $language;
+
+            Logger::info('REST API: Generating SEO fields with AI', array(
+                'post_id' => $post_id,
+                'language' => $language,
+                'title_length' => strlen($title),
+                'content_length' => strlen($content)
+            ));
+
+            // Create prompt for SEO generation
+            $prompt = new ConstructPrompt($title, $content, $language_name);
+
+            // Use SEO Gemini provider
+            $seo_provider = new \EZTranslate\Providers\SeoGeminiProvider();
+            $seo_fields = $seo_provider->generateSeoFields($prompt);
+
+            Logger::info('REST API: SEO fields generated successfully', array(
+                'post_id' => $post_id,
+                'generated_fields' => array_keys($seo_fields)
+            ));
+
+            return rest_ensure_response(array(
+                'success' => true,
+                'data' => $seo_fields,
+                'message' => 'SEO fields generated successfully'
+            ));
+
+        } catch (Exception $e) {
+            Logger::error('REST API: Failed to generate SEO fields', array(
+                'error' => $e->getMessage(),
+                'post_id' => $request->get_param('post_id')
+            ));
+
+            return new \WP_Error('seo_generation_failed', $e->getMessage(), array('status' => 500));
+        }
+    }
+
+    /**
+     * Generate shorter version of SEO content
+     *
+     * @param WP_REST_Request $request Request object
+     * @return WP_REST_Response
+     * @since 1.0.0
+     */
+    public function generate_shorter_seo($request) {
+        try {
+            $post_id = (int) $request->get_param('post_id');
+            $content = sanitize_text_field($request->get_param('content'));
+            $type = sanitize_text_field($request->get_param('type'));
+            $max_length = (int) $request->get_param('max_length');
+
+            // Check if AI is enabled
+            if (!LanguageManager::is_api_enabled()) {
+                return new \WP_Error('ai_not_enabled', 'AI features are not enabled', array('status' => 400));
+            }
+
+            Logger::info('REST API: Generating shorter SEO content', array(
+                'post_id' => $post_id,
+                'type' => $type,
+                'original_length' => strlen($content),
+                'max_length' => $max_length
+            ));
+
+            // Use SEO Gemini provider
+            $seo_provider = new \EZTranslate\Providers\SeoGeminiProvider();
+            $shorter_content = $seo_provider->generateShorterVersion($content, $type, $max_length);
+
+            Logger::info('REST API: Shorter SEO content generated', array(
+                'post_id' => $post_id,
+                'new_length' => strlen($shorter_content)
+            ));
+
+            return rest_ensure_response(array(
+                'success' => true,
+                'data' => array(
+                    'shortened_content' => $shorter_content,
+                    'original_length' => strlen($content),
+                    'new_length' => strlen($shorter_content)
+                ),
+                'message' => 'Shorter version generated successfully'
+            ));
+
+        } catch (Exception $e) {
+            Logger::error('REST API: Failed to generate shorter SEO content', array(
+                'error' => $e->getMessage(),
+                'post_id' => $request->get_param('post_id')
+            ));
+
+            return new \WP_Error('shorter_seo_failed', $e->getMessage(), array('status' => 500));
+        }
+    }
+
+    /**
+     * Generate alternative title suggestions
+     *
+     * @param WP_REST_Request $request Request object
+     * @return WP_REST_Response
+     * @since 1.0.0
+     */
+    public function generate_alternative_title($request) {
+        try {
+            $post_id = (int) $request->get_param('post_id');
+            $original_title = sanitize_text_field($request->get_param('original_title'));
+            $similar_titles = $request->get_param('similar_titles');
+            $custom_content = $request->get_param('content');
+
+            // Get post data
+            $post = get_post($post_id);
+            if (!$post) {
+                return new \WP_Error('post_not_found', 'Post not found', array('status' => 404));
+            }
+
+            // Check if AI is enabled
+            if (!LanguageManager::is_api_enabled()) {
+                return new \WP_Error('ai_not_enabled', 'AI features are not enabled', array('status' => 400));
+            }
+
+            // Sanitize similar titles array
+            $sanitized_similar_titles = array();
+            if (is_array($similar_titles)) {
+                foreach ($similar_titles as $title) {
+                    $sanitized_similar_titles[] = sanitize_text_field($title);
+                }
+            }
+
+            $content = $custom_content ?: $post->post_content;
+
+            Logger::info('REST API: Generating alternative titles', array(
+                'post_id' => $post_id,
+                'original_title' => $original_title,
+                'similar_count' => count($sanitized_similar_titles)
+            ));
+
+            // Use SEO Gemini provider
+            $seo_provider = new \EZTranslate\Providers\SeoGeminiProvider();
+            $alternatives = $seo_provider->generateAlternativeTitle($original_title, $sanitized_similar_titles, $content);
+
+            Logger::info('REST API: Alternative titles generated', array(
+                'post_id' => $post_id,
+                'alternatives_count' => count($alternatives)
+            ));
+
+            return rest_ensure_response(array(
+                'success' => true,
+                'data' => array(
+                    'alternatives' => $alternatives,
+                    'original_title' => $original_title,
+                    'similar_titles' => $sanitized_similar_titles
+                ),
+                'message' => 'Alternative titles generated successfully'
+            ));
+
+        } catch (Exception $e) {
+            Logger::error('REST API: Failed to generate alternative titles', array(
+                'error' => $e->getMessage(),
+                'post_id' => $request->get_param('post_id')
+            ));
+
+            return new \WP_Error('alternative_titles_failed', $e->getMessage(), array('status' => 500));
+        }
+    }
+
+    /**
+     * Check title similarity against existing posts
+     *
+     * @param WP_REST_Request $request Request object
+     * @return WP_REST_Response
+     * @since 1.0.0
+     */
+    public function check_title_similarity($request) {
+        try {
+            $post_id = (int) $request->get_param('post_id');
+            $title = sanitize_text_field($request->get_param('title'));
+            $threshold = (float) $request->get_param('threshold');
+
+            Logger::info('REST API: Checking title similarity', array(
+                'post_id' => $post_id,
+                'title' => $title,
+                'threshold' => $threshold
+            ));
+
+            // Get existing post titles (excluding current post)
+            global $wpdb;
+            $existing_titles = $wpdb->get_col($wpdb->prepare(
+                "SELECT post_title FROM {$wpdb->posts}
+                 WHERE post_status = 'publish'
+                 AND post_type IN ('post', 'page')
+                 AND ID != %d
+                 AND post_title != ''",
+                $post_id
+            ));
+
+            // Use SEO Gemini provider for similarity check
+            $seo_provider = new \EZTranslate\Providers\SeoGeminiProvider();
+            $similarity_result = $seo_provider->checkTitleSimilarity($title, $existing_titles, $threshold);
+
+            Logger::info('REST API: Title similarity check completed', array(
+                'post_id' => $post_id,
+                'is_similar' => $similarity_result['is_similar'],
+                'similarity_score' => $similarity_result['similarity_score'],
+                'similar_count' => count($similarity_result['similar_titles'])
+            ));
+
+            return rest_ensure_response(array(
+                'success' => true,
+                'data' => $similarity_result,
+                'message' => 'Title similarity check completed'
+            ));
+
+        } catch (Exception $e) {
+            Logger::error('REST API: Failed to check title similarity', array(
+                'error' => $e->getMessage(),
+                'post_id' => $request->get_param('post_id')
+            ));
+
+            return new \WP_Error('similarity_check_failed', $e->getMessage(), array('status' => 500));
         }
     }
 

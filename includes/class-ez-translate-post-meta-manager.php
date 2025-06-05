@@ -61,6 +61,14 @@ class PostMetaManager {
     const META_SEO_DESCRIPTION = '_ez_translate_seo_description';
 
     /**
+     * Meta key for OG title (Open Graph for social media)
+     *
+     * @var string
+     * @since 1.0.0
+     */
+    const META_OG_TITLE = '_ez_translate_og_title';
+
+    /**
      * Translation group prefix
      *
      * @var string
@@ -153,6 +161,7 @@ class PostMetaManager {
             'is_landing' => get_post_meta($post_id, self::META_IS_LANDING, true),
             'seo_title' => get_post_meta($post_id, self::META_SEO_TITLE, true),
             'seo_description' => get_post_meta($post_id, self::META_SEO_DESCRIPTION, true),
+            'og_title' => get_post_meta($post_id, self::META_OG_TITLE, true),
         );
 
         // Filter out empty values
@@ -296,6 +305,33 @@ class PostMetaManager {
     }
 
     /**
+     * Set OG title for a post (Open Graph for social media)
+     *
+     * @param int    $post_id  Post ID
+     * @param string $og_title OG title
+     * @return bool Success status
+     * @since 1.0.0
+     */
+    public static function set_post_og_title($post_id, $og_title) {
+        $og_title = sanitize_text_field($og_title);
+
+        $result = update_post_meta($post_id, self::META_OG_TITLE, $og_title);
+
+        if ($result) {
+            Logger::info('Post OG title set', array('post_id' => $post_id, 'og_title' => $og_title));
+            Logger::log_db_operation('update', 'post_meta', array(
+                'post_id' => $post_id,
+                'meta_key' => self::META_OG_TITLE,
+                'meta_value' => $og_title
+            ));
+        } else {
+            Logger::error('Failed to set post OG title', array('post_id' => $post_id, 'og_title' => $og_title));
+        }
+
+        return $result;
+    }
+
+    /**
      * Generate a unique translation group ID
      *
      * @return string Generated group ID
@@ -409,7 +445,8 @@ class PostMetaManager {
             self::META_GROUP,
             self::META_IS_LANDING,
             self::META_SEO_TITLE,
-            self::META_SEO_DESCRIPTION
+            self::META_SEO_DESCRIPTION,
+            self::META_OG_TITLE
         );
 
         $success = true;
@@ -492,6 +529,12 @@ class PostMetaManager {
         // Set SEO description
         if (isset($metadata['seo_description'])) {
             $result = self::set_post_seo_description($post_id, $metadata['seo_description']);
+            if (!$result) $success = false;
+        }
+
+        // Set OG title
+        if (isset($metadata['og_title'])) {
+            $result = self::set_post_og_title($post_id, $metadata['og_title']);
             if (!$result) $success = false;
         }
 

@@ -42,15 +42,23 @@
         const [translationData, setTranslationData] = useState(null);
         const [loadingTranslations, setLoadingTranslations] = useState(false);
 
+        // SEO AI states
+        const [aiLoading, setAiLoading] = useState(false);
+        const [aiError, setAiError] = useState(null);
+        const [seoValidation, setSeoValidation] = useState({});
+        const [similarityCheck, setSimilarityCheck] = useState({});
+
         // Landing page functionality removed - legacy state removed
 
         // Get post data from WordPress data store
-        const { postId, postMeta, isSaving, isAutosaving, hasEdits } = useSelect((select) => {
+        const { postId, postMeta, postTitle, postContent, isSaving, isAutosaving, hasEdits } = useSelect((select) => {
             const { getCurrentPostId, getEditedPostAttribute, isSavingPost, isAutosavingPost, isEditedPostDirty } = select('core/editor');
 
             return {
                 postId: getCurrentPostId(),
                 postMeta: getEditedPostAttribute('meta') || {},
+                postTitle: getEditedPostAttribute('title') || '',
+                postContent: getEditedPostAttribute('content') || '',
                 isSaving: isSavingPost(),
                 isAutosaving: isAutosavingPost(),
                 hasEdits: isEditedPostDirty()
@@ -65,6 +73,7 @@
         // Landing page functionality removed - legacy variables removed
         const currentSeoTitle = postMeta._ez_translate_seo_title || '';
         const currentSeoDescription = postMeta._ez_translate_seo_description || '';
+        const currentOgTitle = postMeta._ez_translate_og_title || '';
 
         // Detect original language (from WordPress config or current page)
         const wpLanguage = window.ezTranslateGutenberg?.wpLanguage || 'en';
@@ -91,6 +100,17 @@
         // Monitor post save status
         useEffect(() => {
         }, [isSaving, isAutosaving, hasEdits]);
+
+        // Validate SEO content when fields change
+        useEffect(() => {
+            if (currentSeoTitle || currentSeoDescription || currentOgTitle) {
+                validateSeoContent({
+                    seo_title: currentSeoTitle,
+                    seo_description: currentSeoDescription,
+                    og_title: currentOgTitle
+                });
+            }
+        }, [currentSeoTitle, currentSeoDescription, currentOgTitle]);
 
         /**
          * Load available languages from API
@@ -272,6 +292,236 @@
             } catch (error) {
                 alert('Error checking database: ' + error.message);
             }
+        };
+
+        /**
+         * Generate SEO fields using AI
+         */
+        const generateSeoFields = async () => {
+            setAiLoading(true);
+            setAiError(null);
+
+            // Store current values for comparison
+            const currentValues = {
+                seo_title: currentSeoTitle,
+                seo_description: currentSeoDescription,
+                og_title: currentOgTitle
+            };
+
+            try {
+                const response = await apiFetch({
+                    path: 'ez-translate/v1/generate-seo',
+                    method: 'POST',
+                    data: {
+                        post_id: postId
+                    }
+                });
+
+                if (response.success) {
+                    // Show comparison if there were previous values
+                    const hasCurrentValues = currentValues.seo_title || currentValues.seo_description || currentValues.og_title;
+
+                    if (hasCurrentValues) {
+                        const shouldReplace = confirm(
+                            __('AI has generated new SEO content. Do you want to replace your current values?', 'ez-translate') + '\n\n' +
+                            __('BEFORE:', 'ez-translate') + '\n' +
+                            (currentValues.seo_title ? __('Title:', 'ez-translate') + ' ' + currentValues.seo_title + '\n' : '') +
+                            (currentValues.seo_description ? __('Description:', 'ez-translate') + ' ' + currentValues.seo_description.substring(0, 60) + '...\n' : '') +
+                            (currentValues.og_title ? __('OG Title:', 'ez-translate') + ' ' + currentValues.og_title + '\n' : '') +
+                            '\n' + __('AFTER (AI Generated):', 'ez-translate') + '\n' +
+                            __('Title:', 'ez-translate') + ' ' + response.data.seo_title + '\n' +
+                            __('Description:', 'ez-translate') + ' ' + response.data.seo_description.substring(0, 60) + '...\n' +
+                            __('OG Title:', 'ez-translate') + ' ' + response.data.og_title
+                        );
+
+                        if (!shouldReplace) {
+                            setAiLoading(false);
+                            return;
+                        }
+                    }
+
+                    // Update meta fields with generated content
+                    const newMeta = {
+                        ...postMeta,
+                        '_ez_translate_seo_title': response.data.seo_title,
+                        '_ez_translate_seo_description': response.data.seo_description,
+                        '_ez_translate_og_title': response.data.og_title
+                    };
+
+                    editPost({ meta: newMeta });
+
+                    // Validate the generated content
+                    validateSeoContent({
+                        seo_title: response.data.seo_title,
+                        seo_description: response.data.seo_description,
+                        og_title: response.data.og_title
+                    });
+
+                    // Clear similarity check since we have new content
+                    setSimilarityCheck({});
+                } else {
+                    setAiError(__('Failed to generate SEO fields. Please try again.', 'ez-translate'));
+                }
+            } catch (err) {
+                console.error('Failed to generate SEO fields:', err);
+                setAiError(__('AI service is not available. Please try again later.', 'ez-translate'));
+            } finally {
+                setAiLoading(false);
+            }
+        };
+
+        /**
+         * Generate shorter version of content
+         */
+        const generateShorterVersion = async (content, type, maxLength) => {
+            setAiLoading(true);
+            setAiError(null);
+
+            try {
+                const response = await apiFetch({
+                    path: 'ez-translate/v1/generate-shorter-seo',
+                    method: 'POST',
+                    data: {
+                        post_id: postId,
+                        content: content,
+                        type: type,
+                        max_length: maxLength
+                    }
+                });
+
+                if (response.success) {
+                    const metaKey = type === 'title' ? '_ez_translate_seo_title' : '_ez_translate_seo_description';
+                    updateMeta(metaKey, response.data.shortened_content);
+                } else {
+                    setAiError(__('Failed to generate shorter version. Please try again.', 'ez-translate'));
+                }
+            } catch (err) {
+                console.error('Failed to generate shorter version:', err);
+                setAiError(__('AI service is not available. Please try again later.', 'ez-translate'));
+            } finally {
+                setAiLoading(false);
+            }
+        };
+
+        /**
+         * Check title similarity
+         */
+        const checkTitleSimilarity = async (title) => {
+            try {
+                const response = await apiFetch({
+                    path: 'ez-translate/v1/check-title-similarity',
+                    method: 'POST',
+                    data: {
+                        post_id: postId,
+                        title: title,
+                        threshold: 0.85
+                    }
+                });
+
+                if (response.success) {
+                    setSimilarityCheck(response.data);
+                }
+            } catch (err) {
+                console.error('Failed to check title similarity:', err);
+            }
+        };
+
+        /**
+         * Generate alternative title suggestions
+         */
+        const generateAlternativeTitle = async (originalTitle) => {
+            setAiLoading(true);
+            setAiError(null);
+
+            try {
+                const response = await apiFetch({
+                    path: 'ez-translate/v1/generate-alternative-title',
+                    method: 'POST',
+                    data: {
+                        post_id: postId,
+                        original_title: originalTitle,
+                        similar_titles: similarityCheck.similar_titles || []
+                    }
+                });
+
+                if (response.success && response.data.alternatives.length > 0) {
+                    // Show alternatives to user (simple implementation)
+                    const alternatives = response.data.alternatives;
+                    const choice = prompt(
+                        __('AI suggests these alternative titles:', 'ez-translate') + '\n\n' +
+                        alternatives.map((alt, index) => `${index + 1}. ${alt}`).join('\n') + '\n\n' +
+                        __('Enter the number of your choice (1-3), or cancel to keep current title:', 'ez-translate')
+                    );
+
+                    const choiceIndex = parseInt(choice) - 1;
+                    if (choiceIndex >= 0 && choiceIndex < alternatives.length) {
+                        updateMeta('_ez_translate_seo_title', alternatives[choiceIndex]);
+                        setSimilarityCheck({}); // Clear similarity warning
+                    }
+                } else {
+                    setAiError(__('Failed to generate alternative titles. Please try again.', 'ez-translate'));
+                }
+            } catch (err) {
+                console.error('Failed to generate alternative titles:', err);
+                setAiError(__('AI service is not available. Please try again later.', 'ez-translate'));
+            } finally {
+                setAiLoading(false);
+            }
+        };
+
+        /**
+         * Validate SEO content
+         */
+        const validateSeoContent = (seoData) => {
+            const limits = {
+                seo_title: 60,
+                seo_description: 155,
+                og_title: 60
+            };
+
+            const validation = {};
+            Object.keys(limits).forEach(field => {
+                if (seoData[field]) {
+                    const length = seoData[field].length;
+                    const limit = limits[field];
+                    const percentage = (length / limit) * 100;
+
+                    validation[field] = {
+                        length: length,
+                        limit: limit,
+                        percentage: percentage,
+                        status: percentage > 100 ? 'error' : percentage > 90 ? 'warning' : 'success'
+                    };
+                }
+            });
+
+            setSeoValidation(validation);
+        };
+
+        /**
+         * Get validation color for field
+         */
+        const getValidationColor = (field) => {
+            const validation = seoValidation[field];
+            if (!validation) return '#666';
+
+            switch (validation.status) {
+                case 'error': return '#d63638';
+                case 'warning': return '#dba617';
+                case 'success': return '#00a32a';
+                default: return '#666';
+            }
+        };
+
+        /**
+         * Get character count display
+         */
+        const getCharacterCount = (content, field) => {
+            const validation = seoValidation[field];
+            const length = content ? content.length : 0;
+            const limit = validation ? validation.limit : 60;
+
+            return `${length}/${limit}`;
         };
 
         /**
@@ -466,31 +716,260 @@
                 )
             ),
 
-            // SEO Metadata Panel (when page has language assigned)
-            currentLanguage && el(PanelBody, {
-                title: __('SEO Metadata', 'ez-translate'),
+            // SEO Metadata Panel with AI (available for all content)
+            el(PanelBody, {
+                title: __('SEO Metadata with AI', 'ez-translate'),
                 initialOpen: true
             },
-                el(TextControl, {
-                    label: __('SEO Title', 'ez-translate'),
-                    value: currentSeoTitle,
-                    onChange: (value) => updateMeta('_ez_translate_seo_title', value),
-                    help: __('Custom SEO title for this page. Leave empty to use the page title.', 'ez-translate'),
-                    placeholder: __('Enter SEO title...', 'ez-translate')
-                }),
+                // AI Error Notice
+                aiError && el(Notice, {
+                    status: 'error',
+                    isDismissible: true,
+                    onRemove: () => setAiError(null),
+                    style: { marginBottom: '16px' }
+                }, aiError),
 
-                el(TextareaControl, {
-                    label: __('SEO Description', 'ez-translate'),
-                    value: currentSeoDescription,
-                    onChange: (value) => updateMeta('_ez_translate_seo_description', value),
-                    help: __('Meta description for search engines and social media.', 'ez-translate'),
-                    placeholder: __('Enter SEO description...', 'ez-translate'),
-                    rows: 3
-                }),
+                // Post Information
+                el('div', {
+                    style: {
+                        marginBottom: '16px',
+                        padding: '10px',
+                        backgroundColor: '#f0f6fc',
+                        border: '1px solid #c8e1ff',
+                        borderRadius: '4px'
+                    }
+                },
+                    el('div', { style: { display: 'flex', alignItems: 'center', marginBottom: '6px' } },
+                        el('span', { className: 'dashicons dashicons-admin-post', style: { marginRight: '8px', color: '#0073aa' } }),
+                        el('strong', { style: { color: '#0073aa', fontSize: '13px' } }, __('Content Analysis', 'ez-translate'))
+                    ),
+                    el('div', { style: { fontSize: '12px', color: '#333' } },
+                        el('div', { style: { marginBottom: '4px' } },
+                            el('span', { style: { fontWeight: 'bold' } }, __('Title:', 'ez-translate') + ' '),
+                            el('span', null, postTitle || __('(No title)', 'ez-translate'))
+                        ),
+                        el('div', { style: { marginBottom: '4px' } },
+                            el('span', { style: { fontWeight: 'bold' } }, __('Content Length:', 'ez-translate') + ' '),
+                            el('span', null, (postContent ? postContent.length : 0) + ' ' + __('characters', 'ez-translate'))
+                        ),
+                        currentLanguage && el('div', null,
+                            el('span', { style: { fontWeight: 'bold' } }, __('Language:', 'ez-translate') + ' '),
+                            el('span', null, currentLanguage)
+                        )
+                    )
+                ),
 
-                el('div', { style: { marginTop: '12px', padding: '8px', backgroundColor: '#f0f0f0', borderRadius: '4px' } },
+                // Generate All SEO Fields Button
+                el('div', { style: { marginBottom: '20px', textAlign: 'center' } },
+                    el('button', {
+                        className: 'components-button is-primary',
+                        onClick: generateSeoFields,
+                        disabled: aiLoading,
+                        style: { width: '100%', marginBottom: '8px' }
+                    },
+                        aiLoading
+                            ? el('span', null,
+                                el('span', { className: 'dashicons dashicons-update', style: { animation: 'rotation 1s infinite linear', marginRight: '8px' } }),
+                                __('Generating with AI...', 'ez-translate')
+                              )
+                            : el('span', null,
+                                el('span', { className: 'dashicons dashicons-robot', style: { marginRight: '8px' } }),
+                                __('Generate All SEO Fields with AI', 'ez-translate')
+                              )
+                    ),
+                    el('p', { style: { margin: '0', fontSize: '11px', color: '#666', fontStyle: 'italic' } },
+                        __('AI will analyze your content and generate optimized SEO title, description, and social media title.', 'ez-translate')
+                    )
+                ),
+
+                // Current Values Preview (if any exist)
+                (currentSeoTitle || currentSeoDescription || currentOgTitle) && el('div', {
+                    style: {
+                        marginBottom: '20px',
+                        padding: '12px',
+                        backgroundColor: '#f8f9fa',
+                        border: '1px solid #e9ecef',
+                        borderRadius: '4px'
+                    }
+                },
+                    el('div', { style: { display: 'flex', alignItems: 'center', marginBottom: '8px' } },
+                        el('span', { className: 'dashicons dashicons-visibility', style: { marginRight: '8px', color: '#0073aa' } }),
+                        el('strong', { style: { color: '#0073aa' } }, __('Current SEO Values', 'ez-translate'))
+                    ),
+
+                    currentSeoTitle && el('div', { style: { marginBottom: '6px' } },
+                        el('span', { style: { fontSize: '12px', fontWeight: 'bold', color: '#666' } }, __('SEO Title:', 'ez-translate') + ' '),
+                        el('span', { style: { fontSize: '12px', color: '#333' } }, currentSeoTitle),
+                        el('span', { style: { fontSize: '11px', color: '#999', marginLeft: '8px' } }, '(' + currentSeoTitle.length + ' chars)')
+                    ),
+
+                    currentSeoDescription && el('div', { style: { marginBottom: '6px' } },
+                        el('span', { style: { fontSize: '12px', fontWeight: 'bold', color: '#666' } }, __('SEO Description:', 'ez-translate') + ' '),
+                        el('span', { style: { fontSize: '12px', color: '#333' } }, currentSeoDescription.length > 80 ? currentSeoDescription.substring(0, 80) + '...' : currentSeoDescription),
+                        el('span', { style: { fontSize: '11px', color: '#999', marginLeft: '8px' } }, '(' + currentSeoDescription.length + ' chars)')
+                    ),
+
+                    currentOgTitle && el('div', { style: { marginBottom: '6px' } },
+                        el('span', { style: { fontSize: '12px', fontWeight: 'bold', color: '#666' } }, __('OG Title:', 'ez-translate') + ' '),
+                        el('span', { style: { fontSize: '12px', color: '#333' } }, currentOgTitle),
+                        el('span', { style: { fontSize: '11px', color: '#999', marginLeft: '8px' } }, '(' + currentOgTitle.length + ' chars)')
+                    ),
+
+                    el('p', { style: { margin: '8px 0 0 0', fontSize: '11px', color: '#666', fontStyle: 'italic' } },
+                        __('These are your current values. AI will generate new optimized versions.', 'ez-translate')
+                    )
+                ),
+
+                // Empty State Message (when no SEO values exist)
+                (!currentSeoTitle && !currentSeoDescription && !currentOgTitle) && el('div', {
+                    style: {
+                        marginBottom: '20px',
+                        padding: '12px',
+                        backgroundColor: '#fff3cd',
+                        border: '1px solid #ffeaa7',
+                        borderRadius: '4px'
+                    }
+                },
+                    el('div', { style: { display: 'flex', alignItems: 'center', marginBottom: '8px' } },
+                        el('span', { className: 'dashicons dashicons-lightbulb', style: { marginRight: '8px', color: '#856404' } }),
+                        el('strong', { style: { color: '#856404' } }, __('No SEO Content Yet', 'ez-translate'))
+                    ),
+                    el('p', { style: { margin: '0', fontSize: '12px', color: '#856404' } },
+                        __('This content doesn\'t have SEO metadata yet. Use the AI button above to generate optimized SEO title, description, and social media title automatically.', 'ez-translate')
+                    )
+                ),
+
+                // SEO Title Field
+                el('div', { style: { marginBottom: '20px' } },
+                    el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' } },
+                        el('label', { style: { fontWeight: 'bold', color: getValidationColor('seo_title') } },
+                            __('SEO Title', 'ez-translate')
+                        ),
+                        el('span', { style: { fontSize: '12px', color: getValidationColor('seo_title') } },
+                            getCharacterCount(currentSeoTitle, 'seo_title')
+                        )
+                    ),
+                    el(TextControl, {
+                        value: currentSeoTitle,
+                        onChange: (value) => {
+                            updateMeta('_ez_translate_seo_title', value);
+                            validateSeoContent({ seo_title: value, seo_description: currentSeoDescription, og_title: currentOgTitle });
+                            if (value.length > 10) checkTitleSimilarity(value);
+                        },
+                        placeholder: __('Enter SEO title...', 'ez-translate'),
+                        style: { borderColor: getValidationColor('seo_title') }
+                    }),
+                    el('div', { style: { display: 'flex', gap: '8px', marginTop: '8px' } },
+                        seoValidation.seo_title && seoValidation.seo_title.status === 'error' && el('button', {
+                            className: 'components-button is-small is-secondary',
+                            onClick: () => generateShorterVersion(currentSeoTitle, 'title', 60),
+                            disabled: aiLoading
+                        }, __('✂️ Make Shorter', 'ez-translate')),
+
+                        similarityCheck.is_similar && el('button', {
+                            className: 'components-button is-small is-tertiary',
+                            onClick: () => generateAlternativeTitle(currentSeoTitle),
+                            disabled: aiLoading
+                        }, __('💡 Suggest Alternative', 'ez-translate'))
+                    ),
+                    el('p', { style: { margin: '4px 0 0 0', fontSize: '11px', color: '#666' } },
+                        __('Recommended: 50-60 characters for optimal display in search results.', 'ez-translate')
+                    )
+                ),
+
+                // SEO Description Field
+                el('div', { style: { marginBottom: '20px' } },
+                    el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' } },
+                        el('label', { style: { fontWeight: 'bold', color: getValidationColor('seo_description') } },
+                            __('SEO Description', 'ez-translate')
+                        ),
+                        el('span', { style: { fontSize: '12px', color: getValidationColor('seo_description') } },
+                            getCharacterCount(currentSeoDescription, 'seo_description')
+                        )
+                    ),
+                    el(TextareaControl, {
+                        value: currentSeoDescription,
+                        onChange: (value) => {
+                            updateMeta('_ez_translate_seo_description', value);
+                            validateSeoContent({ seo_title: currentSeoTitle, seo_description: value, og_title: currentOgTitle });
+                        },
+                        placeholder: __('Enter SEO description...', 'ez-translate'),
+                        rows: 3,
+                        style: { borderColor: getValidationColor('seo_description') }
+                    }),
+                    seoValidation.seo_description && seoValidation.seo_description.status === 'error' && el('div', { style: { marginTop: '8px' } },
+                        el('button', {
+                            className: 'components-button is-small is-secondary',
+                            onClick: () => generateShorterVersion(currentSeoDescription, 'description', 155),
+                            disabled: aiLoading
+                        }, __('✂️ Make Shorter', 'ez-translate'))
+                    ),
+                    el('p', { style: { margin: '4px 0 0 0', fontSize: '11px', color: '#666' } },
+                        __('Recommended: 150-155 characters for best search engine results.', 'ez-translate')
+                    )
+                ),
+
+                // OG Title Field
+                el('div', { style: { marginBottom: '20px' } },
+                    el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' } },
+                        el('label', { style: { fontWeight: 'bold', color: getValidationColor('og_title') } },
+                            __('Social Media Title (OG Title)', 'ez-translate')
+                        ),
+                        el('span', { style: { fontSize: '12px', color: getValidationColor('og_title') } },
+                            getCharacterCount(currentOgTitle, 'og_title')
+                        )
+                    ),
+                    el(TextControl, {
+                        value: currentOgTitle,
+                        onChange: (value) => {
+                            updateMeta('_ez_translate_og_title', value);
+                            validateSeoContent({ seo_title: currentSeoTitle, seo_description: currentSeoDescription, og_title: value });
+                        },
+                        placeholder: __('Enter social media title...', 'ez-translate'),
+                        style: { borderColor: getValidationColor('og_title') }
+                    }),
+                    seoValidation.og_title && seoValidation.og_title.status === 'error' && el('div', { style: { marginTop: '8px' } },
+                        el('button', {
+                            className: 'components-button is-small is-secondary',
+                            onClick: () => generateShorterVersion(currentOgTitle, 'title', 60),
+                            disabled: aiLoading
+                        }, __('✂️ Make Shorter', 'ez-translate'))
+                    ),
+                    el('p', { style: { margin: '4px 0 0 0', fontSize: '11px', color: '#666' } },
+                        __('Used when sharing on social media. Defaults to SEO title if empty.', 'ez-translate')
+                    )
+                ),
+
+                // Similarity Warning
+                similarityCheck.is_similar && el('div', {
+                    style: {
+                        padding: '12px',
+                        backgroundColor: '#fff3cd',
+                        border: '1px solid #ffeaa7',
+                        borderRadius: '4px',
+                        marginBottom: '16px'
+                    }
+                },
+                    el('div', { style: { display: 'flex', alignItems: 'center', marginBottom: '8px' } },
+                        el('span', { className: 'dashicons dashicons-warning', style: { color: '#856404', marginRight: '8px' } }),
+                        el('strong', { style: { color: '#856404' } }, __('Similar Title Detected', 'ez-translate'))
+                    ),
+                    el('p', { style: { margin: '0 0 8px 0', fontSize: '13px', color: '#856404' } },
+                        __('Your title is similar to existing content. This may cause SEO cannibalization.', 'ez-translate')
+                    ),
+                    el('p', { style: { margin: '0', fontSize: '12px', color: '#6c757d' } },
+                        __('Similarity score:', 'ez-translate') + ' ' + Math.round(similarityCheck.similarity_score * 100) + '%'
+                    )
+                ),
+
+                // Info Box
+                el('div', { style: { marginTop: '16px', padding: '12px', backgroundColor: '#f0f0f0', borderRadius: '4px' } },
+                    el('div', { style: { display: 'flex', alignItems: 'center', marginBottom: '8px' } },
+                        el('span', { className: 'dashicons dashicons-info', style: { marginRight: '8px', color: '#0073aa' } }),
+                        el('strong', { style: { color: '#0073aa' } }, __('AI-Powered SEO', 'ez-translate'))
+                    ),
                     el('p', { style: { margin: '0', fontSize: '12px', color: '#666' } },
-                        __('These SEO settings will be used in the page head, Open Graph tags, and structured data.', 'ez-translate')
+                        __('These SEO fields are enhanced with AI to help you create optimized content. The system checks character limits, similarity with existing content, and provides intelligent suggestions.', 'ez-translate')
                     )
                 )
             )
@@ -515,5 +994,18 @@
             );
         }
     });
+
+    // Add CSS for animations
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes rotation {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .ez-translate-ai-loading {
+            animation: rotation 1s infinite linear;
+        }
+    `;
+    document.head.appendChild(style);
 
 })();
