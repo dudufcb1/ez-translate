@@ -202,8 +202,8 @@ class Frontend {
         echo '<meta property="og:url" content="' . esc_url($current_url) . '">' . "\n";
         echo '<meta property="og:locale" content="' . esc_attr($locale) . '">' . "\n";
 
-        // Add site name
-        $site_name = get_bloginfo('name');
+        // Add site name (use language-specific name if available)
+        $site_name = !empty($language_site_metadata['site_name']) ? $language_site_metadata['site_name'] : get_bloginfo('name');
         if (!empty($site_name)) {
             echo '<meta property="og:site_name" content="' . esc_attr($site_name) . '">' . "\n";
         }
@@ -233,7 +233,7 @@ class Frontend {
         // Generate JSON-LD structured data for articles
         if (!$is_landing) {
             echo '<!-- EZ Translate: JSON-LD Structured Data -->' . "\n";
-            $this->generate_article_jsonld($post, $page_title, $page_description, $language, $current_url);
+            $this->generate_article_jsonld($post, $page_title, $page_description, $language, $current_url, $language_site_metadata);
         }
 
         // End EZ Translate metadata section
@@ -682,9 +682,10 @@ class Frontend {
      * @param string $description Article description
      * @param string $language Language code
      * @param string $url Article URL
+     * @param array $language_site_metadata Language-specific site metadata
      * @since 1.0.0
      */
-    private function generate_article_jsonld($post, $title, $description, $language, $url) {
+    private function generate_article_jsonld($post, $title, $description, $language, $url, $language_site_metadata = array()) {
         $author = get_userdata($post->post_author);
         $author_name = $author ? $author->display_name : 'Unknown';
         $author_url = $author ? get_author_posts_url($post->post_author) : '';
@@ -719,8 +720,8 @@ class Frontend {
             }
         }
 
-        // Add publisher information
-        $site_name = get_bloginfo('name');
+        // Add publisher information (use language-specific name if available)
+        $site_name = !empty($language_site_metadata['site_name']) ? $language_site_metadata['site_name'] : get_bloginfo('name');
         if (!empty($site_name)) {
             $jsonld['publisher'] = array(
                 '@type' => 'Organization',
