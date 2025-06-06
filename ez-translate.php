@@ -208,8 +208,8 @@ final class EZTranslate {
         // Create redirect database table
         $this->create_redirect_table();
 
-        // Check and update database schema if needed
-        $this->check_database_version();
+        // Set initial database version for new installations
+        $this->set_initial_database_version();
 
         // Set activation flag for any initialization needed on first load
         add_option('ez_translate_activation_redirect', true);
@@ -278,56 +278,18 @@ final class EZTranslate {
     }
 
     /**
-     * Check and update database schema version
+     * Set initial database version for new installations
      *
      * @since 1.0.0
      */
-    private function check_database_version() {
+    private function set_initial_database_version() {
         $current_db_version = get_option('ez_translate_db_version', '0');
-        $required_db_version = '1.0.0';
 
-        if (version_compare($current_db_version, $required_db_version, '<')) {
-            $this->update_database_schema($current_db_version, $required_db_version);
-            update_option('ez_translate_db_version', $required_db_version);
-            $this->log_message("Database updated from version {$current_db_version} to {$required_db_version}", 'info');
+        // Only set version if it's a new installation (version is 0)
+        if ($current_db_version === '0') {
+            update_option('ez_translate_db_version', '1.0.0');
+            $this->log_message('Database version set to 1.0.0 for new installation', 'info');
         }
-    }
-
-    /**
-     * Update database schema based on version
-     *
-     * @param string $from_version Current database version
-     * @param string $to_version   Target database version
-     * @since 1.0.0
-     */
-    private function update_database_schema($from_version, $to_version) {
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'ez_translate_redirects';
-
-        // If upgrading from version 0 (no version set), check if destination_post_id column exists
-        if ($from_version === '0') {
-            $column_exists = $wpdb->get_results(
-                $wpdb->prepare(
-                    "SHOW COLUMNS FROM {$table_name} LIKE %s",
-                    'destination_post_id'
-                )
-            );
-
-            if (empty($column_exists)) {
-                $wpdb->query(
-                    "ALTER TABLE {$table_name}
-                     ADD COLUMN destination_post_id bigint(20) unsigned DEFAULT NULL AFTER post_id,
-                     ADD KEY destination_post_id_index (destination_post_id)"
-                );
-                $this->log_message('Added missing destination_post_id column to redirects table', 'info');
-            }
-        }
-
-        // Future database updates can be added here
-        // Example:
-        // if (version_compare($from_version, '1.1.0', '<')) {
-        //     // Add new columns or indexes for version 1.1.0
-        // }
     }
 
     /**
