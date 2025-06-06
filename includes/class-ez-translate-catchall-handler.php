@@ -98,12 +98,9 @@ class CatchAllHandler {
             return;
         }
 
-        // Log the catch-all redirect
-        $this->log_catchall_redirect($current_url, $destination_url, $settings);
-
         // Perform the redirect
         $redirect_type = intval($settings['redirect_type']);
-        
+
         Logger::info('CatchAll: Performing redirect', array(
             'from' => $current_url,
             'to' => $destination_url,
@@ -246,57 +243,45 @@ class CatchAllHandler {
         return $current_normalized === $destination_normalized;
     }
 
-    /**
-     * Log catch-all redirect for tracking
-     *
-     * @param string $current_url Current URL
-     * @param string $destination_url Destination URL
-     * @param array $settings Catch-all settings
-     * @since 1.0.0
-     */
-    private function log_catchall_redirect($current_url, $destination_url, $settings) {
-        // Add to redirects table for tracking
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'ez_translate_redirects';
 
-        $redirect_data = array(
-            'old_url' => $current_url,
-            'new_url' => $destination_url,
-            'redirect_type' => $settings['redirect_type'],
-            'change_type' => 'catchall',
-            'wp_auto_redirect' => 0,
-            'created_at' => current_time('mysql'),
-            'updated_at' => current_time('mysql')
-        );
-
-        $wpdb->insert($table_name, $redirect_data);
-
-        Logger::info('CatchAll: Redirect logged to database', array(
-            'from' => $current_url,
-            'to' => $destination_url,
-            'type' => $settings['redirect_type']
-        ));
-    }
 
     /**
-     * Get catch-all statistics
+     * Get catch-all configuration status
      *
-     * @return array Statistics data
+     * @return array Configuration status data
      * @since 1.0.0
      */
     public function get_catchall_stats() {
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'ez_translate_redirects';
+        $settings = get_option('ez_translate_catchall_settings', array());
 
         return array(
-            'total_catchall' => $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM {$table_name} WHERE change_type = %s", 'catchall'
-            )),
-            'recent_catchall' => $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM {$table_name} WHERE change_type = %s AND created_at >= %s", 
-                'catchall', 
-                date('Y-m-d H:i:s', strtotime('-7 days'))
-            ))
+            'enabled' => !empty($settings['enabled']),
+            'redirect_type' => isset($settings['redirect_type']) ? $settings['redirect_type'] : '301',
+            'destination_type' => isset($settings['destination_type']) ? $settings['destination_type'] : 'home',
+            'destination_configured' => $this->is_destination_configured($settings)
         );
+    }
+
+    /**
+     * Check if catch-all destination is properly configured
+     *
+     * @param array $settings Catch-all settings
+     * @return bool True if destination is configured
+     * @since 1.0.0
+     */
+    private function is_destination_configured($settings) {
+        if (empty($settings['destination_type'])) {
+            return false;
+        }
+
+        switch ($settings['destination_type']) {
+            case 'page':
+                return !empty($settings['destination_page_id']) && get_post($settings['destination_page_id']);
+            case 'url':
+                return !empty($settings['destination_url']);
+            case 'home':
+            default:
+                return true; // Home URL is always available
+        }
     }
 }

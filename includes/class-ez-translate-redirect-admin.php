@@ -164,7 +164,7 @@ class RedirectAdmin {
             <div class="ez-translate-catchall-settings">
                 <h2><?php _e('Catch-All Redirect Settings', 'ez-translate'); ?></h2>
                 <p class="description">
-                    <?php _e('Configure a fallback redirect for URLs that don\'t have specific redirects configured. This helps handle deleted pages, broken links, and other 404 errors.', 'ez-translate'); ?>
+                    <?php _e('Configure a fallback redirect for URLs that don\'t have specific redirects configured. This helps handle deleted pages, broken links, and other 404 errors. <strong>Note:</strong> Catch-all redirects work in real-time without creating database records, preventing potential security vulnerabilities from automated attacks.', 'ez-translate'); ?>
                 </p>
 
                 <?php
@@ -192,7 +192,7 @@ class RedirectAdmin {
                                     <?php _e('Enable automatic redirect for unhandled 404 errors', 'ez-translate'); ?>
                                 </label>
                                 <p class="description">
-                                    <?php _e('When enabled, any 404 error that doesn\'t have a specific redirect will be automatically redirected to the destination below.', 'ez-translate'); ?>
+                                    <?php _e('When enabled, any 404 error that doesn\'t have a specific redirect will be automatically redirected to the destination below. Redirects are processed in real-time without creating database records.', 'ez-translate'); ?>
                                 </p>
                             </td>
                         </tr>
