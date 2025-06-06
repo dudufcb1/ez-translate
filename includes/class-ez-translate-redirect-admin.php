@@ -1111,13 +1111,7 @@ class RedirectAdmin {
         );
 
         try {
-            // 1. Ensure table exists
-            if (class_exists('EZTranslate\RedirectManager')) {
-                $manager = new RedirectManager();
-                $manager->create_database_table();
-            }
-
-            // 2. Create test redirects
+            // 1. Create test redirects
             $test_redirects = array(
                 array(
                     'old_url' => home_url('/test-redirect-1-' . time()),
@@ -1152,7 +1146,7 @@ class RedirectAdmin {
                 }
             }
 
-            // 3. Test URL change simulation
+            // 2. Test URL change simulation
             $post_id = wp_insert_post(array(
                 'post_title' => 'Test Post for Redirect System - ' . time(),
                 'post_content' => 'This is a test post to verify redirect system functionality.',

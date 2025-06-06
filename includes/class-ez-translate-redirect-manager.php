@@ -38,8 +38,8 @@ class RedirectManager {
      * @since 1.0.0
      */
     public function __construct() {
-        $this->init_hooks();
         $this->init_database();
+        $this->init_hooks();
         Logger::info('RedirectManager initialized');
     }
 
@@ -49,9 +49,6 @@ class RedirectManager {
      * @since 1.0.0
      */
     private function init_hooks() {
-        // Ensure database table exists
-        $this->ensure_database_table();
-
         // URL change tracking
         add_action('post_updated', array($this, 'track_url_changes'), 10, 3);
 
@@ -77,65 +74,7 @@ class RedirectManager {
         self::$table_name = $wpdb->prefix . 'ez_translate_redirects';
     }
 
-    /**
-     * Ensure database table exists
-     *
-     * @since 1.0.0
-     */
-    private function ensure_database_table() {
-        global $wpdb;
 
-        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '" . self::$table_name . "'") === self::$table_name;
-
-        if (!$table_exists) {
-            $this->create_database_table();
-        }
-    }
-
-    /**
-     * Create database table for redirects
-     *
-     * @since 1.0.0
-     */
-    public function create_database_table() {
-        global $wpdb;
-
-        $charset_collate = $wpdb->get_charset_collate();
-
-        $sql = "CREATE TABLE " . self::$table_name . " (
-            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-            old_url varchar(2048) NOT NULL,
-            new_url varchar(2048) DEFAULT NULL,
-            redirect_type varchar(10) NOT NULL DEFAULT '301',
-            change_type varchar(20) NOT NULL,
-            post_id bigint(20) unsigned DEFAULT NULL,
-            destination_post_id bigint(20) unsigned DEFAULT NULL,
-            wp_auto_redirect tinyint(1) DEFAULT 0,
-            created_at datetime DEFAULT CURRENT_TIMESTAMP,
-            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            KEY old_url_index (old_url(191)),
-            KEY post_id_index (post_id),
-            KEY destination_post_id_index (destination_post_id),
-            KEY change_type_index (change_type),
-            KEY created_at_index (created_at)
-        ) $charset_collate;";
-
-        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-        $result = dbDelta($sql);
-
-        if ($result) {
-            Logger::info('Redirects database table created successfully', array(
-                'table_name' => self::$table_name,
-                'sql' => $sql
-            ));
-        } else {
-            Logger::error('Failed to create redirects database table', array(
-                'table_name' => self::$table_name,
-                'error' => $wpdb->last_error
-            ));
-        }
-    }
 
     /**
      * Track URL changes when posts are updated
