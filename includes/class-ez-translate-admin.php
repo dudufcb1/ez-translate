@@ -991,6 +991,24 @@ class Admin {
                         require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-robots-basic.php';
                         \EZTranslateRobotsBasicTest::run_tests();
                     }
+
+                    // Run Redirect tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-basic.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-basic.php';
+                        \EZTranslateRedirectBasicTest::run_tests();
+                    }
+
+                    // Run Redirect Debug tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-debug.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-debug.php';
+                        \EZTranslateRedirectDebugTest::run_tests();
+                    }
+
+                    // Run Redirect Simple tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-simple.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-simple.php';
+                        \EZTranslateRedirectSimpleTest::run_tests();
+                    }
                     ?>
                 </div>
             <?php elseif (isset($_GET['run_ez_translate_landing_tests']) && $_GET['run_ez_translate_landing_tests'] === '1'): ?>
@@ -1148,6 +1166,53 @@ class Admin {
                     }
                     ?>
                 </div>
+            <?php elseif (isset($_GET['run_ez_translate_redirect_tests']) && $_GET['run_ez_translate_redirect_tests'] === '1'): ?>
+                <div class="card">
+                    <h2><?php _e('Redirect System Test Results', 'ez-translate'); ?></h2>
+                    <?php
+                    // Run Redirect Debug tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-debug.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-debug.php';
+                        \EZTranslateRedirectDebugTest::run_tests();
+                    }
+
+                    // Run Redirect Fix tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-fix.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-fix.php';
+                        \EZTranslateRedirectFixTest::run_tests();
+                    }
+
+                    // Run Redirect Advanced tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-advanced.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-advanced.php';
+                        \EZTranslateRedirectAdvancedTest::run_tests();
+                    }
+
+                    // Run Redirect Edit tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-edit.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-edit.php';
+                        \EZTranslateRedirectEditTest::run_tests();
+                    }
+
+                    // Run Redirect Debug Edit tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-debug-edit.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-debug-edit.php';
+                        \EZTranslateRedirectDebugEditTest::run_tests();
+                    }
+
+                    // Run Redirect Simple tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-simple.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-simple.php';
+                        \EZTranslateRedirectSimpleTest::run_tests();
+                    }
+
+                    // Run Redirect Basic tests
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-basic.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-redirect-basic.php';
+                        \EZTranslateRedirectBasicTest::run_tests();
+                    }
+                    ?>
+                </div>
             <?php else: ?>
                 <div class="card">
                     <h2><?php _e('Testing', 'ez-translate'); ?></h2>
@@ -1190,6 +1255,9 @@ class Admin {
                     </a>
                     <a href="<?php echo esc_url(add_query_arg('run_ez_translate_robots_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
                         <?php _e('Run Robots.txt Tests', 'ez-translate'); ?>
+                    </a>
+                    <a href="<?php echo esc_url(add_query_arg('run_ez_translate_redirect_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
+                        <?php _e('Run Redirect Tests', 'ez-translate'); ?>
                     </a>
                 </div>
             <?php endif; ?>

@@ -1,0 +1,303 @@
+/**
+ * EZ Translate - Redirect Admin Styles
+ *
+ * @package EZTranslate
+ * @since 1.0.0
+ */
+
+/* Statistics Grid */
+.ez-translate-redirect-stats {
+    margin: 20px 0;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.stat-box {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.stat-box h3 {
+    font-size: 2.5em;
+    margin: 0 0 10px 0;
+    color: #1d2327;
+    font-weight: 600;
+}
+
+.stat-box p {
+    margin: 0;
+    color: #646970;
+    font-size: 14px;
+}
+
+/* Action Buttons */
+.ez-translate-redirect-actions {
+    margin: 20px 0;
+}
+
+.ez-translate-redirect-actions .button {
+    margin-right: 10px;
+}
+
+/* Table Styles */
+.wp-list-table .redirect-type-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #fff;
+}
+
+.redirect-type-301 {
+    background-color: #00a32a;
+}
+
+.redirect-type-302 {
+    background-color: #dba617;
+}
+
+.redirect-type-307 {
+    background-color: #72aee6;
+}
+
+.redirect-type-410 {
+    background-color: #d63638;
+}
+
+.change-type-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: capitalize;
+    color: #fff;
+}
+
+.change-type-changed {
+    background-color: #72aee6;
+}
+
+.change-type-trashed {
+    background-color: #dba617;
+}
+
+.change-type-deleted_permanently {
+    background-color: #d63638;
+}
+
+.change-type-manual {
+    background-color: #646970;
+}
+
+.change-type-test_system,
+.change-type-test_deletion {
+    background-color: #50575e;
+}
+
+.wp-list-table .old-url,
+.wp-list-table .new-url {
+    max-width: 300px;
+    word-break: break-all;
+}
+
+.wp-list-table .no-redirect {
+    color: #646970;
+    font-style: italic;
+}
+
+/* Modal Styles */
+.ez-translate-modal {
+    position: fixed;
+    z-index: 100000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: #fff;
+    margin: 5% auto;
+    padding: 20px;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    width: 80%;
+    max-width: 600px;
+    position: relative;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+.modal-content .close {
+    color: #646970;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    position: absolute;
+    right: 15px;
+    top: 10px;
+    cursor: pointer;
+}
+
+.modal-content .close:hover,
+.modal-content .close:focus {
+    color: #d63638;
+}
+
+.modal-content h2 {
+    margin-top: 0;
+    padding-right: 30px;
+}
+
+.modal-content .form-table th {
+    width: 150px;
+}
+
+.modal-content .regular-text {
+    width: 100%;
+}
+
+.modal-content .form-table input[type="radio"] {
+    margin-right: 8px;
+}
+
+.modal-content .form-table label {
+    margin-bottom: 8px;
+    display: inline-block;
+}
+
+.modal-content .description {
+    font-style: italic;
+    color: #646970;
+    margin-top: 5px;
+}
+
+/* Responsive Design */
+@media screen and (max-width: 782px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+    }
+    
+    .wp-list-table .old-url,
+    .wp-list-table .new-url {
+        max-width: 200px;
+    }
+}
+
+/* Loading States */
+.ez-translate-loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.ez-translate-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #0073aa;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Success/Error Messages */
+.ez-translate-message {
+    padding: 10px 15px;
+    margin: 10px 0;
+    border-radius: 4px;
+    border-left: 4px solid;
+}
+
+.ez-translate-message.success {
+    background-color: #d1edff;
+    border-left-color: #00a32a;
+    color: #00a32a;
+}
+
+.ez-translate-message.error {
+    background-color: #fcf0f1;
+    border-left-color: #d63638;
+    color: #d63638;
+}
+
+.ez-translate-message.warning {
+    background-color: #fcf9e8;
+    border-left-color: #dba617;
+    color: #dba617;
+}
+
+/* Button States */
+.button.checking {
+    position: relative;
+}
+
+.button.checking::after {
+    content: '';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    margin-top: -6px;
+    border: 1px solid #fff;
+    border-top: 1px solid transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Table Row Actions */
+.wp-list-table .row-actions {
+    color: #646970;
+}
+
+.wp-list-table .row-actions a {
+    color: #0073aa;
+    text-decoration: none;
+}
+
+.wp-list-table .row-actions a:hover {
+    color: #005177;
+}
+
+/* Bulk Actions */
+.tablenav .actions {
+    padding: 2px 0;
+}
+
+.tablenav .actions select {
+    margin-right: 6px;
+}
+
+/* No Items State */
+.wp-list-table .no-items {
+    text-align: center;
+    padding: 40px 20px;
+    color: #646970;
+    font-style: italic;
+}

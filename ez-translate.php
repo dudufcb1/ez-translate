@@ -205,8 +205,17 @@ final class EZTranslate {
         // Flush rewrite rules to ensure robots.txt works
         flush_rewrite_rules();
 
+        // Create redirect database table
+        $this->create_redirect_table();
+
+        // Check and update database schema if needed
+        $this->check_database_version();
+
         // Set activation flag for any initialization needed on first load
         add_option('ez_translate_activation_redirect', true);
+
+        // Fire custom activation hook
+        do_action('ez_translate_activated');
 
         $this->log_message('Plugin activation completed', 'info');
     }
@@ -226,6 +235,99 @@ final class EZTranslate {
         delete_option('ez_translate_activation_redirect');
 
         $this->log_message('Plugin deactivation completed', 'info');
+    }
+
+    /**
+     * Create redirect database table
+     *
+     * @since 1.0.0
+     */
+    private function create_redirect_table() {
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . 'ez_translate_redirects';
+        $charset_collate = $wpdb->get_charset_collate();
+
+        $sql = "CREATE TABLE " . $table_name . " (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            old_url varchar(2048) NOT NULL,
+            new_url varchar(2048) DEFAULT NULL,
+            redirect_type varchar(10) NOT NULL DEFAULT '301',
+            change_type varchar(20) NOT NULL,
+            post_id bigint(20) unsigned DEFAULT NULL,
+            destination_post_id bigint(20) unsigned DEFAULT NULL,
+            wp_auto_redirect tinyint(1) DEFAULT 0,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY old_url_index (old_url(191)),
+            KEY post_id_index (post_id),
+            KEY destination_post_id_index (destination_post_id),
+            KEY change_type_index (change_type),
+            KEY created_at_index (created_at)
+        ) $charset_collate;";
+
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        $result = dbDelta($sql);
+
+        if ($result) {
+            $this->log_message('Redirects database table created successfully', 'info');
+        } else {
+            $this->log_message('Failed to create redirects database table: ' . $wpdb->last_error, 'error');
+        }
+    }
+
+    /**
+     * Check and update database schema version
+     *
+     * @since 1.0.0
+     */
+    private function check_database_version() {
+        $current_db_version = get_option('ez_translate_db_version', '0');
+        $required_db_version = '1.0.0';
+
+        if (version_compare($current_db_version, $required_db_version, '<')) {
+            $this->update_database_schema($current_db_version, $required_db_version);
+            update_option('ez_translate_db_version', $required_db_version);
+            $this->log_message("Database updated from version {$current_db_version} to {$required_db_version}", 'info');
+        }
+    }
+
+    /**
+     * Update database schema based on version
+     *
+     * @param string $from_version Current database version
+     * @param string $to_version   Target database version
+     * @since 1.0.0
+     */
+    private function update_database_schema($from_version, $to_version) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'ez_translate_redirects';
+
+        // If upgrading from version 0 (no version set), check if destination_post_id column exists
+        if ($from_version === '0') {
+            $column_exists = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SHOW COLUMNS FROM {$table_name} LIKE %s",
+                    'destination_post_id'
+                )
+            );
+
+            if (empty($column_exists)) {
+                $wpdb->query(
+                    "ALTER TABLE {$table_name}
+                     ADD COLUMN destination_post_id bigint(20) unsigned DEFAULT NULL AFTER post_id,
+                     ADD KEY destination_post_id_index (destination_post_id)"
+                );
+                $this->log_message('Added missing destination_post_id column to redirects table', 'info');
+            }
+        }
+
+        // Future database updates can be added here
+        // Example:
+        // if (version_compare($from_version, '1.1.0', '<')) {
+        //     // Add new columns or indexes for version 1.1.0
+        // }
     }
 
     /**
@@ -293,6 +395,9 @@ final class EZTranslate {
 
         // Initialize robots manager for all contexts
         $this->init_robots_manager();
+
+        // Initialize redirect manager for all contexts
+        $this->init_redirect_manager();
     }
 
     /**
@@ -306,6 +411,31 @@ final class EZTranslate {
 
         // Initialize post meta manager
         new \EZTranslate\PostMetaManager();
+    }
+
+    /**
+     * Initialize redirect manager
+     *
+     * @since 1.0.0
+     */
+    private function init_redirect_manager() {
+        // Load redirect manager classes
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-redirect-manager.php';
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-redirect-tracker.php';
+
+        // Initialize redirect manager
+        new \EZTranslate\RedirectManager();
+        new \EZTranslate\RedirectTracker();
+
+        // Initialize redirect admin if in admin context
+        if (is_admin()) {
+            require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-redirect-admin.php';
+            new \EZTranslate\RedirectAdmin();
+        }
+
+        // Initialize catch-all handler for frontend
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-catchall-handler.php';
+        new \EZTranslate\CatchAllHandler();
     }
 
     /**

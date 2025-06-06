@@ -30,6 +30,7 @@ function ez_translate_uninstall_cleanup() {
     delete_option('ez_translate_activation_redirect');
     delete_option('ez_translate_version');
     delete_option('ez_translate_robots_settings');
+    delete_option('ez_translate_sitemap_settings');
 
     // Clean up transients
     delete_transient('ez_translate_languages_cache');
@@ -67,6 +68,13 @@ function ez_translate_uninstall_cleanup() {
             '_transient_timeout_ez_translate_%'
         )
     );
+
+    // Drop custom tables
+    $redirect_table = $wpdb->prefix . 'ez_translate_redirects';
+    $wpdb->query("DROP TABLE IF EXISTS {$redirect_table}");
+
+    // Clear any scheduled cron jobs
+    wp_clear_scheduled_hook('ez_translate_check_redirects');
 
     // Log completion
     if (defined('WP_DEBUG') && WP_DEBUG) {
