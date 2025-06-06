@@ -516,6 +516,15 @@ class LanguageManager {
      * @since 1.0.0
      */
     public static function get_language_site_metadata($language_code) {
+        // Check if this is the WordPress default language
+        $wp_locale = get_locale();
+        $wp_language_code = strstr($wp_locale, '_', true) ?: $wp_locale; // es_MX -> es
+
+        if (empty($language_code) || $language_code === $wp_language_code) {
+            // Return default language metadata
+            return self::get_default_language_metadata();
+        }
+
         $language = self::get_language($language_code);
 
         if (!$language) {
@@ -529,6 +538,22 @@ class LanguageManager {
         );
 
         return $metadata;
+    }
+
+    /**
+     * Get default language metadata
+     *
+     * @return array Array with site metadata for the default language
+     * @since 1.0.0
+     */
+    public static function get_default_language_metadata() {
+        $default_metadata = get_option('ez_translate_default_language_metadata', array());
+
+        return array(
+            'site_name' => $default_metadata['site_name'] ?? '',
+            'site_title' => $default_metadata['site_title'] ?? '',
+            'site_description' => $default_metadata['site_description'] ?? ''
+        );
     }
 
     /**

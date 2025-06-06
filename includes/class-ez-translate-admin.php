@@ -169,6 +169,35 @@ class Admin {
         // Sanitize input data
         $language_data = \EZTranslate\LanguageManager::sanitize_language_data($_POST);
 
+        // Check if trying to add WordPress default language
+        $wp_locale = get_locale();
+        $wp_language_code = strstr($wp_locale, '_', true) ?: $wp_locale; // es_MX -> es
+
+        if (!empty($language_data['code']) && $language_data['code'] === $wp_language_code) {
+            $wp_language_names = array(
+                'en' => 'English',
+                'es' => 'Español',
+                'pt' => 'Português',
+                'fr' => 'Français',
+                'de' => 'Deutsch',
+                'it' => 'Italiano',
+                'ja' => '日本語',
+                'ko' => '한국어',
+                'zh' => '中文',
+                'ru' => 'Русский',
+                'ar' => 'العربية'
+            );
+            $wp_language_name = isset($wp_language_names[$wp_language_code]) ? $wp_language_names[$wp_language_code] : $wp_language_code;
+
+            $error_message = sprintf(
+                __('Cannot add "%s" (%s) as it is your site\'s default language. Configure its metadata in the "Site Default Language Metadata" section below instead.', 'ez-translate'),
+                $wp_language_name,
+                $wp_language_code
+            );
+            $this->add_admin_notice($error_message, 'error');
+            return;
+        }
+
         // Add the language (landing page will be created automatically)
         $result = \EZTranslate\LanguageManager::add_language($language_data);
 
@@ -373,10 +402,11 @@ class Admin {
     /**
      * Get language options for select dropdown
      *
+     * @param string $exclude_language_code Language code to exclude from options
      * @return string HTML options for language select
      * @since 1.0.0
      */
-    private function get_language_options() {
+    private function get_language_options($exclude_language_code = '') {
         $languages = array(
             // Major world languages (most spoken)
             'en' => array('English', 'English', '🇺🇸'),
@@ -466,6 +496,11 @@ class Admin {
                 continue;
             }
 
+            // Skip if this is the WordPress default language
+            if (!empty($exclude_language_code) && $code === $exclude_language_code) {
+                continue;
+            }
+
             $display_name = $flag . ' ' . $name;
             if ($native_name !== $name) {
                 $display_name .= ' (' . $native_name . ')';
@@ -527,15 +562,26 @@ class Admin {
                                 <label for="language_code"><?php _e('Language Code', 'ez-translate'); ?> *</label>
                             </th>
                             <td>
+                                <?php
+                                // Get WordPress default language
+                                $wp_locale = get_locale();
+                                $wp_language_code = strstr($wp_locale, '_', true) ?: $wp_locale; // es_MX -> es
+                                ?>
                                 <select id="language_code_select" class="regular-text" style="margin-bottom: 10px;">
                                     <option value=""><?php _e('Select a common language...', 'ez-translate'); ?></option>
-                                    <?php echo $this->get_language_options(); ?>
+                                    <?php echo $this->get_language_options($wp_language_code); ?>
                                 </select>
                                 <br>
                                 <input type="text" id="language_code" name="code" class="regular-text"
                                        placeholder="<?php esc_attr_e('Or enter custom code (e.g., en, es, fr)', 'ez-translate'); ?>"
                                        pattern="[a-zA-Z0-9]{2,5}" maxlength="5" required>
-                                <p class="description"><?php _e('Select from common languages above or enter a custom ISO 639-1 code (2-5 characters)', 'ez-translate'); ?></p>
+                                <p class="description">
+                                    <?php _e('Select from common languages above or enter a custom ISO 639-1 code (2-5 characters)', 'ez-translate'); ?>
+                                    <br>
+                                    <strong style="color: #d63638;">
+                                        <?php printf(__('Note: Your site default language (%s) is not available as it\'s already configured below.', 'ez-translate'), $wp_language_code); ?>
+                                    </strong>
+                                </p>
                             </td>
                         </tr>
                         <tr>
@@ -801,6 +847,97 @@ class Admin {
                     </table>
                     <p class="submit">
                         <input type="submit" name="save_default_language" class="button-primary" value="<?php _e('Save Default Language', 'ez-translate'); ?>">
+                    </p>
+                </form>
+            </div>
+
+            <!-- Default Language Metadata Configuration -->
+            <?php
+            // Get WordPress default language
+            $wp_locale = get_locale();
+            $wp_language_code = strstr($wp_locale, '_', true) ?: $wp_locale; // es_MX -> es
+            $wp_language_names = array(
+                'en' => 'English',
+                'es' => 'Español',
+                'pt' => 'Português',
+                'fr' => 'Français',
+                'de' => 'Deutsch',
+                'it' => 'Italiano',
+                'ja' => '日本語',
+                'ko' => '한국어',
+                'zh' => '中文',
+                'ru' => 'Русский',
+                'ar' => 'العربية'
+            );
+            $wp_language_name = isset($wp_language_names[$wp_language_code]) ? $wp_language_names[$wp_language_code] : $wp_language_code;
+            ?>
+            <div class="card">
+                <h2><?php printf(__('Site Default Language (%s) Metadata', 'ez-translate'), $wp_language_name . ' - ' . $wp_language_code); ?></h2>
+                <p><?php _e('Configure SEO metadata for your site\'s default language. These settings will be used for your homepage and any content that doesn\'t have specific language metadata.', 'ez-translate'); ?></p>
+
+                <?php
+                // Handle form submission for default language metadata
+                if (isset($_POST['save_default_metadata']) && wp_verify_nonce($_POST['ez_translate_default_metadata_nonce'], 'ez_translate_save_default_metadata')) {
+                    $default_metadata = array(
+                        'site_name' => sanitize_text_field($_POST['default_site_name']),
+                        'site_title' => sanitize_text_field($_POST['default_site_title']),
+                        'site_description' => sanitize_textarea_field($_POST['default_site_description'])
+                    );
+                    update_option('ez_translate_default_language_metadata', $default_metadata);
+                    echo '<div class="notice notice-success"><p>' . __('Default language metadata saved successfully!', 'ez-translate') . '</p></div>';
+                }
+
+                // Get current default language metadata
+                $default_metadata = get_option('ez_translate_default_language_metadata', array());
+                ?>
+
+                <form method="post" action="">
+                    <?php wp_nonce_field('ez_translate_save_default_metadata', 'ez_translate_default_metadata_nonce'); ?>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">
+                                <label for="default_site_name"><?php _e('Site Name', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <input type="text" id="default_site_name" name="default_site_name" class="regular-text"
+                                       value="<?php echo esc_attr($default_metadata['site_name'] ?? ''); ?>"
+                                       placeholder="<?php esc_attr_e('e.g., WordPress Specialist, Especialista en WordPress', 'ez-translate'); ?>">
+                                <p class="description"><?php _e('Short site name for your default language (used in page titles)', 'ez-translate'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="default_site_title"><?php _e('Site Title', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <input type="text" id="default_site_title" name="default_site_title" class="regular-text"
+                                       value="<?php echo esc_attr($default_metadata['site_title'] ?? ''); ?>"
+                                       placeholder="<?php esc_attr_e('e.g., My Website - Professional Services', 'ez-translate'); ?>">
+                                <p class="description"><?php _e('Full site title for your default language (used in homepage and SEO metadata)', 'ez-translate'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="default_site_description"><?php _e('Site Description', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <textarea id="default_site_description" name="default_site_description" class="large-text" rows="3"
+                                          placeholder="<?php esc_attr_e('Brief description of your website in your default language...', 'ez-translate'); ?>"><?php echo esc_textarea($default_metadata['site_description'] ?? ''); ?></textarea>
+                                <p class="description"><?php _e('Site description for your default language (used in homepage and SEO metadata)', 'ez-translate'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php _e('Current WordPress Settings', 'ez-translate'); ?></th>
+                            <td>
+                                <p><strong><?php _e('Site Title:', 'ez-translate'); ?></strong> <code><?php echo esc_html(get_bloginfo('name')); ?></code></p>
+                                <p><strong><?php _e('Tagline:', 'ez-translate'); ?></strong> <code><?php echo esc_html(get_bloginfo('description')); ?></code></p>
+                                <p><strong><?php _e('Language:', 'ez-translate'); ?></strong> <code><?php echo esc_html($wp_locale); ?></code></p>
+                                <p class="description"><?php _e('These are your current WordPress settings. The metadata above will override these for SEO purposes.', 'ez-translate'); ?></p>
+                            </td>
+                        </tr>
+                    </table>
+                    <p class="submit">
+                        <input type="submit" name="save_default_metadata" class="button-primary" value="<?php _e('Save Default Language Metadata', 'ez-translate'); ?>">
                     </p>
                 </form>
             </div>

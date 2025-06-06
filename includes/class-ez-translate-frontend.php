@@ -65,20 +65,28 @@ class Frontend {
     public function filter_language_attributes($output) {
         global $post;
 
-        // Only process on singular pages (skip check in debug mode)
-        if (!defined('WP_DEBUG') || !WP_DEBUG) {
-            if (!is_singular() || !$post) {
+        // Handle homepage case (blog posts homepage)
+        if ((is_home() || is_front_page()) && !is_singular()) {
+            // Homepage uses WordPress default language
+            $wp_locale = get_locale();
+            $wp_language_code = strstr($wp_locale, '_', true) ?: $wp_locale; // es_MX -> es
+            $current_language = $wp_language_code;
+        } else {
+            // Only process on singular pages (skip check in debug mode)
+            if (!defined('WP_DEBUG') || !WP_DEBUG) {
+                if (!is_singular() || !$post) {
+                    return $output;
+                }
+            }
+
+            // In debug mode, ensure we have a post
+            if ((defined('WP_DEBUG') && WP_DEBUG) && !$post) {
                 return $output;
             }
-        }
 
-        // In debug mode, ensure we have a post
-        if ((defined('WP_DEBUG') && WP_DEBUG) && !$post) {
-            return $output;
+            // Get the current post's language
+            $current_language = get_post_meta($post->ID, '_ez_translate_language', true);
         }
-
-        // Get the current post's language
-        $current_language = get_post_meta($post->ID, '_ez_translate_language', true);
 
         if (!empty($current_language)) {
             // Convert language code to proper locale for lang attribute
@@ -104,6 +112,12 @@ class Frontend {
     public function override_head_metadata() {
         global $post;
 
+        // Handle homepage case (blog posts homepage)
+        if ((is_home() || is_front_page()) && !is_singular()) {
+            $this->handle_homepage_metadata();
+            return;
+        }
+
         // Only process on singular pages (skip check in debug mode)
         if (!defined('WP_DEBUG') || !WP_DEBUG) {
             if (!is_singular() || !$post) {
@@ -122,20 +136,50 @@ class Frontend {
         $seo_title = get_post_meta($post->ID, '_ez_translate_seo_title', true);
         $seo_description = get_post_meta($post->ID, '_ez_translate_seo_description', true);
 
-        // If no language assigned, try to detect if this post is part of a translation group
-        if (empty($current_language)) {
-            $group_info = $this->detect_translation_group_membership($post->ID);
-            if ($group_info) {
-                $current_language = $group_info['language'];
-                $is_landing = $group_info['is_landing'];
+        // Check if this is the homepage or should use default language
+        $wp_locale = get_locale();
+        $wp_language_code = strstr($wp_locale, '_', true) ?: $wp_locale; // es_MX -> es
+        $is_homepage = $this->is_homepage($post->ID);
 
-                Logger::info('Frontend: Auto-detected translation group membership', array(
+        // If no language assigned, determine if we should use default language or try detection
+        if (empty($current_language)) {
+            if ($is_homepage) {
+                // Homepage always uses WordPress default language
+                $current_language = $wp_language_code;
+                $is_landing = false; // Homepage is not a landing page
+
+                Logger::info('Frontend: Homepage detected, using WordPress default language', array(
                     'post_id' => $post->ID,
-                    'detected_language' => $current_language,
-                    'group_id' => $group_info['group_id'],
-                    'role' => $group_info['role'],
-                    'total_in_group' => $group_info['total_in_group']
+                    'wp_locale' => $wp_locale,
+                    'assigned_language' => $current_language
                 ));
+            } else {
+                // For other pages, try to detect if they're part of a translation group
+                $group_info = $this->detect_translation_group_membership($post->ID);
+                if ($group_info) {
+                    $current_language = $group_info['language'];
+                    $is_landing = $group_info['is_landing'];
+
+                    Logger::info('Frontend: Auto-detected translation group membership', array(
+                        'post_id' => $post->ID,
+                        'detected_language' => $current_language,
+                        'group_id' => $group_info['group_id'],
+                        'role' => $group_info['role'],
+                        'total_in_group' => $group_info['total_in_group']
+                    ));
+                } else {
+                    // No language metadata and not part of translation group
+                    // For content without explicit language, use WordPress default
+                    $current_language = $wp_language_code;
+                    $is_landing = false;
+
+                    Logger::info('Frontend: No language metadata found, using WordPress default', array(
+                        'post_id' => $post->ID,
+                        'wp_locale' => $wp_locale,
+                        'assigned_language' => $current_language,
+                        'reason' => 'no_metadata_fallback'
+                    ));
+                }
             }
         }
 
@@ -161,7 +205,12 @@ class Frontend {
      * @since 1.0.0
      */
     private function generate_complete_metadata($post, $language, $is_landing, $seo_title, $seo_description) {
-        // Get language-specific site metadata (MEJORA 2)
+        // Detect if this is the WordPress default language
+        $wp_locale = get_locale();
+        $wp_language_code = strstr($wp_locale, '_', true) ?: $wp_locale; // es_MX -> es
+        $is_default_language = empty($language) || $language === $wp_language_code;
+
+        // Get language-specific site metadata (now handles default language automatically)
         $language_site_metadata = \EZTranslate\LanguageManager::get_language_site_metadata($language);
 
         // Determine title and description with fallback logic
@@ -179,8 +228,13 @@ class Frontend {
             $page_description = !empty($seo_description) ? $seo_description : $this->get_post_excerpt($post);
         }
 
-        // Get current URL
-        $current_url = get_permalink($post->ID);
+        // Get current URL (handle homepage case)
+        if ($post->ID === 0) {
+            // Homepage case
+            $current_url = home_url('/');
+        } else {
+            $current_url = get_permalink($post->ID);
+        }
 
         // Convert language to locale
         $locale = $this->convert_language_to_locale($language);
@@ -208,8 +262,8 @@ class Frontend {
             echo '<meta property="og:site_name" content="' . esc_attr($site_name) . '">' . "\n";
         }
 
-        // Include featured image if available
-        if (has_post_thumbnail($post->ID)) {
+        // Include featured image if available (skip for homepage)
+        if ($post->ID !== 0 && has_post_thumbnail($post->ID)) {
             $thumbnail_url = get_the_post_thumbnail_url($post->ID, 'large');
             if ($thumbnail_url) {
                 echo '<meta property="og:image" content="' . esc_url($thumbnail_url) . '">' . "\n";
@@ -222,16 +276,16 @@ class Frontend {
         echo '<meta name="twitter:title" content="' . esc_attr($page_title) . '">' . "\n";
         echo '<meta name="twitter:description" content="' . esc_attr($page_description) . '">' . "\n";
 
-        // Include Twitter image if available
-        if (has_post_thumbnail($post->ID)) {
+        // Include Twitter image if available (skip for homepage)
+        if ($post->ID !== 0 && has_post_thumbnail($post->ID)) {
             $thumbnail_url = get_the_post_thumbnail_url($post->ID, 'large');
             if ($thumbnail_url) {
                 echo '<meta name="twitter:image" content="' . esc_url($thumbnail_url) . '">' . "\n";
             }
         }
 
-        // Generate JSON-LD structured data for articles
-        if (!$is_landing) {
+        // Generate JSON-LD structured data for articles (skip for homepage and landing pages)
+        if (!$is_landing && $post->ID !== 0) {
             echo '<!-- EZ Translate: JSON-LD Structured Data -->' . "\n";
             $this->generate_article_jsonld($post, $page_title, $page_description, $language, $current_url, $language_site_metadata);
         }
@@ -242,12 +296,54 @@ class Frontend {
         Logger::info('Frontend: Complete metadata generated', array(
             'post_id' => $post->ID,
             'language' => $language,
+            'is_default_language' => $is_default_language,
+            'wp_language_code' => $wp_language_code,
             'is_landing' => $is_landing,
             'og_type' => $og_type,
             'title' => $page_title,
             'url' => $current_url,
             'used_language_site_title' => $is_landing && !empty($seo_title) ? false : !empty($language_site_metadata['site_title']),
-            'used_language_site_description' => $is_landing && !empty($seo_description) ? false : !empty($language_site_metadata['site_description'])
+            'used_language_site_description' => $is_landing && !empty($seo_description) ? false : !empty($language_site_metadata['site_description']),
+            'metadata_source' => $is_default_language ? 'default_language_config' : 'language_specific_config'
+        ));
+    }
+
+    /**
+     * Handle homepage metadata when it's not a singular page
+     *
+     * @since 1.0.0
+     */
+    private function handle_homepage_metadata() {
+
+        // Get WordPress default language
+        $wp_locale = get_locale();
+        $wp_language_code = strstr($wp_locale, '_', true) ?: $wp_locale; // es_MX -> es
+
+        // Get configured default language metadata
+        $default_metadata = \EZTranslate\LanguageManager::get_default_language_metadata();
+
+        // Create a fake post object for homepage using configured metadata
+        $homepage_post = new \stdClass();
+        $homepage_post->ID = 0;
+
+        // Use configured metadata if available, otherwise fallback to WordPress defaults
+        $homepage_post->post_title = !empty($default_metadata['site_title']) ? $default_metadata['site_title'] : get_bloginfo('name');
+        $homepage_post->post_content = !empty($default_metadata['site_description']) ? $default_metadata['site_description'] : get_bloginfo('description');
+        $homepage_post->post_excerpt = !empty($default_metadata['site_description']) ? $default_metadata['site_description'] : get_bloginfo('description');
+
+        // Generate metadata for homepage using default language
+        $this->generate_complete_metadata($homepage_post, $wp_language_code, false, '', '');
+
+        Logger::info('Frontend: Homepage metadata generated', array(
+            'is_home' => is_home(),
+            'is_front_page' => is_front_page(),
+            'wp_locale' => $wp_locale,
+            'language' => $wp_language_code,
+            'configured_metadata' => $default_metadata,
+            'used_title' => $homepage_post->post_title,
+            'used_description' => $homepage_post->post_content,
+            'wp_site_name' => get_bloginfo('name'),
+            'wp_site_description' => get_bloginfo('description')
         ));
     }
 
@@ -263,21 +359,30 @@ class Frontend {
     public function filter_document_title($title_parts) {
         global $post;
 
-        // Only process on singular pages (skip check in debug mode)
-        if (!defined('WP_DEBUG') || !WP_DEBUG) {
-            if (!is_singular() || !$post) {
+        // Handle homepage case (blog posts homepage)
+        if ((is_home() || is_front_page()) && !is_singular()) {
+            // Homepage uses WordPress default language
+            $wp_locale = get_locale();
+            $wp_language_code = strstr($wp_locale, '_', true) ?: $wp_locale; // es_MX -> es
+            $current_language = $wp_language_code;
+            $seo_title = ''; // No custom SEO title for homepage
+        } else {
+            // Only process on singular pages (skip check in debug mode)
+            if (!defined('WP_DEBUG') || !WP_DEBUG) {
+                if (!is_singular() || !$post) {
+                    return $title_parts;
+                }
+            }
+
+            // In debug mode, ensure we have a post
+            if ((defined('WP_DEBUG') && WP_DEBUG) && !$post) {
                 return $title_parts;
             }
-        }
 
-        // In debug mode, ensure we have a post
-        if ((defined('WP_DEBUG') && WP_DEBUG) && !$post) {
-            return $title_parts;
+            // Check if this page has custom SEO title or language
+            $seo_title = get_post_meta($post->ID, '_ez_translate_seo_title', true);
+            $current_language = get_post_meta($post->ID, '_ez_translate_language', true);
         }
-
-        // Check if this page has custom SEO title or language
-        $seo_title = get_post_meta($post->ID, '_ez_translate_seo_title', true);
-        $current_language = get_post_meta($post->ID, '_ez_translate_language', true);
 
         // Only process if page has a language assigned (indicating it's managed by EZ Translate)
         if (!empty($current_language)) {
