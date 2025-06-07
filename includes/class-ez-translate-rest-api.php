@@ -735,10 +735,12 @@ class RestAPI {
 
                 // IMPORTANT: Set the source language for the original post
                 // If no source language is set, detect it from WordPress default or assume 'es'
+                // MODIFICACIÓN: Asignar siempre el idioma si está vacío o no existe
                 if (empty($source_language)) {
                     $wp_language = substr(get_locale(), 0, 2); // Convert en_US to en
                     $source_language = ($wp_language === 'en') ? 'es' : $wp_language; // Default to Spanish if WordPress is English
                 }
+                // Forzar asignación aunque el meta exista pero esté vacío
                 PostMetaManager::set_post_language($source_post_id, $source_language);
 
                 Logger::info('REST API: Original post added to translation group', array(
