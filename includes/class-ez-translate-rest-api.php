@@ -1309,7 +1309,13 @@ class RestAPI {
         require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-post-meta-manager.php';
         $posts_in_group = \EZTranslate\PostMetaManager::get_posts_in_group($group_id);
 
-        foreach ($posts_in_group as $post) {
+        foreach ($posts_in_group as $related_post) {
+            // Ensure we have a valid post object
+            $post = get_post($related_post);
+            if (!$post || !is_object($post)) {
+                continue;
+            }
+
             $post_language = get_post_meta($post->ID, '_ez_translate_language', true);
 
             // Skip current post and posts without language
