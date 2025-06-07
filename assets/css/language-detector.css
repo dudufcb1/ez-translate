@@ -91,6 +91,67 @@
     transition: all 0.3s ease;
 }
 
+/* Dropdown positioning for left positions */
+.ez-detector-bottom-left .ez-detector-dropdown,
+.ez-detector-top-left .ez-detector-dropdown {
+    right: auto;
+    left: 0;
+}
+
+/* Dropdown positioning for top positions */
+.ez-detector-top-right .ez-detector-dropdown,
+.ez-detector-top-left .ez-detector-dropdown {
+    bottom: auto;
+    top: 100%;
+    margin-bottom: 0;
+    margin-top: 8px;
+}
+
+/* Arrow indicators for dropdown direction */
+.ez-detector-fold .ez-detector-dropdown::before {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 0;
+    border: 6px solid transparent;
+}
+
+/* Bottom positions - arrow points down */
+.ez-detector-bottom-right .ez-detector-dropdown::before,
+.ez-detector-bottom-left .ez-detector-dropdown::before {
+    top: 100%;
+    border-top-color: white;
+}
+
+.ez-detector-bottom-right .ez-detector-dropdown::before {
+    right: 16px;
+}
+
+.ez-detector-bottom-left .ez-detector-dropdown::before {
+    left: 16px;
+}
+
+/* Top positions - arrow points up */
+.ez-detector-top-right .ez-detector-dropdown::before,
+.ez-detector-top-left .ez-detector-dropdown::before {
+    bottom: 100%;
+    border-bottom-color: white;
+}
+
+.ez-detector-top-right .ez-detector-dropdown::before {
+    right: 16px;
+}
+
+.ez-detector-top-left .ez-detector-dropdown::before {
+    left: 16px;
+}
+
+/* Ensure dropdown stays within viewport */
+.ez-detector-fold .ez-detector-dropdown {
+    max-width: calc(100vw - 40px);
+    z-index: 999999;
+}
+
 .ez-detector-fold:hover .ez-detector-dropdown {
     opacity: 1;
     visibility: visible;
@@ -327,6 +388,30 @@
     font-size: 11px;
 }
 
+/* Minimized and expanded states */
+.ez-translate-detector {
+    /* Shared styles for minimized and expanded states */
+    transition: all 0.3s ease;
+}
+
+.ez-translate-detector.ez-translate-minimized {
+    width: 50px;
+    height: 50px;
+    overflow: hidden;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.ez-translate-detector.ez-translate-minimized:hover {
+    opacity: 0.9;
+}
+
+.ez-translate-detector.ez-translate-expanded {
+    width: auto;
+    height: auto;
+    border-radius: 8px;
+}
+
 /* Responsive design */
 @media (max-width: 480px) {
     .ez-detector-bottom-right,
@@ -335,28 +420,42 @@
         left: 10px;
         right: 10px;
     }
-    
+
     .ez-detector-top-right,
     .ez-detector-top-left {
         top: 10px;
         left: 10px;
         right: 10px;
     }
-    
+
     .ez-detector-unfold .ez-detector-window {
         width: calc(100vw - 20px);
         max-width: none;
     }
-    
+
     .ez-detector-unfold .ez-detector-content {
         padding: 16px;
     }
-    
+
     .ez-detector-fold .ez-detector-dropdown {
         right: auto;
         left: 0;
-        width: 100%;
+        width: calc(100% - 20px);
         min-width: auto;
+        max-width: 300px;
+    }
+
+    /* Ensure dropdown doesn't overflow on mobile */
+    .ez-detector-bottom-left .ez-detector-dropdown,
+    .ez-detector-top-left .ez-detector-dropdown {
+        left: 0;
+        right: auto;
+    }
+
+    .ez-detector-bottom-right .ez-detector-dropdown,
+    .ez-detector-top-right .ez-detector-dropdown {
+        right: 0;
+        left: auto;
     }
 }
 

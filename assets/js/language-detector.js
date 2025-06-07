@@ -84,8 +84,8 @@
                 // User chose free navigation, show fold mode only
                 this.showDetector('fold');
             } else if (detectorDismissed) {
-                // User dismissed detector, show helper if translation exists in their language
-                this.checkAndShowHelper(browserLanguage);
+                // User dismissed detector, show minimized fold mode (they can still change their mind)
+                this.showDetector('fold');
             } else if (browserLanguage && browserLanguage !== currentLanguage && this.hasTranslations) {
                 // Language mismatch AND translations exist, show unfold mode
                 this.showDetector('unfold', browserLanguage);
@@ -183,14 +183,14 @@
          */
         createFoldModeHTML() {
             const currentLang = this.getLanguageData(this.config.currentLanguage);
-            
+
             return `
                 <div class="ez-detector-tab">
                     <span class="ez-detector-flag">${currentLang.flag || '🌐'}</span>
                     <span class="ez-detector-text">${currentLang.code.toUpperCase()}</span>
                 </div>
                 <div class="ez-detector-dropdown">
-                    <div class="ez-detector-title">Cambiar idioma</div>
+                    <div class="ez-detector-title">Idiomas disponibles</div>
                     ${this.createLanguageList()}
                 </div>
             `;
@@ -247,36 +247,36 @@
         }
 
         /**
-         * Create language list for dropdown (only languages with translations)
+         * Create language list for dropdown (all available languages)
          */
         createLanguageList() {
             let html = '';
 
-            // Add current language first
-            const currentLang = this.getLanguageData(this.config.currentLanguage);
-            html += `
-                <div class="ez-detector-lang-item active" data-language="${this.config.currentLanguage}">
-                    <span class="ez-detector-flag">${currentLang.flag || '🌐'}</span>
-                    <span class="ez-detector-name">${currentLang.native_name || currentLang.name}</span>
-                    <span class="ez-detector-current">✓</span>
-                </div>
-            `;
+            // Show ALL available languages, not just those with translations of current page
+            this.config.availableLanguages.forEach(lang => {
+                const isActive = lang.code === this.config.currentLanguage;
 
-            // Add languages that have translations
-            if (this.availableTranslations) {
-                this.availableTranslations.forEach(translation => {
-                    if (translation.language_code !== this.config.currentLanguage) {
-                        const lang = this.getLanguageData(translation.language_code);
-                        html += `
-                            <div class="ez-detector-lang-item" data-language="${translation.language_code}">
-                                <span class="ez-detector-flag">${lang.flag || '🌐'}</span>
-                                <span class="ez-detector-name">${lang.native_name || lang.name}</span>
-                                ${translation.is_landing_page ? '<small>(Landing)</small>' : ''}
-                            </div>
-                        `;
-                    }
-                });
-            }
+                // Check if this language has a translation or landing page
+                const translation = this.findTranslationInData(lang.code);
+                let statusText = '';
+
+                if (isActive) {
+                    statusText = '<span class="ez-detector-current">✓</span>';
+                } else if (translation) {
+                    statusText = translation.is_landing_page ? '<small>(Landing)</small>' : '<small>(Traducción)</small>';
+                } else {
+                    // Check if language has a landing page configured
+                    statusText = '<small>(Landing)</small>'; // All languages should have landing pages
+                }
+
+                html += `
+                    <div class="ez-detector-lang-item ${isActive ? 'active' : ''}" data-language="${lang.code}">
+                        <span class="ez-detector-flag">${lang.flag || '🌐'}</span>
+                        <span class="ez-detector-name">${lang.native_name || lang.name}</span>
+                        ${statusText}
+                    </div>
+                `;
+            });
 
             return html;
         }
@@ -518,8 +518,24 @@
                     return;
                 }
 
+                // If no specific translation, try to find landing page for the language
+                const targetLang = this.config.availableLanguages.find(lang => lang.code === targetLanguage);
+                if (targetLang && targetLang.landing_page_id) {
+                    const landingUrl = `${this.config.homeUrl}?p=${targetLang.landing_page_id}`;
+                    console.log('[EZ Translate] Redirecting to landing page:', landingUrl);
+                    window.location.href = landingUrl;
+                    return;
+                }
+
+                // Special case for Spanish - redirect to main landing page
+                if (targetLanguage === 'es') {
+                    console.log('[EZ Translate] Redirecting to home page for Spanish');
+                    window.location.href = this.config.homeUrl;
+                    return;
+                }
+
                 // Fallback to home page
-                console.log('[EZ Translate] No translation found, redirecting to home page');
+                console.log('[EZ Translate] No translation or landing page found, redirecting to home page');
                 window.location.href = this.config.homeUrl;
 
             } catch (error) {
@@ -542,18 +558,7 @@
             );
         }
 
-        /**
-         * Check and show helper if translation exists
-         */
-        checkAndShowHelper(targetLanguage) {
-            const translation = this.findTranslationInData(targetLanguage);
 
-            if (translation) {
-                setTimeout(() => {
-                    this.showDetector('helper', targetLanguage);
-                }, 1000);
-            }
-        }
 
         /**
          * Remove detector from page

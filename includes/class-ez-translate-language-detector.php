@@ -247,7 +247,7 @@ class LanguageDetector {
     /**
      * Get available languages for detector
      *
-     * @return array Array of available languages including site default
+     * @return array Array of available languages including site default with landing page info
      * @since 1.0.0
      */
     public static function get_available_languages() {
@@ -257,25 +257,40 @@ class LanguageDetector {
         // Add site default language (extracted from WordPress locale)
         $wp_locale = get_locale();
         $default_language_code = substr($wp_locale, 0, 2);
-        
+
         // Check if default language is already in the list
         $default_exists = false;
-        foreach ($languages as $language) {
+        foreach ($languages as &$language) {
             if ($language['code'] === $default_language_code) {
                 $default_exists = true;
-                break;
+                $language['is_default'] = true;
+            }
+
+            // Add landing page info to each language
+            if ($language['code'] === 'es') {
+                // Spanish uses main landing page
+                $language['landing_page_id'] = get_option('ez_translate_main_landing_page');
+            } else {
+                // Other languages use their configured landing page
+                $language['landing_page_id'] = isset($language['landing_page_id']) ? $language['landing_page_id'] : null;
             }
         }
 
         // Add default language if not exists
         if (!$default_exists) {
+            $landing_page_id = null;
+            if ($default_language_code === 'es') {
+                $landing_page_id = get_option('ez_translate_main_landing_page');
+            }
+
             $languages[] = array(
                 'code' => $default_language_code,
                 'name' => self::get_language_name_from_code($default_language_code),
                 'native_name' => self::get_language_name_from_code($default_language_code),
                 'flag' => self::get_flag_from_code($default_language_code),
                 'enabled' => true,
-                'is_default' => true
+                'is_default' => true,
+                'landing_page_id' => $landing_page_id
             );
         }
 
@@ -334,4 +349,6 @@ class LanguageDetector {
 
         return isset($flags[$code]) ? $flags[$code] : '🌐';
     }
+
+
 }
