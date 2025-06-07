@@ -1,11 +1,33 @@
 /**
  * EZ Translate Language Detector Styles
- * 
+ *
  * Styles for the three modes: fold, unfold, helper
- * 
+ *
  * @package EZTranslate
  * @since 1.0.0
  */
+
+/* Ensure dashicons are available */
+@import url('dashicons');
+
+/* Fallback for dashicons if not loaded */
+.dashicons {
+    font-family: dashicons;
+    display: inline-block;
+    line-height: 1;
+    font-weight: 400;
+    font-style: normal;
+    speak: none;
+    text-decoration: inherit;
+    text-transform: none;
+    text-rendering: auto;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.dashicons-translation:before {
+    content: "\f326";
+}
 
 /* Base detector styles */
 .ez-language-detector {
@@ -364,17 +386,17 @@
     background: #0073aa;
     color: white;
     border: none;
-    padding: 8px 12px;
-    border-radius: 6px;
+    padding: 12px;
+    border-radius: 50%;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 6px;
+    justify-content: center;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease;
-    font-size: 12px;
-    font-weight: 600;
-    min-width: 60px;
+    width: 48px;
+    height: 48px;
+    position: relative;
 }
 
 .ez-detector-minimized .ez-detector-minimized-btn:hover {
@@ -383,30 +405,54 @@
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
-.ez-detector-minimized .ez-detector-flag {
-    font-size: 16px;
+.ez-detector-minimized .ez-detector-minimized-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.ez-detector-minimized .ez-detector-text {
-    font-size: 12px;
+.ez-detector-minimized .ez-detector-flag {
+    font-size: 20px;
+    line-height: 1;
+}
+
+/* Desktop: show expanded content, hide minimized icon */
+@media (min-width: 769px) {
+    .ez-detector-minimized .ez-detector-minimized-btn {
+        padding: 8px 12px;
+        border-radius: 6px;
+        width: auto;
+        height: auto;
+        gap: 6px;
+        min-width: 60px;
+    }
+
+    .ez-detector-minimized .ez-detector-minimized-icon {
+        display: flex;
+        gap: 6px;
+    }
+
+    .ez-detector-minimized .ez-detector-flag {
+        font-size: 16px;
+    }
 }
 
 /* TRANSLATOR MODE - Dropdown with language options */
 .ez-detector-helper .ez-translator-tab {
     background: white;
     color: #333;
-    padding: 10px 14px;
-    border-radius: 8px;
+    padding: 12px;
+    border-radius: 50%;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
     transition: all 0.3s ease;
-    min-width: 160px;
     border: 1px solid #e0e0e0;
-    font-size: 13px;
-    font-weight: 500;
+    width: 48px;
+    height: 48px;
+    position: relative;
 }
 
 .ez-detector-helper .ez-translator-tab:hover {
@@ -414,6 +460,26 @@
     transform: translateY(-2px);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
     border-color: #0073aa;
+}
+
+/* Minimized icon for mobile */
+.ez-translator-minimized-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ez-translator-minimized-icon .dashicons {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+}
+
+/* Expanded content for desktop */
+.ez-translator-expanded-content {
+    display: none;
+    align-items: center;
+    gap: 8px;
 }
 
 .ez-detector-helper .ez-detector-flag {
@@ -424,6 +490,27 @@
     font-size: 12px;
     font-weight: 500;
     color: #555;
+}
+
+/* Desktop: show expanded content, hide minimized icon */
+@media (min-width: 769px) {
+    .ez-detector-helper .ez-translator-tab {
+        padding: 10px 14px;
+        border-radius: 8px;
+        width: auto;
+        height: auto;
+        min-width: 160px;
+        font-size: 13px;
+        font-weight: 500;
+    }
+
+    .ez-translator-minimized-icon {
+        display: none;
+    }
+
+    .ez-translator-expanded-content {
+        display: flex;
+    }
 }
 
 /* Translator language item styling */
@@ -445,22 +532,41 @@
 /* Translator positioning - offset from main detector */
 .ez-detector-helper.ez-detector-bottom-right {
     bottom: 20px;
-    right: 100px; /* Offset to the left of the main detector */
+    right: 80px; /* Offset to the left of the main detector */
 }
 
 .ez-detector-helper.ez-detector-bottom-left {
     bottom: 20px;
-    left: 100px; /* Offset to the right of the main detector */
+    left: 80px; /* Offset to the right of the main detector */
 }
 
 .ez-detector-helper.ez-detector-top-right {
     top: 20px;
-    right: 100px; /* Offset to the left of the main detector */
+    right: 80px; /* Offset to the left of the main detector */
 }
 
 .ez-detector-helper.ez-detector-top-left {
     top: 20px;
-    left: 100px; /* Offset to the right of the main detector */
+    left: 80px; /* Offset to the right of the main detector */
+}
+
+/* Desktop positioning - more space between elements */
+@media (min-width: 769px) {
+    .ez-detector-helper.ez-detector-bottom-right {
+        right: 120px; /* More space on desktop */
+    }
+
+    .ez-detector-helper.ez-detector-bottom-left {
+        left: 120px;
+    }
+
+    .ez-detector-helper.ez-detector-top-right {
+        right: 120px;
+    }
+
+    .ez-detector-helper.ez-detector-top-left {
+        left: 120px;
+    }
 }
 
 /* Translator dropdown positioning */
@@ -512,44 +618,59 @@
 }
 
 /* Responsive design */
-@media (max-width: 480px) {
-    .ez-detector-bottom-right,
+@media (max-width: 768px) {
+    /* Main detector positioning on mobile */
+    .ez-detector-bottom-right {
+        bottom: 20px;
+        right: 20px;
+        left: auto;
+    }
+
     .ez-detector-bottom-left {
-        bottom: 10px;
-        left: 10px;
-        right: 10px;
+        bottom: 20px;
+        left: 20px;
+        right: auto;
     }
 
-    .ez-detector-top-right,
+    .ez-detector-top-right {
+        top: 20px;
+        right: 20px;
+        left: auto;
+    }
+
     .ez-detector-top-left {
-        top: 10px;
-        left: 10px;
-        right: 10px;
+        top: 20px;
+        left: 20px;
+        right: auto;
     }
 
-    /* Helper positioning on mobile - stack vertically */
+    /* Helper positioning on mobile - stack vertically with proper spacing */
     .ez-detector-helper.ez-detector-bottom-right {
         bottom: 80px; /* Above the main detector */
-        right: 10px;
+        right: 20px;
+        left: auto;
     }
 
     .ez-detector-helper.ez-detector-bottom-left {
         bottom: 80px; /* Above the main detector */
-        left: 10px;
+        left: 20px;
+        right: auto;
     }
 
     .ez-detector-helper.ez-detector-top-right {
         top: 80px; /* Below the main detector */
-        right: 10px;
+        right: 20px;
+        left: auto;
     }
 
     .ez-detector-helper.ez-detector-top-left {
         top: 80px; /* Below the main detector */
-        left: 10px;
+        left: 20px;
+        right: auto;
     }
 
     .ez-detector-unfold .ez-detector-window {
-        width: calc(100vw - 20px);
+        width: calc(100vw - 40px);
         max-width: none;
     }
 
@@ -576,6 +697,38 @@
     .ez-detector-top-right .ez-detector-dropdown {
         right: 0;
         left: auto;
+    }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+    .ez-detector-bottom-right,
+    .ez-detector-bottom-left {
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+    }
+
+    .ez-detector-top-right,
+    .ez-detector-top-left {
+        top: 10px;
+        left: 10px;
+        right: 10px;
+    }
+
+    /* Helper positioning on very small screens */
+    .ez-detector-helper.ez-detector-bottom-right,
+    .ez-detector-helper.ez-detector-bottom-left {
+        bottom: 70px;
+        left: 10px;
+        right: auto;
+    }
+
+    .ez-detector-helper.ez-detector-top-right,
+    .ez-detector-helper.ez-detector-top-left {
+        top: 70px;
+        left: 10px;
+        right: auto;
     }
 }
 

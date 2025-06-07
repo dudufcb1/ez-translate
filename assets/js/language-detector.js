@@ -278,9 +278,14 @@
             const messages = this.getMessages(this.config.currentLanguage);
 
             return `
-                <div class="ez-detector-tab ez-translator-tab">
-                    <span class="ez-detector-flag">${targetLang.flag || '🌐'}</span>
-                    <span class="ez-detector-text">${messages.translation_available || 'Read this article in'}</span>
+                <div class="ez-detector-tab ez-translator-tab" title="${messages.translation_available || 'Read this article in'} ${targetLang.native_name || targetLang.name}">
+                    <span class="ez-translator-minimized-icon">
+                        <span class="dashicons dashicons-translation"></span>
+                    </span>
+                    <span class="ez-translator-expanded-content">
+                        <span class="ez-detector-flag">${targetLang.flag || '🌐'}</span>
+                        <span class="ez-detector-text">${messages.translation_available || 'Read this article in'}</span>
+                    </span>
                 </div>
                 <div class="ez-detector-dropdown">
                     <div class="ez-detector-title">${messages.dropdown_title}</div>
@@ -425,12 +430,12 @@
          */
         createMinimizedModeHTML() {
             const currentLang = this.getLanguageData(this.config.currentLanguage);
-            // Siempre mostrar el botón para abrir el selector global
+            // Usar icono de bandera para el estado minimizado
             return `
-                <button class="ez-detector-minimized-btn" data-action="expand">
-                    <span class="ez-detector-flag">${currentLang.flag || '🌐'}</span>
-                    <span class="ez-detector-text">${currentLang.code.toUpperCase()}</span>
-                    <span class="ez-detector-change-label" style="font-size:10px;display:block;line-height:1;">${this.getMessages(this.config.currentLanguage).dropdown_title || 'Change language'}</span>
+                <button class="ez-detector-minimized-btn" data-action="expand" title="${this.getMessages(this.config.currentLanguage).dropdown_title || 'Change language'}">
+                    <span class="ez-detector-minimized-icon">
+                        <span class="ez-detector-flag">${currentLang.flag || '🌐'}</span>
+                    </span>
                 </button>
             `;
         }
