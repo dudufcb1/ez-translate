@@ -1153,6 +1153,12 @@ class Frontend {
      * @since 1.0.0
      */
     private function is_landing_page($post_id) {
+        // Check if this is the main landing page
+        $main_landing_page_id = get_option('ez_translate_main_landing_page_id', 0);
+        if ($main_landing_page_id > 0 && $main_landing_page_id == $post_id) {
+            return true;
+        }
+
         // Load language manager to get languages configuration
         require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-manager.php';
         $languages = \EZTranslate\LanguageManager::get_languages();
@@ -1197,6 +1203,12 @@ class Frontend {
      * @since 1.0.0
      */
     private function has_landing_pages() {
+        // Check if main landing page is configured
+        $main_landing_page_id = get_option('ez_translate_main_landing_page_id', 0);
+        if ($main_landing_page_id > 0) {
+            return true;
+        }
+
         require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-manager.php';
         $languages = \EZTranslate\LanguageManager::get_languages();
 
@@ -1226,10 +1238,19 @@ class Frontend {
         $configured_default_language = $this->get_default_language_for_hreflang();
 
         // Get current page language
-        foreach ($languages as $language) {
-            if (!empty($language['landing_page_id']) && $language['landing_page_id'] == $current_post_id) {
-                $current_language = $language['code'];
-                break;
+        // First check if this is the main landing page
+        $main_landing_page_id = get_option('ez_translate_main_landing_page_id', 0);
+        if ($main_landing_page_id > 0 && $main_landing_page_id == $current_post_id) {
+            // This is the main landing page, use WordPress default language
+            $wp_locale = get_locale();
+            $current_language = strstr($wp_locale, '_', true) ?: $wp_locale;
+        } else {
+            // Check configured landing pages
+            foreach ($languages as $language) {
+                if (!empty($language['landing_page_id']) && $language['landing_page_id'] == $current_post_id) {
+                    $current_language = $language['code'];
+                    break;
+                }
             }
         }
 
@@ -1241,7 +1262,35 @@ class Frontend {
         // Set x-default (for usability - usually English)
         $default_language_post = null;
 
-        // Generate hreflang tags for all landing pages
+        // Add main landing page if configured
+        $main_landing_page_id = get_option('ez_translate_main_landing_page_id', 0);
+        if ($main_landing_page_id > 0) {
+            $main_post = get_post($main_landing_page_id);
+            if ($main_post && $main_post->post_status === 'publish') {
+                $wp_locale = get_locale();
+                $main_language_code = strstr($wp_locale, '_', true) ?: $wp_locale;
+                $url = get_permalink($main_post->ID);
+                $hreflang_code = $this->convert_language_to_hreflang($main_language_code);
+
+                $hreflang_tags[] = array(
+                    'language' => $hreflang_code,
+                    'url' => $url,
+                    'post_id' => $main_post->ID,
+                    'language_code' => $main_language_code
+                );
+
+                // Set as x-default if this is the configured default language
+                if ($main_language_code === $configured_default_language) {
+                    $default_language_post = array(
+                        'url' => $url,
+                        'language' => $main_language_code,
+                        'post_id' => $main_post->ID
+                    );
+                }
+            }
+        }
+
+        // Generate hreflang tags for all configured landing pages
         foreach ($languages as $language) {
             if (!empty($language['landing_page_id'])) {
                 $post = get_post($language['landing_page_id']);
@@ -1269,7 +1318,7 @@ class Frontend {
             }
         }
 
-        // Always add homepage as the original site language (WordPress locale)
+        // Add homepage as the original site language (WordPress locale) only if not already included
         $original_language_hreflang = $this->convert_language_to_hreflang($original_language);
         $homepage_already_included = false;
 
@@ -1281,11 +1330,17 @@ class Frontend {
             }
         }
 
+        // Also check if main landing page is the same as homepage
+        $front_page_id = get_option('page_on_front', 0);
+        if ($main_landing_page_id > 0 && $main_landing_page_id == $front_page_id) {
+            $homepage_already_included = true; // Main landing page is the homepage
+        }
+
         if (!$homepage_already_included) {
             $hreflang_tags[] = array(
                 'language' => $original_language_hreflang,
                 'url' => $homepage_url,
-                'post_id' => get_option('page_on_front', 0),
+                'post_id' => $front_page_id,
                 'language_code' => $original_language
             );
         }

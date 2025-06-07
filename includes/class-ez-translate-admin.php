@@ -873,7 +873,7 @@ class Admin {
             ?>
             <div class="card">
                 <h2><?php printf(__('Site Default Language (%s) Metadata', 'ez-translate'), $wp_language_name . ' - ' . $wp_language_code); ?></h2>
-                <p><?php _e('Configure SEO metadata for your site\'s default language. These settings will be used for your homepage and any content that doesn\'t have specific language metadata.', 'ez-translate'); ?></p>
+                <p><?php _e('Configure SEO metadata for your site\'s default language and select which page represents your main landing page.', 'ez-translate'); ?></p>
 
                 <?php
                 // Handle form submission for default language metadata
@@ -884,11 +884,24 @@ class Admin {
                         'site_description' => sanitize_textarea_field($_POST['default_site_description'])
                     );
                     update_option('ez_translate_default_language_metadata', $default_metadata);
-                    echo '<div class="notice notice-success"><p>' . __('Default language metadata saved successfully!', 'ez-translate') . '</p></div>';
+
+                    // Handle main landing page selection
+                    $selected_page_id = intval($_POST['main_landing_page_id']);
+                    $current_main_landing = get_option('ez_translate_main_landing_page_id', 0);
+
+                    if ($selected_page_id > 0 && $selected_page_id !== $current_main_landing) {
+                        // Transfer metadata to selected page
+                        $this->transfer_metadata_to_main_landing_page($selected_page_id, $default_metadata, $wp_language_code);
+                        update_option('ez_translate_main_landing_page_id', $selected_page_id);
+                        echo '<div class="notice notice-success"><p>' . __('Main landing page updated and metadata transferred successfully!', 'ez-translate') . '</p></div>';
+                    } else {
+                        echo '<div class="notice notice-success"><p>' . __('Default language metadata saved successfully!', 'ez-translate') . '</p></div>';
+                    }
                 }
 
                 // Get current default language metadata
                 $default_metadata = get_option('ez_translate_default_language_metadata', array());
+                $main_landing_page_id = get_option('ez_translate_main_landing_page_id', 0);
                 ?>
 
                 <form method="post" action="">
@@ -924,6 +937,41 @@ class Admin {
                                 <textarea id="default_site_description" name="default_site_description" class="large-text" rows="3"
                                           placeholder="<?php esc_attr_e('Brief description of your website in your default language...', 'ez-translate'); ?>"><?php echo esc_textarea($default_metadata['site_description'] ?? ''); ?></textarea>
                                 <p class="description"><?php _e('Site description for your default language (used in homepage and SEO metadata)', 'ez-translate'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="main_landing_page_id"><?php _e('Main Landing Page', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <?php
+                                // Get all published pages
+                                $pages = get_pages(array(
+                                    'post_status' => 'publish',
+                                    'sort_column' => 'post_title'
+                                ));
+
+                                // Get current front page
+                                $front_page_id = get_option('page_on_front', 0);
+                                ?>
+                                <select id="main_landing_page_id" name="main_landing_page_id" class="regular-text">
+                                    <option value="0"><?php _e('Select a page...', 'ez-translate'); ?></option>
+                                    <?php foreach ($pages as $page): ?>
+                                        <option value="<?php echo esc_attr($page->ID); ?>"
+                                                <?php selected($main_landing_page_id, $page->ID); ?>>
+                                            <?php echo esc_html($page->post_title); ?>
+                                            <?php if ($page->ID == $front_page_id): ?>
+                                                (<?php _e('Current Homepage', 'ez-translate'); ?>)
+                                            <?php endif; ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <p class="description">
+                                    <?php _e('Select which page represents your main landing page for the default language. The configured metadata above will be transferred to this page.', 'ez-translate'); ?>
+                                    <?php if ($front_page_id > 0): ?>
+                                        <br><strong><?php _e('Recommended:', 'ez-translate'); ?></strong> <?php _e('Select your current homepage to integrate it with the multilingual system.', 'ez-translate'); ?>
+                                    <?php endif; ?>
+                                </p>
                             </td>
                         </tr>
                         <tr>
@@ -1350,6 +1398,19 @@ class Admin {
                     }
                     ?>
                 </div>
+            <?php elseif (isset($_GET['run_ez_translate_main_landing_tests']) && $_GET['run_ez_translate_main_landing_tests'] === '1'): ?>
+                <div class="card">
+                    <h2><?php _e('Main Landing Page Integration Test Results', 'ez-translate'); ?></h2>
+                    <?php
+                    // Run Main Landing Page tests only
+                    if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-main-landing-page.php')) {
+                        require_once EZ_TRANSLATE_PLUGIN_DIR . 'tests/test-main-landing-page.php';
+                        EZTranslateMainLandingPageTest::run_tests();
+                    } else {
+                        echo '<p style="color: red;">Main landing page test file not found.</p>';
+                    }
+                    ?>
+                </div>
             <?php else: ?>
                 <div class="card">
                     <h2><?php _e('Testing', 'ez-translate'); ?></h2>
@@ -1395,6 +1456,9 @@ class Admin {
                     </a>
                     <a href="<?php echo esc_url(add_query_arg('run_ez_translate_redirect_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
                         <?php _e('Run Redirect Tests', 'ez-translate'); ?>
+                    </a>
+                    <a href="<?php echo esc_url(add_query_arg('run_ez_translate_main_landing_tests', '1')); ?>" class="button button-secondary" style="margin-left: 10px;">
+                        <?php _e('Run Main Landing Page Tests', 'ez-translate'); ?>
                     </a>
                 </div>
             <?php endif; ?>
@@ -2229,5 +2293,102 @@ class Admin {
 
         // Initialize robots admin
         new \EZTranslate\Admin\RobotsAdmin();
+    }
+
+    /**
+     * Transfer metadata to main landing page
+     *
+     * @param int $page_id Page ID to transfer metadata to
+     * @param array $metadata Metadata to transfer
+     * @param string $language_code Language code
+     * @since 1.0.0
+     */
+    private function transfer_metadata_to_main_landing_page($page_id, $metadata, $language_code) {
+        // Load required classes
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-manager.php';
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-post-meta-manager.php';
+
+        // Set language metadata
+        update_post_meta($page_id, '_ez_translate_language', $language_code);
+
+        // Transfer SEO metadata if available
+        if (!empty($metadata['site_title'])) {
+            update_post_meta($page_id, '_ez_translate_seo_title', $metadata['site_title']);
+        }
+
+        if (!empty($metadata['site_description'])) {
+            update_post_meta($page_id, '_ez_translate_seo_description', $metadata['site_description']);
+        }
+
+        // Mark as landing page
+        update_post_meta($page_id, '_ez_translate_is_landing', true);
+
+        // Create or get translation group for landing pages
+        $existing_group = get_post_meta($page_id, '_ez_translate_group', true);
+        if (empty($existing_group)) {
+            $group_id = \EZTranslate\PostMetaManager::generate_group_id();
+            update_post_meta($page_id, '_ez_translate_group', $group_id);
+        }
+
+        // Update language configuration to include this page as landing page
+        $languages = \EZTranslate\LanguageManager::get_languages();
+
+        // Find if default language already exists in configuration
+        $default_language_exists = false;
+        foreach ($languages as $index => $language) {
+            if ($language['code'] === $language_code) {
+                $languages[$index]['landing_page_id'] = $page_id;
+                $default_language_exists = true;
+                break;
+            }
+        }
+
+        // If default language doesn't exist in configuration, add it
+        if (!$default_language_exists) {
+            $languages[] = array(
+                'code' => $language_code,
+                'name' => $this->get_language_name($language_code),
+                'enabled' => true,
+                'landing_page_id' => $page_id,
+                'site_name' => $metadata['site_name'] ?? '',
+                'site_title' => $metadata['site_title'] ?? '',
+                'site_description' => $metadata['site_description'] ?? ''
+            );
+        }
+
+        // Save updated languages configuration
+        update_option('ez_translate_languages', $languages);
+
+        Logger::info('Metadata transferred to main landing page', array(
+            'page_id' => $page_id,
+            'language_code' => $language_code,
+            'metadata' => $metadata,
+            'default_language_exists' => $default_language_exists
+        ));
+    }
+
+    /**
+     * Get language name from code
+     *
+     * @param string $code Language code
+     * @return string Language name
+     * @since 1.0.0
+     */
+    private function get_language_name($code) {
+        $language_names = array(
+            'en' => 'English',
+            'es' => 'Español',
+            'pt' => 'Português',
+            'fr' => 'Français',
+            'de' => 'Deutsch',
+            'it' => 'Italiano',
+            'ja' => '日本語',
+            'ko' => '한국어',
+            'zh' => '中文',
+            'ru' => 'Русский',
+            'ar' => 'العربية'
+        );
+
+        return $language_names[$code] ?? ucfirst($code);
     }
 }

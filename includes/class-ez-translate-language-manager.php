@@ -659,6 +659,33 @@ class LanguageManager {
             return null;
         }
 
+        // Check if this is the default language and if main landing page is configured
+        $wp_locale = get_locale();
+        $wp_language_code = strstr($wp_locale, '_', true) ?: $wp_locale;
+        $is_default_language = $language_code === $wp_language_code;
+
+        if ($is_default_language) {
+            $main_landing_page_id = get_option('ez_translate_main_landing_page_id', 0);
+            if ($main_landing_page_id > 0) {
+                $post = get_post($main_landing_page_id);
+                if ($post && $post->post_type === 'page') {
+                    $landing_page_data = array(
+                        'post_id' => $post->ID,
+                        'title' => $post->post_title,
+                        'slug' => $post->post_name,
+                        'status' => $post->post_status,
+                        'edit_url' => admin_url('post.php?post=' . $post->ID . '&action=edit'),
+                        'view_url' => get_permalink($post->ID),
+                        'seo_title' => get_post_meta($post->ID, '_ez_translate_seo_title', true),
+                        'seo_description' => get_post_meta($post->ID, '_ez_translate_seo_description', true),
+                        'group_id' => get_post_meta($post->ID, '_ez_translate_group', true)
+                    );
+
+                    return $landing_page_data;
+                }
+            }
+        }
+
         // First, try to get landing page ID from language configuration
         $language = self::get_language($language_code);
         if ($language && !empty($language['landing_page_id'])) {
