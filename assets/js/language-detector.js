@@ -24,7 +24,8 @@
             this.storageKeys = {
                 userLanguage: 'ez_translate_user_language',
                 freeNavigation: 'ez_translate_free_navigation',
-                detectorDismissed: 'ez_translate_detector_dismissed'
+                detectorDismissed: 'ez_translate_detector_dismissed',
+                userChoice: 'ez_translate_user_choice' // 'language', 'free', 'dismissed'
             };
 
             this.init();
@@ -54,11 +55,20 @@
 
             console.log('[EZ Translate] Language detector started', this.config);
 
+            // Clean up redundant localStorage values
+            this.cleanupRedundantStorage();
+
             // Get browser language
             const browserLanguage = this.getBrowserLanguage();
             const currentLanguage = this.config.currentLanguage;
 
             console.log('[EZ Translate] Browser language:', browserLanguage, 'Current language:', currentLanguage);
+
+            // Check if user should be restricted to their chosen language
+            const userChoice = this.getUserChoice(); // 'language', 'free', 'dismissed', null
+            if (this.shouldRestrictNavigation(userChoice, currentLanguage)) {
+                return; // Exit early if user was redirected
+            }
 
             // Load detector data with translations info
             const detectorData = await this.loadDetectorData();
@@ -68,33 +78,237 @@
                 return;
             }
 
-            // Check if user has preferences
-            const userLanguage = this.getUserLanguage();
-            const freeNavigation = this.getFreeNavigation();
-            const detectorDismissed = this.getDetectorDismissed();
-
             // Store available translations for later use
             this.availableTranslations = detectorData.available_translations || [];
             this.hasTranslations = detectorData.has_translations || false;
 
             console.log('[EZ Translate] Available translations:', this.availableTranslations);
+            console.log('[EZ Translate] User choice:', userChoice);
 
             // Determine what to show based on translations and user preferences
-            const hasUserMadeChoice = userLanguage !== null;
+            this.determineDetectorMode(browserLanguage, currentLanguage, userChoice)
+        }
 
-            if (hasUserMadeChoice || freeNavigation || detectorDismissed) {
-                // User has made a choice, dismissed, or chose free navigation
-                // ALWAYS show fold mode (selector always visible)
-                this.showDetector('fold');
-            } else if (browserLanguage && browserLanguage !== currentLanguage && this.hasTranslations) {
-                // Language mismatch AND translations exist AND user hasn't made choice
-                // Show unfold mode (prominent popup)
-                this.showDetector('unfold', browserLanguage);
-            } else if (this.hasTranslations) {
-                // Has translations but user is in correct language, show fold mode
-                this.showDetector('fold');
+        /**
+         * Check if user should be restricted to their chosen language
+         */
+        shouldRestrictNavigation(userChoice, currentLanguage) {
+            // Only restrict if navigation restriction is enabled and user chose a specific language
+            if (!this.config.config.restrict_navigation || userChoice !== 'language') {
+                return false;
             }
-            // If no translations exist, don't show detector at all
+
+            const userLanguage = this.getUserLanguage();
+
+            // If user chose a language but is on a different language page, redirect them
+            if (userLanguage && userLanguage !== currentLanguage) {
+                console.log('[EZ Translate] User restricted to language:', userLanguage, 'but on:', currentLanguage, '- redirecting');
+                this.redirectToUserLanguage(userLanguage);
+                return true; // Indicate that user was redirected
+            }
+
+            return false;
+        }
+
+        /**
+         * Redirect user to their chosen language
+         */
+        redirectToUserLanguage(userLanguage) {
+            try {
+                // Try to find a translation of current page in user's language
+                const translation = this.findTranslationInData(userLanguage);
+
+                if (translation) {
+                    console.log('[EZ Translate] Redirecting to user language translation:', translation.url);
+                    window.location.href = translation.url;
+                    return;
+                }
+
+                // If no translation, redirect to landing page for that language
+                const targetLang = this.config.availableLanguages.find(lang => lang.code === userLanguage);
+                if (targetLang && targetLang.landing_page_id) {
+                    const landingUrl = `${this.config.homeUrl}?p=${targetLang.landing_page_id}`;
+                    console.log('[EZ Translate] Redirecting to user language landing page:', landingUrl);
+                    window.location.href = landingUrl;
+                    return;
+                }
+
+                // Special case for Spanish - redirect to home page
+                if (userLanguage === 'es') {
+                    console.log('[EZ Translate] Redirecting to home page for Spanish');
+                    window.location.href = this.config.homeUrl;
+                    return;
+                }
+
+                // Fallback to home page
+                console.log('[EZ Translate] No translation found, redirecting to home page');
+                window.location.href = this.config.homeUrl;
+
+            } catch (error) {
+                console.error('[EZ Translate] Error during user language redirection:', error);
+                window.location.href = this.config.homeUrl;
+            }
+        }
+
+        /**
+         * Clean up redundant localStorage values and migrate to userChoice system
+         */
+        cleanupRedundantStorage() {
+            const userChoice = this.getUserChoice();
+            const userLanguage = this.getUserLanguage();
+            const freeNavigation = this.getFreeNavigation();
+            const detectorDismissed = this.getDetectorDismissed();
+
+            // If userChoice doesn't exist but other values do, migrate them
+            if (!userChoice) {
+                if (userLanguage) {
+                    // User had selected a language
+                    this.setUserChoice('language');
+                    console.log('[EZ Translate] Migrated user language choice to new system');
+                } else if (freeNavigation) {
+                    // User had chosen free navigation
+                    this.setUserChoice('free');
+                    console.log('[EZ Translate] Migrated free navigation choice to new system');
+                } else if (detectorDismissed) {
+                    // User had dismissed the detector
+                    this.setUserChoice('dismissed');
+                    console.log('[EZ Translate] Migrated dismissed state to new system');
+                }
+            }
+
+            // Clean up old redundant values (keep userLanguage as it's still needed for redirection)
+            if (userChoice) {
+                localStorage.removeItem(this.storageKeys.freeNavigation);
+                localStorage.removeItem(this.storageKeys.detectorDismissed);
+                console.log('[EZ Translate] Cleaned up redundant localStorage values');
+            }
+        }
+
+        /**
+         * Determine which detector mode to show based on user preferences
+         */
+        determineDetectorMode(browserLanguage, currentLanguage, userChoice) {
+            console.log('[EZ Translate] Determining detector mode:', {
+                browserLanguage,
+                currentLanguage,
+                userChoice,
+                hasTranslations: this.hasTranslations
+            });
+
+            // Remove any existing translator first
+            this.removeTranslator();
+
+            // Determine what to show based on user choice
+            if (!userChoice) {
+                // Ejemplo 8: Usuario no ha elegido nada - mostrar selector desplegado + traductor activo
+                console.log('[EZ Translate] First-time user - showing expanded selector');
+                this.showDetector('unfold', browserLanguage);
+                this.showTranslator(browserLanguage);
+            } else if (userChoice === 'language') {
+                // Ejemplos 1, 2, 4: Usuario eligió idioma específico - solo selector minimizado, NO traductor
+                console.log('[EZ Translate] User chose specific language - only minimized selector');
+                this.showDetector('minimized');
+                // NO mostrar traductor porque está encerrado en su idioma
+            } else if (userChoice === 'free') {
+                // Ejemplo 6: Usuario eligió navegar libremente - selector minimizado + traductor activo
+                console.log('[EZ Translate] User chose free navigation - minimized selector + active translator');
+                this.showDetector('minimized');
+                this.showTranslator(browserLanguage);
+            } else if (userChoice === 'dismissed') {
+                // Ejemplo 7: Usuario cerró sin elegir - selector minimizado + traductor activo
+                console.log('[EZ Translate] User dismissed - minimized selector + active translator');
+                this.showDetector('minimized');
+                this.showTranslator(browserLanguage);
+            }
+        }
+
+        /**
+         * Show translator (small button to help with translations)
+         */
+        showTranslator(targetLanguage) {
+            // Only show if there are translations available and language mismatch
+            if (!this.hasTranslations || !targetLanguage || targetLanguage === this.config.currentLanguage) {
+                console.log('[EZ Translate] Not showing translator - no translations or same language');
+                return;
+            }
+
+            // Remove any existing translator
+            this.removeTranslator();
+
+            // Create translator element
+            const translator = document.createElement('div');
+            translator.className = `ez-language-detector ez-detector-helper ez-detector-${this.config.config.position}`;
+            translator.id = 'ez-language-translator';
+            translator.innerHTML = this.createTranslatorHTML(targetLanguage);
+
+            // Add to page
+            document.body.appendChild(translator);
+
+            // Add event listeners
+            this.attachTranslatorEventListeners(translator);
+
+            // Show translator
+            translator.classList.add('ez-detector-visible');
+
+            console.log('[EZ Translate] Translator shown for language:', targetLanguage);
+        }
+
+        /**
+         * Remove translator from page
+         */
+        removeTranslator() {
+            const existingTranslator = document.getElementById('ez-language-translator');
+            if (existingTranslator) {
+                existingTranslator.remove();
+                console.log('[EZ Translate] Translator removed');
+            }
+        }
+
+        /**
+         * Create translator HTML (dropdown with language options)
+         */
+        createTranslatorHTML(targetLanguage) {
+            const targetLang = this.getLanguageData(targetLanguage);
+            const messages = this.getMessages(this.config.currentLanguage);
+
+            return `
+                <div class="ez-detector-tab ez-translator-tab">
+                    <span class="ez-detector-flag">${targetLang.flag || '🌐'}</span>
+                    <span class="ez-detector-text">${messages.translation_available || 'Read this article in'}</span>
+                </div>
+                <div class="ez-detector-dropdown">
+                    <div class="ez-detector-title">${messages.dropdown_title}</div>
+                    ${this.createTranslatorLanguageList(targetLanguage)}
+                </div>
+            `;
+        }
+
+        /**
+         * Attach event listeners to translator element
+         */
+        attachTranslatorEventListeners(translator) {
+            // Handle language selection from translator dropdown
+            translator.addEventListener('click', (e) => {
+                if (e.target.closest('.ez-translator-lang-item')) {
+                    const langItem = e.target.closest('.ez-translator-lang-item');
+                    const language = langItem.dataset.language;
+                    this.handleSwitch(language);
+                }
+            });
+        }
+
+        /**
+         * Attach event listeners to helper element
+         */
+        attachHelperEventListeners(helper) {
+            helper.addEventListener('click', (e) => {
+                const action = e.target.dataset.action;
+                const language = e.target.dataset.language;
+
+                if (action === 'switch') {
+                    this.handleSwitch(language);
+                }
+            });
         }
 
         /**
@@ -172,6 +386,8 @@
                 detector.innerHTML = this.createFoldModeHTML();
             } else if (mode === 'unfold') {
                 detector.innerHTML = this.createUnfoldModeHTML(targetLanguage);
+            } else if (mode === 'minimized') {
+                detector.innerHTML = this.createMinimizedModeHTML();
             } else if (mode === 'helper') {
                 detector.innerHTML = this.createHelperModeHTML(targetLanguage);
             }
@@ -195,6 +411,20 @@
                     <div class="ez-detector-title">${messages.dropdown_title}</div>
                     ${this.createLanguageList()}
                 </div>
+            `;
+        }
+
+        /**
+         * Create minimized mode HTML (small button to reopen selector)
+         */
+        createMinimizedModeHTML() {
+            const currentLang = this.getLanguageData(this.config.currentLanguage);
+
+            return `
+                <button class="ez-detector-minimized-btn" data-action="expand">
+                    <span class="ez-detector-flag">${currentLang.flag || '🌐'}</span>
+                    <span class="ez-detector-text">${currentLang.code.toUpperCase()}</span>
+                </button>
             `;
         }
 
@@ -282,6 +512,30 @@
             });
 
             return html;
+        }
+
+        /**
+         * Create language list for translator (only target language)
+         */
+        createTranslatorLanguageList(targetLanguage) {
+            const targetLang = this.getLanguageData(targetLanguage);
+            const translation = this.findTranslationInData(targetLanguage);
+            const messages = this.getMessages(this.config.currentLanguage);
+
+            let statusText = '';
+            if (translation) {
+                statusText = translation.is_landing_page ? `<small>${messages.landing_label}</small>` : `<small>${messages.translation_label}</small>`;
+            } else {
+                statusText = `<small>${messages.landing_label}</small>`;
+            }
+
+            return `
+                <div class="ez-detector-lang-item ez-translator-lang-item" data-language="${targetLanguage}">
+                    <span class="ez-detector-flag">${targetLang.flag || '🌐'}</span>
+                    <span class="ez-detector-name">${targetLang.native_name || targetLang.name}</span>
+                    ${statusText}
+                </div>
+            `;
         }
 
         /**
@@ -398,6 +652,9 @@
                     case 'switch':
                         this.handleSwitch(language);
                         break;
+                    case 'expand':
+                        this.handleExpand();
+                        break;
                 }
             });
 
@@ -418,6 +675,19 @@
                     this.handleConfirm(language);
                 }
             });
+
+            // Handle click on fold mode tab to expand selector (Ejemplo 3, 5)
+            if (this.currentMode === 'fold') {
+                const tab = this.detector.querySelector('.ez-detector-tab');
+                if (tab) {
+                    tab.addEventListener('click', (e) => {
+                        // Prevent event from bubbling to dropdown
+                        e.stopPropagation();
+                        console.log('[EZ Translate] Fold tab clicked - showing expanded selector');
+                        this.showDetector('unfold', this.getBrowserLanguage());
+                    });
+                }
+            }
         }
 
         /**
@@ -426,8 +696,12 @@
         handleConfirm(language) {
             console.log('[EZ Translate] Confirming language:', language);
 
-            // Save user preference
+            // Save user preference and choice type
             this.setUserLanguage(language);
+            this.setUserChoice('language');
+
+            // Remove translator since user chose specific language
+            this.removeTranslator();
 
             // Redirect to appropriate page
             this.redirectToLanguage(language);
@@ -439,11 +713,26 @@
         handleStay() {
             console.log('[EZ Translate] Staying in current language');
 
-            // Save current language as preference
+            // Save current language as preference and choice type
             this.setUserLanguage(this.config.currentLanguage);
+            this.setUserChoice('language');
 
-            // Switch to fold mode (keep selector visible)
-            this.showDetector('fold');
+            // Remove translator since user chose to stay in specific language
+            this.removeTranslator();
+            this.removeHelper();
+
+            // Switch to minimized mode (keep selector minimized, no translator)
+            this.showDetector('minimized');
+        }
+
+        /**
+         * Handle expand action (from minimized selector)
+         */
+        handleExpand() {
+            console.log('[EZ Translate] Expanding selector from minimized state');
+
+            // Show expanded selector
+            this.showDetector('unfold', this.getBrowserLanguage());
         }
 
         /**
@@ -452,29 +741,35 @@
         handleFreeNavigation() {
             console.log('[EZ Translate] Enabling free navigation');
 
-            // Save free navigation preference
-            this.setFreeNavigation(true);
+            // Save choice type
+            this.setUserChoice('free');
 
             // Hide detector
             this.removeDetector();
 
-            // Show fold mode
+            // Show minimized mode and translator
             setTimeout(() => {
-                this.showDetector('fold');
+                const browserLanguage = this.getBrowserLanguage();
+                const currentLanguage = this.config.currentLanguage;
+                this.determineDetectorMode(browserLanguage, currentLanguage, 'free');
             }, 300);
         }
 
         /**
-         * Handle close action
+         * Handle close action (Ejemplo 7: dismissed)
          */
         handleClose() {
-            console.log('[EZ Translate] Closing detector');
+            console.log('[EZ Translate] Closing detector - user dismissed');
 
             // Mark as dismissed
-            this.setDetectorDismissed(true);
+            this.setUserChoice('dismissed');
 
-            // Switch to fold mode (keep selector visible)
-            this.showDetector('fold');
+            // Remove helper if exists
+            this.removeHelper();
+
+            // Switch to minimized mode and show translator (user dismissed but translator stays active)
+            this.showDetector('minimized');
+            this.showTranslator(this.getBrowserLanguage());
         }
 
         /**
@@ -483,8 +778,9 @@
         handleSwitch(language) {
             console.log('[EZ Translate] Switching to language:', language);
 
-            // Save user preference
+            // Save user preference and choice type
             this.setUserLanguage(language);
+            this.setUserChoice('language');
 
             // Redirect to appropriate page
             this.redirectToLanguage(language);
@@ -497,13 +793,19 @@
             console.log('[EZ Translate] Language selected:', language);
 
             if (language === this.config.currentLanguage) {
-                // Same language, keep fold mode visible
-                this.showDetector('fold');
+                // Same language, keep minimized mode visible but remove translator
+                this.setUserChoice('language');
+                this.removeTranslator();
+                this.showDetector('minimized');
                 return;
             }
 
-            // Save user preference
+            // Save user preference and choice type
             this.setUserLanguage(language);
+            this.setUserChoice('language');
+
+            // Remove translator since user chose specific language
+            this.removeTranslator();
 
             // Redirect to appropriate page
             this.redirectToLanguage(language);
@@ -575,6 +877,16 @@
             }
         }
 
+        /**
+         * Remove helper from page
+         */
+        removeHelper() {
+            const helper = document.getElementById('ez-language-helper');
+            if (helper) {
+                helper.remove();
+            }
+        }
+
         // localStorage methods
         getUserLanguage() {
             return localStorage.getItem(this.storageKeys.userLanguage);
@@ -598,6 +910,14 @@
 
         setDetectorDismissed(value) {
             localStorage.setItem(this.storageKeys.detectorDismissed, value.toString());
+        }
+
+        getUserChoice() {
+            return localStorage.getItem(this.storageKeys.userChoice);
+        }
+
+        setUserChoice(choice) {
+            localStorage.setItem(this.storageKeys.userChoice, choice);
         }
     }
 

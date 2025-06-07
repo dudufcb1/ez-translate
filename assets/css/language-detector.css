@@ -359,35 +359,132 @@
     color: #005a87;
 }
 
-/* HELPER MODE - Small button */
-.ez-detector-helper .ez-detector-helper-btn {
-    background: #4caf50;
+/* MINIMIZED MODE - Small button to reopen selector */
+.ez-detector-minimized .ez-detector-minimized-btn {
+    background: #0073aa;
     color: white;
     border: none;
     padding: 8px 12px;
-    border-radius: 20px;
+    border-radius: 6px;
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 6px;
-    box-shadow: 0 2px 10px rgba(76, 175, 80, 0.3);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease;
     font-size: 12px;
     font-weight: 600;
+    min-width: 60px;
 }
 
-.ez-detector-helper .ez-detector-helper-btn:hover {
-    background: #45a049;
+.ez-detector-minimized .ez-detector-minimized-btn:hover {
+    background: #005a87;
     transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.ez-detector-minimized .ez-detector-flag {
+    font-size: 16px;
+}
+
+.ez-detector-minimized .ez-detector-text {
+    font-size: 12px;
+}
+
+/* TRANSLATOR MODE - Dropdown with language options */
+.ez-detector-helper .ez-translator-tab {
+    background: white;
+    color: #333;
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    transition: all 0.3s ease;
+    min-width: 160px;
+    border: 1px solid #e0e0e0;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.ez-detector-helper .ez-translator-tab:hover {
+    background: #f8f9fa;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    border-color: #0073aa;
 }
 
 .ez-detector-helper .ez-detector-flag {
-    font-size: 14px;
+    font-size: 16px;
 }
 
 .ez-detector-helper .ez-detector-text {
-    font-size: 11px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #555;
+}
+
+/* Translator language item styling */
+.ez-translator-lang-item {
+    padding: 12px 16px !important;
+    border-radius: 6px;
+    margin: 4px 8px;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    transition: all 0.2s ease;
+}
+
+.ez-translator-lang-item:hover {
+    background: #e7f3ff !important;
+    border-color: #0073aa;
+    transform: translateX(4px);
+}
+
+/* Translator positioning - offset from main detector */
+.ez-detector-helper.ez-detector-bottom-right {
+    bottom: 20px;
+    right: 100px; /* Offset to the left of the main detector */
+}
+
+.ez-detector-helper.ez-detector-bottom-left {
+    bottom: 20px;
+    left: 100px; /* Offset to the right of the main detector */
+}
+
+.ez-detector-helper.ez-detector-top-right {
+    top: 20px;
+    right: 100px; /* Offset to the left of the main detector */
+}
+
+.ez-detector-helper.ez-detector-top-left {
+    top: 20px;
+    left: 100px; /* Offset to the right of the main detector */
+}
+
+/* Translator dropdown positioning */
+.ez-detector-helper .ez-detector-dropdown {
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 12px 0;
+    min-width: 200px;
+    margin-bottom: 8px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+    z-index: 999999;
+}
+
+.ez-detector-helper:hover .ez-detector-dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
 }
 
 /* Minimized and expanded states */
@@ -428,6 +525,27 @@
         top: 10px;
         left: 10px;
         right: 10px;
+    }
+
+    /* Helper positioning on mobile - stack vertically */
+    .ez-detector-helper.ez-detector-bottom-right {
+        bottom: 80px; /* Above the main detector */
+        right: 10px;
+    }
+
+    .ez-detector-helper.ez-detector-bottom-left {
+        bottom: 80px; /* Above the main detector */
+        left: 10px;
+    }
+
+    .ez-detector-helper.ez-detector-top-right {
+        top: 80px; /* Below the main detector */
+        right: 10px;
+    }
+
+    .ez-detector-helper.ez-detector-top-left {
+        top: 80px; /* Below the main detector */
+        left: 10px;
     }
 
     .ez-detector-unfold .ez-detector-window {

@@ -1309,10 +1309,14 @@ class RestAPI {
         require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-post-meta-manager.php';
         $posts_in_group = \EZTranslate\PostMetaManager::get_posts_in_group($group_id);
 
-        foreach ($posts_in_group as $related_post) {
-            // Ensure we have a valid post object
-            $post = get_post($related_post);
-            if (!$post || !is_object($post)) {
+        foreach ($posts_in_group as $related_post_id) {
+            // Ensure we have a valid post ID
+            if (!is_numeric($related_post_id)) {
+                continue;
+            }
+
+            $post = get_post($related_post_id);
+            if (!$post || !is_object($post) || $post->post_status !== 'publish') {
                 continue;
             }
 
@@ -1357,13 +1361,16 @@ class RestAPI {
                 $landing_page_id = \EZTranslate\LanguageDetector::get_landing_page($lang_code);
 
                 if ($landing_page_id) {
-                    $translations[] = array(
-                        'language_code' => $lang_code,
-                        'post_id' => $landing_page_id,
-                        'url' => get_permalink($landing_page_id),
-                        'title' => get_the_title($landing_page_id),
-                        'is_landing_page' => true
-                    );
+                    $landing_post = get_post($landing_page_id);
+                    if ($landing_post && $landing_post->post_status === 'publish') {
+                        $translations[] = array(
+                            'language_code' => $lang_code,
+                            'post_id' => $landing_page_id,
+                            'url' => get_permalink($landing_page_id),
+                            'title' => get_the_title($landing_page_id),
+                            'is_landing_page' => true
+                        );
+                    }
                 }
             }
         }
