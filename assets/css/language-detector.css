@@ -171,8 +171,12 @@
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
     transition: background 0.2s ease;
+}
+
+.ez-detector-fold .ez-detector-lang-item.active {
+    gap: 2px;
 }
 
 .ez-detector-fold .ez-detector-lang-item:hover {
@@ -185,9 +189,7 @@
 }
 
 .ez-detector-fold .ez-detector-current {
-    margin-left: auto;
-    color: #0073aa;
-    font-weight: bold;
+    display: none;
 }
 
 /* UNFOLD MODE - Prominent window */

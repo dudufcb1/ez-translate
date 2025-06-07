@@ -180,28 +180,65 @@ class LanguageDetector {
                     'description' => 'Siempre que entres se cargará esta edición',
                     'confirm_button' => 'Confirmar',
                     'stay_button' => 'Mantener actual',
-                    'free_navigation' => 'Navegar libremente'
+                    'free_navigation' => 'Navegar libremente',
+                    'dropdown_title' => 'Idiomas disponibles',
+                    'translation_available' => 'Tenemos esta versión en',
+                    'landing_available' => 'Tenemos página de inicio en',
+                    'current_language' => 'Idioma actual',
+                    'translation_label' => 'Traducción',
+                    'landing_label' => 'Página de inicio'
                 ),
                 'en' => array(
                     'title' => 'Choose your favorite edition',
                     'description' => 'This edition will always load when you visit',
                     'confirm_button' => 'Confirm',
                     'stay_button' => 'Keep current',
-                    'free_navigation' => 'Browse freely'
+                    'free_navigation' => 'Browse freely',
+                    'dropdown_title' => 'Available languages',
+                    'translation_available' => 'We have this version in',
+                    'landing_available' => 'We have homepage in',
+                    'current_language' => 'Current language',
+                    'translation_label' => 'Translation',
+                    'landing_label' => 'Homepage'
                 ),
                 'pt' => array(
                     'title' => 'Escolha sua edição favorita',
                     'description' => 'Esta edição sempre carregará quando você visitar',
                     'confirm_button' => 'Confirmar',
                     'stay_button' => 'Manter atual',
-                    'free_navigation' => 'Navegar livremente'
+                    'free_navigation' => 'Navegar livremente',
+                    'dropdown_title' => 'Idiomas disponíveis',
+                    'translation_available' => 'Temos esta versão em',
+                    'landing_available' => 'Temos página inicial em',
+                    'current_language' => 'Idioma atual',
+                    'translation_label' => 'Tradução',
+                    'landing_label' => 'Página inicial'
                 ),
                 'fr' => array(
                     'title' => 'Choisissez votre édition préférée',
                     'description' => 'Cette édition se chargera toujours lors de votre visite',
                     'confirm_button' => 'Confirmer',
                     'stay_button' => 'Garder actuel',
-                    'free_navigation' => 'Naviguer librement'
+                    'free_navigation' => 'Naviguer librement',
+                    'dropdown_title' => 'Langues disponibles',
+                    'translation_available' => 'Nous avons cette version en',
+                    'landing_available' => 'Nous avons page d\'accueil en',
+                    'current_language' => 'Langue actuelle',
+                    'translation_label' => 'Traduction',
+                    'landing_label' => 'Page d\'accueil'
+                ),
+                'default' => array(
+                    'title' => 'Choose your favorite edition',
+                    'description' => 'This edition will always load when you visit',
+                    'confirm_button' => 'Confirm',
+                    'stay_button' => 'Keep current',
+                    'free_navigation' => 'Browse freely',
+                    'dropdown_title' => 'Available languages',
+                    'translation_available' => 'We have this version in',
+                    'landing_available' => 'We have homepage in',
+                    'current_language' => 'Current language',
+                    'translation_label' => 'Translation',
+                    'landing_label' => 'Homepage'
                 )
             )
         );

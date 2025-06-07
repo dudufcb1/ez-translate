@@ -80,14 +80,15 @@
             console.log('[EZ Translate] Available translations:', this.availableTranslations);
 
             // Determine what to show based on translations and user preferences
-            if (freeNavigation) {
-                // User chose free navigation, show fold mode only
-                this.showDetector('fold');
-            } else if (detectorDismissed) {
-                // User dismissed detector, show minimized fold mode (they can still change their mind)
+            const hasUserMadeChoice = userLanguage !== null;
+
+            if (hasUserMadeChoice || freeNavigation || detectorDismissed) {
+                // User has made a choice, dismissed, or chose free navigation
+                // ALWAYS show fold mode (selector always visible)
                 this.showDetector('fold');
             } else if (browserLanguage && browserLanguage !== currentLanguage && this.hasTranslations) {
-                // Language mismatch AND translations exist, show unfold mode
+                // Language mismatch AND translations exist AND user hasn't made choice
+                // Show unfold mode (prominent popup)
                 this.showDetector('unfold', browserLanguage);
             } else if (this.hasTranslations) {
                 // Has translations but user is in correct language, show fold mode
@@ -183,6 +184,7 @@
          */
         createFoldModeHTML() {
             const currentLang = this.getLanguageData(this.config.currentLanguage);
+            const messages = this.getMessages(this.config.currentLanguage);
 
             return `
                 <div class="ez-detector-tab">
@@ -190,7 +192,7 @@
                     <span class="ez-detector-text">${currentLang.code.toUpperCase()}</span>
                 </div>
                 <div class="ez-detector-dropdown">
-                    <div class="ez-detector-title">Idiomas disponibles</div>
+                    <div class="ez-detector-title">${messages.dropdown_title}</div>
                     ${this.createLanguageList()}
                 </div>
             `;
@@ -251,6 +253,7 @@
          */
         createLanguageList() {
             let html = '';
+            const messages = this.getMessages(this.config.currentLanguage);
 
             // Show ALL available languages, not just those with translations of current page
             this.config.availableLanguages.forEach(lang => {
@@ -261,19 +264,19 @@
                 let statusText = '';
 
                 if (isActive) {
-                    statusText = '<span class="ez-detector-current">✓</span>';
+                    statusText = `<span class="ez-detector-current">✓</span>`;
                 } else if (translation) {
-                    statusText = translation.is_landing_page ? '<small>(Landing)</small>' : '<small>(Traducción)</small>';
+                    statusText = translation.is_landing_page ? `<small>${messages.landing_label}</small>` : `<small>${messages.translation_label}</small>`;
                 } else {
                     // Check if language has a landing page configured
-                    statusText = '<small>(Landing)</small>'; // All languages should have landing pages
+                    statusText = `<small>${messages.landing_label}</small>`;
                 }
 
                 html += `
                     <div class="ez-detector-lang-item ${isActive ? 'active' : ''}" data-language="${lang.code}">
                         <span class="ez-detector-flag">${lang.flag || '🌐'}</span>
-                        <span class="ez-detector-name">${lang.native_name || lang.name}</span>
                         ${statusText}
+                        <span class="ez-detector-name">${lang.native_name || lang.name}</span>
                     </div>
                 `;
             });
@@ -349,14 +352,22 @@
          */
         getMessages(languageCode) {
             const messages = this.config.config.messages[languageCode];
-            
-            // Fallback to Spanish if language not found
-            return messages || this.config.config.messages['es'] || {
+
+            // Fallback chain: requested language → English → default → hardcoded
+            return messages ||
+                   this.config.config.messages['en'] ||
+                   this.config.config.messages['default'] || {
                 title: 'Choose your favorite edition',
                 description: 'This edition will always load when you visit',
                 confirm_button: 'Confirm',
                 stay_button: 'Keep current',
-                free_navigation: 'Browse freely'
+                free_navigation: 'Browse freely',
+                dropdown_title: 'Available languages',
+                translation_available: 'We have this version in',
+                landing_available: 'We have homepage in',
+                current_language: 'Current language',
+                translation_label: 'Translation',
+                landing_label: 'Homepage'
             };
         }
 
@@ -431,8 +442,8 @@
             // Save current language as preference
             this.setUserLanguage(this.config.currentLanguage);
 
-            // Hide detector
-            this.removeDetector();
+            // Switch to fold mode (keep selector visible)
+            this.showDetector('fold');
         }
 
         /**
@@ -462,14 +473,8 @@
             // Mark as dismissed
             this.setDetectorDismissed(true);
 
-            // Hide detector
-            this.removeDetector();
-
-            // Check if we should show helper
-            const browserLanguage = this.getBrowserLanguage();
-            if (browserLanguage && browserLanguage !== this.config.currentLanguage) {
-                this.checkAndShowHelper(browserLanguage);
-            }
+            // Switch to fold mode (keep selector visible)
+            this.showDetector('fold');
         }
 
         /**
@@ -492,8 +497,8 @@
             console.log('[EZ Translate] Language selected:', language);
 
             if (language === this.config.currentLanguage) {
-                // Same language, just close dropdown
-                this.removeDetector();
+                // Same language, keep fold mode visible
+                this.showDetector('fold');
                 return;
             }
 

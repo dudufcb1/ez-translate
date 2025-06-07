@@ -137,7 +137,48 @@ class Admin {
      */
     private function handle_form_submissions() {
         // Check if this is a form submission
-        if (!isset($_POST['ez_translate_action']) || !wp_verify_nonce($_POST['ez_translate_nonce'], 'ez_translate_admin')) {
+        if (!isset($_POST['ez_translate_action'])) {
+            return;
+        }
+
+        // Verify nonce - check for any of the valid nonce names
+        $nonce_verified = false;
+        $nonce_fields = array(
+            'ez_translate_nonce',
+            'ez_translate_nonce_add',
+            'ez_translate_nonce_api',
+            'ez_translate_nonce_edit',
+            'ez_translate_nonce_seo',
+            'ez_translate_nonce_detector',
+            'ez_translate_nonce_messages'
+        );
+
+        foreach ($nonce_fields as $nonce_field) {
+            if (isset($_POST[$nonce_field]) && wp_verify_nonce($_POST[$nonce_field], 'ez_translate_admin')) {
+                $nonce_verified = true;
+                break;
+            }
+            // Also check for dynamic delete nonces
+            if (strpos($nonce_field, 'ez_translate_nonce_delete_') === 0 &&
+                isset($_POST[$nonce_field]) &&
+                wp_verify_nonce($_POST[$nonce_field], 'ez_translate_admin')) {
+                $nonce_verified = true;
+                break;
+            }
+        }
+
+        // Check for dynamic delete nonces
+        if (!$nonce_verified) {
+            foreach ($_POST as $key => $value) {
+                if (strpos($key, 'ez_translate_nonce_delete_') === 0 &&
+                    wp_verify_nonce($value, 'ez_translate_admin')) {
+                    $nonce_verified = true;
+                    break;
+                }
+            }
+        }
+
+        if (!$nonce_verified) {
             return;
         }
 
@@ -166,6 +207,9 @@ class Admin {
                 break;
             case 'update_detector_settings':
                 $this->handle_update_detector_settings();
+                break;
+            case 'update_detector_messages':
+                $this->handle_update_detector_messages();
                 break;
             default:
                 Logger::warning('Unknown form action', array('action' => $action));
@@ -566,7 +610,7 @@ class Admin {
             <div class="card" style="max-width: 1200px; width: 100%;">
                 <h2><?php _e('Add New Language', 'ez-translate'); ?></h2>
                 <form method="post" action="">
-                    <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce'); ?>
+                    <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce_add'); ?>
                     <input type="hidden" name="ez_translate_action" value="add_language">
 
                     <table class="form-table">
@@ -741,10 +785,10 @@ class Admin {
                                 <tr>
                                     <td><strong><?php echo esc_html($language['code']); ?></strong></td>
                                     <td><?php echo esc_html($language['name']); ?></td>
-                                    <td><code><?php echo esc_html($language['slug']); ?></code></td>
-                                    <td><?php echo esc_html($language['native_name'] ?? '—'); ?></td>
-                                    <td><?php echo esc_html($language['flag'] ?? '—'); ?></td>
-                                    <td><?php echo ($language['rtl'] ?? false) ? __('Yes', 'ez-translate') : __('No', 'ez-translate'); ?></td>
+                                    <td><code><?php echo esc_html(isset($language['slug']) ? $language['slug'] : $language['code']); ?></code></td>
+                                    <td><?php echo esc_html(isset($language['native_name']) ? $language['native_name'] : '—'); ?></td>
+                                    <td><?php echo esc_html(isset($language['flag']) ? $language['flag'] : '—'); ?></td>
+                                    <td><?php echo (isset($language['rtl']) && $language['rtl']) ? __('Yes', 'ez-translate') : __('No', 'ez-translate'); ?></td>
                                     <td>
                                         <?php if ($landing_page): ?>
                                             <div style="margin-bottom: 5px;">
@@ -768,7 +812,7 @@ class Admin {
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <?php if ($language['enabled'] ?? true): ?>
+                                        <?php if (isset($language['enabled']) ? $language['enabled'] : true): ?>
                                             <span class="ez-translate-status-enabled"><?php _e('Enabled', 'ez-translate'); ?></span>
                                         <?php else: ?>
                                             <span class="ez-translate-status-disabled"><?php _e('Disabled', 'ez-translate'); ?></span>
@@ -781,7 +825,7 @@ class Admin {
                                         </button>
                                         <form method="post" style="display: inline-block;"
                                               onsubmit="return confirm('<?php esc_attr_e('Are you sure you want to delete this language?', 'ez-translate'); ?>');">
-                                            <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce'); ?>
+                                            <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce_delete_' . $language['code']); ?>
                                             <input type="hidden" name="ez_translate_action" value="delete_language">
                                             <input type="hidden" name="language_code" value="<?php echo esc_attr($language['code']); ?>">
                                             <button type="submit" class="button button-small button-link-delete">
@@ -926,7 +970,7 @@ class Admin {
                             </th>
                             <td>
                                 <input type="text" id="default_site_name" name="default_site_name" class="regular-text"
-                                       value="<?php echo esc_attr($default_metadata['site_name'] ?? ''); ?>"
+                                       value="<?php echo esc_attr(isset($default_metadata['site_name']) ? $default_metadata['site_name'] : ''); ?>"
                                        placeholder="<?php esc_attr_e('e.g., WordPress Specialist, Especialista en WordPress', 'ez-translate'); ?>">
                                 <p class="description"><?php _e('Short site name for your default language (used in page titles)', 'ez-translate'); ?></p>
                             </td>
@@ -937,7 +981,7 @@ class Admin {
                             </th>
                             <td>
                                 <input type="text" id="default_site_title" name="default_site_title" class="regular-text"
-                                       value="<?php echo esc_attr($default_metadata['site_title'] ?? ''); ?>"
+                                       value="<?php echo esc_attr(isset($default_metadata['site_title']) ? $default_metadata['site_title'] : ''); ?>"
                                        placeholder="<?php esc_attr_e('e.g., My Website - Professional Services', 'ez-translate'); ?>">
                                 <p class="description"><?php _e('Full site title for your default language (used in homepage and SEO metadata)', 'ez-translate'); ?></p>
                             </td>
@@ -948,7 +992,7 @@ class Admin {
                             </th>
                             <td>
                                 <textarea id="default_site_description" name="default_site_description" class="large-text" rows="3"
-                                          placeholder="<?php esc_attr_e('Brief description of your website in your default language...', 'ez-translate'); ?>"><?php echo esc_textarea($default_metadata['site_description'] ?? ''); ?></textarea>
+                                          placeholder="<?php esc_attr_e('Brief description of your website in your default language...', 'ez-translate'); ?>"><?php echo esc_textarea(isset($default_metadata['site_description']) ? $default_metadata['site_description'] : ''); ?></textarea>
                                 <p class="description"><?php _e('Site description for your default language (used in homepage and SEO metadata)', 'ez-translate'); ?></p>
                             </td>
                         </tr>
@@ -1039,7 +1083,7 @@ class Admin {
                     ?>
 
                     <form method="post" action="" id="ez-translate-api-form">
-                        <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce'); ?>
+                        <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce_api'); ?>
                         <input type="hidden" name="ez_translate_action" value="update_api_settings">
 
                         <table class="form-table">
@@ -1483,7 +1527,7 @@ class Admin {
             <div class="ez-translate-modal-content">
                 <h2><?php _e('Edit Language', 'ez-translate'); ?></h2>
                 <form method="post" action="" id="ez-translate-edit-form">
-                    <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce'); ?>
+                    <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce_edit'); ?>
                     <input type="hidden" name="ez_translate_action" value="edit_language">
                     <input type="hidden" name="original_code" id="edit_original_code">
 
@@ -1666,7 +1710,7 @@ class Admin {
             <div class="ez-translate-modal-content">
                 <h2><?php _e('Edit Landing Page SEO', 'ez-translate'); ?></h2>
                 <form method="post" action="" id="ez-translate-seo-form">
-                    <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce'); ?>
+                    <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce_seo'); ?>
                     <input type="hidden" name="ez_translate_action" value="update_landing_page_seo">
                     <input type="hidden" name="post_id" id="seo_post_id">
                     <input type="hidden" name="language_code" id="seo_language_code">
@@ -2450,6 +2494,58 @@ class Admin {
     }
 
     /**
+     * Handle detector messages update
+     *
+     * @since 1.0.0
+     */
+    private function handle_update_detector_messages() {
+        Logger::info('Processing detector messages update');
+
+        // Load language detector class
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-detector.php';
+
+        // Get current config
+        $current_config = \EZTranslate\LanguageDetector::get_detector_config();
+
+        // Sanitize and process messages
+        $messages = array();
+        if (isset($_POST['messages']) && is_array($_POST['messages'])) {
+            foreach ($_POST['messages'] as $lang_code => $lang_messages) {
+                if (is_array($lang_messages)) {
+                    $messages[sanitize_text_field($lang_code)] = array(
+                        'dropdown_title' => sanitize_text_field(isset($lang_messages['dropdown_title']) ? $lang_messages['dropdown_title'] : ''),
+                        'translation_available' => sanitize_text_field(isset($lang_messages['translation_available']) ? $lang_messages['translation_available'] : ''),
+                        'landing_available' => sanitize_text_field(isset($lang_messages['landing_available']) ? $lang_messages['landing_available'] : ''),
+                        'translation_label' => sanitize_text_field(isset($lang_messages['translation_label']) ? $lang_messages['translation_label'] : ''),
+                        'landing_label' => sanitize_text_field(isset($lang_messages['landing_label']) ? $lang_messages['landing_label'] : ''),
+                        'current_language' => sanitize_text_field(isset($lang_messages['current_language']) ? $lang_messages['current_language'] : ''),
+                        // Keep existing popup messages
+                        'title' => isset($current_config['messages'][$lang_code]['title']) ? $current_config['messages'][$lang_code]['title'] : '',
+                        'description' => isset($current_config['messages'][$lang_code]['description']) ? $current_config['messages'][$lang_code]['description'] : '',
+                        'confirm_button' => isset($current_config['messages'][$lang_code]['confirm_button']) ? $current_config['messages'][$lang_code]['confirm_button'] : '',
+                        'stay_button' => isset($current_config['messages'][$lang_code]['stay_button']) ? $current_config['messages'][$lang_code]['stay_button'] : '',
+                        'free_navigation' => isset($current_config['messages'][$lang_code]['free_navigation']) ? $current_config['messages'][$lang_code]['free_navigation'] : ''
+                    );
+                }
+            }
+        }
+
+        // Update configuration
+        $updated_config = array_merge($current_config, array('messages' => $messages));
+        $result = \EZTranslate\LanguageDetector::update_detector_config($updated_config);
+
+        if ($result) {
+            $this->add_admin_notice(__('Language detector messages updated successfully!', 'ez-translate'), 'success');
+            Logger::info('Detector messages updated successfully', array(
+                'languages_updated' => array_keys($messages)
+            ));
+        } else {
+            $this->add_admin_notice(__('Failed to update detector messages.', 'ez-translate'), 'error');
+            Logger::error('Failed to update detector messages');
+        }
+    }
+
+    /**
      * Render the Language Detector admin page
      *
      * @since 1.0.0
@@ -2474,6 +2570,12 @@ class Admin {
         // Get current settings
         $config = \EZTranslate\LanguageDetector::get_detector_config();
 
+        // Debug log
+        Logger::debug('Detector page rendering', array(
+            'config_enabled' => $config['enabled'],
+            'messages_count' => isset($config['messages']) ? count($config['messages']) : 0
+        ));
+
         ?>
         <div class="wrap">
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
@@ -2483,7 +2585,7 @@ class Admin {
                 <p><?php _e('Configure the automatic language detection and redirection system for your visitors.', 'ez-translate'); ?></p>
 
                 <form method="post" action="">
-                    <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce'); ?>
+                    <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce_detector'); ?>
                     <input type="hidden" name="ez_translate_action" value="update_detector_settings">
 
                     <table class="form-table">
@@ -2578,6 +2680,89 @@ class Admin {
                     </table>
 
                     <?php submit_button(__('Save Detector Settings', 'ez-translate')); ?>
+                </form>
+            </div>
+
+            <!-- Messages Configuration Section -->
+            <!-- DEBUG: Messages section should appear here -->
+            <div class="card" style="max-width: 1200px; width: 100%; margin-top: 20px;">
+                <h2><?php _e('Custom Messages Configuration', 'ez-translate'); ?></h2>
+                <p><?php _e('Customize the messages shown in the language detector for each language. If not configured, English defaults will be used.', 'ez-translate'); ?></p>
+
+                <form method="post" action="">
+                    <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce_messages'); ?>
+                    <input type="hidden" name="ez_translate_action" value="update_detector_messages">
+
+                    <?php
+                    $available_languages = array('es', 'en', 'pt', 'fr');
+                    $language_names = array(
+                        'es' => 'Español',
+                        'en' => 'English',
+                        'pt' => 'Português',
+                        'fr' => 'Français'
+                    );
+
+                    foreach ($available_languages as $lang_code):
+                        $lang_messages = isset($config['messages'][$lang_code]) ? $config['messages'][$lang_code] : array();
+                    ?>
+                    <h3><?php echo esc_html($language_names[$lang_code]); ?> (<?php echo esc_html($lang_code); ?>)</h3>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">
+                                <label for="dropdown_title_<?php echo $lang_code; ?>"><?php _e('Dropdown Title', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <input type="text" id="dropdown_title_<?php echo $lang_code; ?>"
+                                       name="messages[<?php echo $lang_code; ?>][dropdown_title]"
+                                       value="<?php echo esc_attr(isset($lang_messages['dropdown_title']) ? $lang_messages['dropdown_title'] : ''); ?>"
+                                       class="regular-text">
+                                <p class="description"><?php _e('Title shown in the language selector dropdown', 'ez-translate'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="translation_available_<?php echo $lang_code; ?>"><?php _e('Translation Available Message', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <input type="text" id="translation_available_<?php echo $lang_code; ?>"
+                                       name="messages[<?php echo $lang_code; ?>][translation_available]"
+                                       value="<?php echo esc_attr(isset($lang_messages['translation_available']) ? $lang_messages['translation_available'] : ''); ?>"
+                                       class="regular-text">
+                                <p class="description"><?php _e('Message when a translation is available (e.g., "We have this version in")', 'ez-translate'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="landing_available_<?php echo $lang_code; ?>"><?php _e('Landing Page Available Message', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <input type="text" id="landing_available_<?php echo $lang_code; ?>"
+                                       name="messages[<?php echo $lang_code; ?>][landing_available]"
+                                       value="<?php echo esc_attr(isset($lang_messages['landing_available']) ? $lang_messages['landing_available'] : ''); ?>"
+                                       class="regular-text">
+                                <p class="description"><?php _e('Message when only landing page is available (e.g., "We have homepage in")', 'ez-translate'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="translation_label_<?php echo $lang_code; ?>"><?php _e('Translation Label', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <input type="text" id="translation_label_<?php echo $lang_code; ?>"
+                                       name="messages[<?php echo $lang_code; ?>][translation_label]"
+                                       value="<?php echo esc_attr(isset($lang_messages['translation_label']) ? $lang_messages['translation_label'] : ''); ?>"
+                                       class="small-text">
+                                <input type="text" id="landing_label_<?php echo $lang_code; ?>"
+                                       name="messages[<?php echo $lang_code; ?>][landing_label]"
+                                       value="<?php echo esc_attr(isset($lang_messages['landing_label']) ? $lang_messages['landing_label'] : ''); ?>"
+                                       class="small-text" placeholder="<?php _e('Landing Page', 'ez-translate'); ?>">
+                                <p class="description"><?php _e('Labels for "Translation" and "Landing Page" in dropdown', 'ez-translate'); ?></p>
+                            </td>
+                        </tr>
+                    </table>
+                    <?php endforeach; ?>
+
+                    <?php submit_button(__('Save Custom Messages', 'ez-translate')); ?>
                 </form>
             </div>
 
