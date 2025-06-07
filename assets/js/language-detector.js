@@ -93,20 +93,21 @@
          * Check if user should be restricted to their chosen language
          */
         shouldRestrictNavigation(userChoice, currentLanguage) {
-            // Only restrict if navigation restriction is enabled and user chose a specific language
-            if (!this.config.config.restrict_navigation || userChoice !== 'language') {
+            // Si userChoice es un código de idioma (ej: 'en', 'es', etc) y restrict_navigation está activo
+            if (!this.config.config.restrict_navigation) {
                 return false;
             }
-
-            const userLanguage = this.getUserLanguage();
-
-            // If user chose a language but is on a different language page, redirect them
-            if (userLanguage && userLanguage !== currentLanguage) {
-                console.log('[EZ Translate] User restricted to language:', userLanguage, 'but on:', currentLanguage, '- redirecting');
-                this.redirectToUserLanguage(userLanguage);
-                return true; // Indicate that user was redirected
+            // Solo restringir si userChoice es un código de idioma válido
+            const availableCodes = this.config.availableLanguages.map(l => l.code);
+            if (!userChoice || !availableCodes.includes(userChoice)) {
+                return false;
             }
-
+            // Si el usuario está en una página de otro idioma, redirigir
+            if (userChoice !== currentLanguage) {
+                console.log('[EZ Translate] User restricted to language:', userChoice, 'but on:', currentLanguage, '- redirecting');
+                this.redirectToUserLanguage(userChoice);
+                return true;
+            }
             return false;
         }
 
@@ -198,25 +199,20 @@
             // Remove any existing translator first
             this.removeTranslator();
 
-            // Determine what to show based on user choice
+            const restrictNavigation = this.config.config.restrict_navigation;
+            const availableCodes = this.config.availableLanguages.map(l => l.code);
+
             if (!userChoice) {
-                // Ejemplo 8: Usuario no ha elegido nada - mostrar selector desplegado + traductor activo
-                console.log('[EZ Translate] First-time user - showing expanded selector');
+                // Usuario no ha elegido nada - mostrar selector desplegado + traductor activo
                 this.showDetector('unfold', browserLanguage);
                 this.showTranslator(browserLanguage);
-            } else if (userChoice === 'language') {
-                // Ejemplos 1, 2, 4: Usuario eligió idioma específico - solo selector minimizado, NO traductor
-                console.log('[EZ Translate] User chose specific language - only minimized selector');
+            } else if (availableCodes.includes(userChoice)) {
+                // Si userChoice es un código de idioma válido (ej: 'en', 'es', etc)
+                // Mostrar siempre el minimizado para poder cambiar idioma
                 this.showDetector('minimized');
-                // NO mostrar traductor porque está encerrado en su idioma
-            } else if (userChoice === 'free') {
-                // Ejemplo 6: Usuario eligió navegar libremente - selector minimizado + traductor activo
-                console.log('[EZ Translate] User chose free navigation - minimized selector + active translator');
-                this.showDetector('minimized');
-                this.showTranslator(browserLanguage);
-            } else if (userChoice === 'dismissed') {
-                // Ejemplo 7: Usuario cerró sin elegir - selector minimizado + traductor activo
-                console.log('[EZ Translate] User dismissed - minimized selector + active translator');
+                // No mostrar traductor si navegación está restringida
+            } else if (userChoice === 'free' || userChoice === 'dismissed') {
+                // Mostrar traductor siempre en estos estados
                 this.showDetector('minimized');
                 this.showTranslator(browserLanguage);
             }
@@ -370,7 +366,7 @@
             // Add event listeners
             this.attachEventListeners();
 
-            // Show with delay if configured
+            // Mostrar siempre el selector minimizado, incluso si hay idioma elegido
             if (mode === 'unfold' && this.config.config.delay > 0) {
                 setTimeout(() => {
                     if (this.detector) {
@@ -429,11 +425,12 @@
          */
         createMinimizedModeHTML() {
             const currentLang = this.getLanguageData(this.config.currentLanguage);
-
+            // Siempre mostrar el botón para abrir el selector global
             return `
                 <button class="ez-detector-minimized-btn" data-action="expand">
                     <span class="ez-detector-flag">${currentLang.flag || '🌐'}</span>
                     <span class="ez-detector-text">${currentLang.code.toUpperCase()}</span>
+                    <span class="ez-detector-change-label" style="font-size:10px;display:block;line-height:1;">${this.getMessages(this.config.currentLanguage).dropdown_title || 'Change language'}</span>
                 </button>
             `;
         }
@@ -728,6 +725,7 @@
                         // Prevent event from bubbling to dropdown
                         e.stopPropagation();
                         console.log('[EZ Translate] Fold tab clicked - showing expanded selector');
+                        // Fix: bind 'this' to the class instance
                         this.showDetector('unfold', this.getBrowserLanguage());
                     });
                 }
@@ -740,9 +738,8 @@
         handleConfirm(language) {
             console.log('[EZ Translate] Confirming language:', language);
 
-            // Save user preference and choice type
-            this.setUserLanguage(language);
-            this.setUserChoice('language');
+            // Guardar preferencia de navegación
+            this.setUserChoice(language); // language code (ej: 'en', 'es', etc)
 
             // Remove translator since user chose specific language
             this.removeTranslator();
@@ -757,26 +754,15 @@
         handleStay() {
             console.log('[EZ Translate] Staying in current language');
 
-            // Save current language as preference and choice type
-            this.setUserLanguage(this.config.currentLanguage);
-            this.setUserChoice('language');
+            // Guardar preferencia de navegación
+            this.setUserChoice(this.config.currentLanguage);
 
-            // Remove translator since user chose to stay in specific language
+            // Quitar traductor y helper
             this.removeTranslator();
             this.removeHelper();
 
-            // Switch to minimized mode (keep selector minimized, no translator)
+            // Solo mostrar minimizado
             this.showDetector('minimized');
-        }
-
-        /**
-         * Handle expand action (from minimized selector)
-         */
-        handleExpand() {
-            console.log('[EZ Translate] Expanding selector from minimized state');
-
-            // Show expanded selector
-            this.showDetector('unfold', this.getBrowserLanguage());
         }
 
         /**
@@ -785,7 +771,7 @@
         handleFreeNavigation() {
             console.log('[EZ Translate] Enabling free navigation');
 
-            // Save choice type
+            // Guardar preferencia de navegación
             this.setUserChoice('free');
 
             // Hide detector
@@ -805,13 +791,13 @@
         handleClose() {
             console.log('[EZ Translate] Closing detector - user dismissed');
 
-            // Mark as dismissed
+            // Guardar preferencia de navegación
             this.setUserChoice('dismissed');
 
-            // Remove helper if exists
+            // Quitar helper si existe
             this.removeHelper();
 
-            // Switch to minimized mode and show translator (user dismissed but translator stays active)
+            // Mostrar minimizado y traductor activo
             this.showDetector('minimized');
             this.showTranslator(this.getBrowserLanguage());
         }
@@ -822,12 +808,17 @@
         handleSwitch(language) {
             console.log('[EZ Translate] Switching to language:', language);
 
-            // Save user preference and choice type
-            this.setUserLanguage(language);
-            this.setUserChoice('language');
-
-            // Redirect to appropriate page
+            // Solo redirigir, NO guardar preferencia
             this.redirectToLanguage(language);
+        }
+
+        /**
+         * Handle expand action (from minimized selector)
+         */
+        handleExpand = (language) => {
+            console.log('[EZ Translate] Expanding selector from minimized state');
+            // Show expanded selector
+            this.showDetector('unfold', this.getBrowserLanguage());
         }
 
         /**
@@ -837,21 +828,19 @@
             console.log('[EZ Translate] Language selected:', language);
 
             if (language === this.config.currentLanguage) {
-                // Same language, keep minimized mode visible but remove translator
-                this.setUserChoice('language');
+                // Mismo idioma, mantener minimizado y quitar traductor
+                this.setUserChoice(this.config.currentLanguage);
                 this.removeTranslator();
                 this.showDetector('minimized');
                 return;
             }
 
-            // Save user preference but mark as free navigation to keep translator active
-            this.setUserLanguage(language);
-            this.setUserChoice('free'); // Changed from 'language' to 'free' to keep translator active
+            // Si el usuario elige un idioma diferente al actual, activar navegación libre
+            // para que el traductor siga visible y pueda cambiar de opinión fácilmente
+            this.setUserChoice('free'); // Esto permite que el traductor siga activo
 
-            // Keep translator visible for continued navigation
-            // Don't remove translator - let it stay for easy language switching
-
-            // Redirect to appropriate page
+            // No quitamos el traductor, permitimos seguir navegando
+            // Redirigir a la página en el idioma seleccionado
             this.redirectToLanguage(language);
         }
 
