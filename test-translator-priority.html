@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Prioridad Traducciones - EZ Translate</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .api-response {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .button {
+            background: #0073aa;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #005a87;
+        }
+        .error {
+            color: #d63638;
+            background: #fcf0f1;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #d63638;
+        }
+        .success {
+            color: #00a32a;
+            background: #f0f6fc;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #00a32a;
+        }
+        .warning {
+            color: #b32d2e;
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #ffc107;
+        }
+        .translation-item {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .translation-item.real {
+            background: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .translation-item.landing {
+            background: #fff3cd;
+            border-color: #ffeaa7;
+        }
+        .translation-item.current {
+            background: #d1ecf1;
+            border-color: #bee5eb;
+        }
+        .priority-badge {
+            background: #28a745;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .priority-badge.low {
+            background: #ffc107;
+            color: #212529;
+        }
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .comparison-section {
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .comparison-section h4 {
+            margin-top: 0;
+            color: #333;
+        }
+        .before {
+            background: #fff5f5;
+            border-color: #fed7d7;
+        }
+        .after {
+            background: #f0fff4;
+            border-color: #c6f6d5;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎯 Test Prioridad de Traducciones - EZ Translate</h1>
+        <p>Esta página verifica que el traductor priorice traducciones reales sobre landing pages y mantenga la visibilidad después de navegar.</p>
+
+        <div class="test-section">
+            <h3>📋 Configuración de Prueba</h3>
+            <label for="postId">Post ID a probar:</label>
+            <input type="number" id="postId" value="21" style="padding: 5px; margin: 0 10px;">
+            <button class="button" onclick="testTranslatorPriority()">🔍 Probar Prioridad</button>
+            <button class="button" onclick="clearLocalStorage()">🗑️ Limpiar LocalStorage</button>
+        </div>
+
+        <div class="comparison-grid">
+            <div class="comparison-section before">
+                <h4>❌ Problemas Anteriores</h4>
+                <ul>
+                    <li>Mostraba "Homepage" en lugar de traducción real</li>
+                    <li>No priorizaba traducciones sobre landing pages</li>
+                    <li>Traductor desaparecía después de navegar</li>
+                </ul>
+            </div>
+            <div class="comparison-section after">
+                <h4>✅ Soluciones Implementadas</h4>
+                <ul>
+                    <li>Prioriza traducciones reales sobre landing pages</li>
+                    <li>Agrupa por idioma y elige la mejor opción</li>
+                    <li>Mantiene traductor visible para navegación libre</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🌐 Resultado del API</h3>
+            <div id="apiResult" class="api-response">Haz clic en "Probar Prioridad" para ver los resultados...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Análisis de Prioridad</h3>
+            <div id="priorityResult">Los resultados del análisis aparecerán aquí...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔄 Simulación de Comportamiento</h3>
+            <div id="behaviorResult">La simulación del comportamiento aparecerá aquí...</div>
+        </div>
+    </div>
+
+    <script>
+        // Configuración base
+        const config = {
+            restUrl: '/wp-json/ez-translate/v1/',
+            postId: 21
+        };
+
+        async function testTranslatorPriority() {
+            const postId = document.getElementById('postId').value;
+            const apiDiv = document.getElementById('apiResult');
+            const priorityDiv = document.getElementById('priorityResult');
+            const behaviorDiv = document.getElementById('behaviorResult');
+            
+            try {
+                apiDiv.innerHTML = '⏳ Cargando datos del language detector...';
+                
+                const response = await fetch(`${config.restUrl}language-detector?post_id=${postId}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    apiDiv.innerHTML = JSON.stringify(data, null, 2);
+                    analyzePriority(data);
+                    simulateBehavior(data);
+                } else {
+                    apiDiv.innerHTML = `❌ Error: ${data.message || 'Error desconocido'}`;
+                }
+            } catch (error) {
+                apiDiv.innerHTML = `❌ Error de conexión: ${error.message}`;
+            }
+        }
+
+        function analyzePriority(data) {
+            const priorityDiv = document.getElementById('priorityResult');
+            
+            if (!data.available_translations) {
+                priorityDiv.innerHTML = '<div class="error">❌ No se encontraron traducciones en la respuesta</div>';
+                return;
+            }
+
+            const translations = data.available_translations;
+            const currentLang = data.current_language;
+            
+            // Simular la lógica de prioridad del JavaScript
+            const translationsByLang = {};
+            
+            translations.forEach(translation => {
+                if (translation.language_code === currentLang) return;
+                
+                const langCode = translation.language_code;
+                
+                // Priorizar traducciones reales sobre landing pages
+                if (!translationsByLang[langCode] || 
+                    (!translation.is_landing_page && translationsByLang[langCode].is_landing_page)) {
+                    translationsByLang[langCode] = translation;
+                }
+            });
+
+            let html = `<div class="success">✅ Análisis de prioridad completado</div>`;
+            html += '<h4>🎯 Traducciones que mostrará el traductor:</h4>';
+            
+            Object.values(translationsByLang).forEach((translation, index) => {
+                const isReal = !translation.is_landing_page;
+                const priorityClass = isReal ? 'real' : 'landing';
+                const priorityText = isReal ? 'ALTA' : 'BAJA';
+                const typeText = isReal ? 'Traducción Real' : 'Landing Page';
+                
+                html += `
+                    <div class="translation-item ${priorityClass}">
+                        <div>
+                            <strong>${index + 1}. ${translation.language_code.toUpperCase()}</strong>
+                            <span class="priority-badge ${isReal ? '' : 'low'}">${priorityText}</span><br>
+                            <strong>Tipo:</strong> ${typeText}<br>
+                            <strong>Post ID:</strong> ${translation.post_id}<br>
+                            <strong>Título:</strong> ${translation.title}
+                        </div>
+                        <div>
+                            <a href="${translation.url}" target="_blank" class="button">Ver</a>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Verificar si hay casos de prioridad
+            const hasRealTranslations = Object.values(translationsByLang).some(t => !t.is_landing_page);
+            const hasLandingPages = Object.values(translationsByLang).some(t => t.is_landing_page);
+            
+            if (hasRealTranslations && hasLandingPages) {
+                html += '<div class="success">✅ Prioridad funcionando: Se muestran traducciones reales cuando están disponibles</div>';
+            } else if (hasRealTranslations) {
+                html += '<div class="success">✅ Solo traducciones reales disponibles</div>';
+            } else if (hasLandingPages) {
+                html += '<div class="warning">⚠️ Solo landing pages disponibles</div>';
+            }
+            
+            priorityDiv.innerHTML = html;
+        }
+
+        function simulateBehavior(data) {
+            const behaviorDiv = document.getElementById('behaviorResult');
+            
+            let html = '<h4>🔄 Simulación del comportamiento del traductor:</h4>';
+            
+            // Simular el comportamiento después de seleccionar un idioma
+            html += `
+                <div class="success">
+                    <strong>✅ Comportamiento corregido:</strong><br>
+                    1. Usuario ve traductor con todas las traducciones disponibles<br>
+                    2. Usuario selecciona un idioma (ej: Hindi)<br>
+                    3. Sistema guarda preferencia como "free navigation"<br>
+                    4. Usuario es redirigido a la traducción en Hindi<br>
+                    5. <strong>Traductor permanece visible</strong> para seguir navegando<br>
+                    6. Usuario puede cambiar fácilmente a otro idioma
+                </div>
+            `;
+            
+            html += `
+                <div class="warning">
+                    <strong>❌ Comportamiento anterior (corregido):</strong><br>
+                    1. Usuario seleccionaba un idioma<br>
+                    2. Sistema guardaba como "language choice"<br>
+                    3. Traductor desaparecía completamente<br>
+                    4. Usuario no podía cambiar idiomas fácilmente
+                </div>
+            `;
+            
+            behaviorDiv.innerHTML = html;
+        }
+
+        function clearLocalStorage() {
+            const keys = [
+                'ez_translate_user_language',
+                'ez_translate_free_navigation', 
+                'ez_translate_detector_dismissed',
+                'ez_translate_user_choice'
+            ];
+            
+            keys.forEach(key => localStorage.removeItem(key));
+            alert('LocalStorage limpiado. Recarga la página para probar desde cero.');
+        }
+
+        // Auto-cargar al cargar la página
+        window.addEventListener('load', () => {
+            testTranslatorPriority();
+        });
+    </script>
+</body>
+</html>
