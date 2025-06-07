@@ -531,7 +531,9 @@
             const messages = this.getMessages(this.config.currentLanguage);
             let html = '';
 
-            // Show all available translations, not just the target language
+            // Group translations by language to prioritize real translations over landing pages
+            const translationsByLang = {};
+
             if (this.availableTranslations && this.availableTranslations.length > 0) {
                 this.availableTranslations.forEach(translation => {
                     // Skip current language
@@ -539,6 +541,18 @@
                         return;
                     }
 
+                    const langCode = translation.language_code;
+
+                    // If we don't have this language yet, or if this is a real translation (not landing page)
+                    // and the existing one is a landing page, prioritize the real translation
+                    if (!translationsByLang[langCode] ||
+                        (!translation.is_landing_page && translationsByLang[langCode].is_landing_page)) {
+                        translationsByLang[langCode] = translation;
+                    }
+                });
+
+                // Now create HTML for each language (prioritizing real translations)
+                Object.values(translationsByLang).forEach(translation => {
                     const lang = this.getLanguageData(translation.language_code);
                     const statusText = translation.is_landing_page ?
                         `<small>${messages.landing_label || 'Homepage'}</small>` :
@@ -830,12 +844,12 @@
                 return;
             }
 
-            // Save user preference and choice type
+            // Save user preference but mark as free navigation to keep translator active
             this.setUserLanguage(language);
-            this.setUserChoice('language');
+            this.setUserChoice('free'); // Changed from 'language' to 'free' to keep translator active
 
-            // Remove translator since user chose specific language
-            this.removeTranslator();
+            // Keep translator visible for continued navigation
+            // Don't remove translator - let it stay for easy language switching
 
             // Redirect to appropriate page
             this.redirectToLanguage(language);
