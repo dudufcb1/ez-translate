@@ -226,20 +226,30 @@
          * Show translator (small button to help with translations)
          */
         showTranslator(targetLanguage) {
-            // Only show if there are translations available and language mismatch
-            if (!this.hasTranslations || !targetLanguage || targetLanguage === this.config.currentLanguage) {
-                console.log('[EZ Translate] Not showing translator - no translations or same language');
+            // Only show if there are translations available
+            if (!this.hasTranslations || !this.availableTranslations || this.availableTranslations.length === 0) {
+                console.log('[EZ Translate] Not showing translator - no translations available');
+                return;
+            }
+
+            // Check if there are translations other than current language
+            const otherTranslations = this.availableTranslations.filter(t => t.language_code !== this.config.currentLanguage);
+            if (otherTranslations.length === 0) {
+                console.log('[EZ Translate] Not showing translator - no other language translations');
                 return;
             }
 
             // Remove any existing translator
             this.removeTranslator();
 
+            // Use the first available translation as primary target for the tab display
+            const primaryTarget = targetLanguage || otherTranslations[0].language_code;
+
             // Create translator element
             const translator = document.createElement('div');
             translator.className = `ez-language-detector ez-detector-helper ez-detector-${this.config.config.position}`;
             translator.id = 'ez-language-translator';
-            translator.innerHTML = this.createTranslatorHTML(targetLanguage);
+            translator.innerHTML = this.createTranslatorHTML(primaryTarget);
 
             // Add to page
             document.body.appendChild(translator);
@@ -250,7 +260,7 @@
             // Show translator
             translator.classList.add('ez-detector-visible');
 
-            console.log('[EZ Translate] Translator shown for language:', targetLanguage);
+            console.log('[EZ Translate] Translator shown with', otherTranslations.length, 'available translations');
         }
 
         /**
@@ -515,27 +525,36 @@
         }
 
         /**
-         * Create language list for translator (only target language)
+         * Create language list for translator (all available translations)
          */
         createTranslatorLanguageList(targetLanguage) {
-            const targetLang = this.getLanguageData(targetLanguage);
-            const translation = this.findTranslationInData(targetLanguage);
             const messages = this.getMessages(this.config.currentLanguage);
+            let html = '';
 
-            let statusText = '';
-            if (translation) {
-                statusText = translation.is_landing_page ? `<small>${messages.landing_label}</small>` : `<small>${messages.translation_label}</small>`;
-            } else {
-                statusText = `<small>${messages.landing_label}</small>`;
+            // Show all available translations, not just the target language
+            if (this.availableTranslations && this.availableTranslations.length > 0) {
+                this.availableTranslations.forEach(translation => {
+                    // Skip current language
+                    if (translation.language_code === this.config.currentLanguage) {
+                        return;
+                    }
+
+                    const lang = this.getLanguageData(translation.language_code);
+                    const statusText = translation.is_landing_page ?
+                        `<small>${messages.landing_label || 'Homepage'}</small>` :
+                        `<small>${messages.translation_label || 'Translation'}</small>`;
+
+                    html += `
+                        <div class="ez-detector-lang-item ez-translator-lang-item" data-language="${translation.language_code}">
+                            <span class="ez-detector-flag">${lang.flag || '🌐'}</span>
+                            <span class="ez-detector-name">${lang.native_name || lang.name}</span>
+                            ${statusText}
+                        </div>
+                    `;
+                });
             }
 
-            return `
-                <div class="ez-detector-lang-item ez-translator-lang-item" data-language="${targetLanguage}">
-                    <span class="ez-detector-flag">${targetLang.flag || '🌐'}</span>
-                    <span class="ez-detector-name">${targetLang.native_name || targetLang.name}</span>
-                    ${statusText}
-                </div>
-            `;
+            return html;
         }
 
         /**
@@ -605,12 +624,23 @@
          * Get messages for a language
          */
         getMessages(languageCode) {
-            const messages = this.config.config.messages[languageCode];
+            // Try to get messages from backend configuration
+            const configMessages = this.config.config && this.config.config.messages;
 
-            // Fallback chain: requested language → English → default → hardcoded
-            return messages ||
-                   this.config.config.messages['en'] ||
-                   this.config.config.messages['default'] || {
+            if (configMessages) {
+                // Try specific language first, then fallback to English, then default
+                const messages = configMessages[languageCode] ||
+                               configMessages['en'] ||
+                               configMessages['default'];
+
+                if (messages) {
+                    return messages;
+                }
+            }
+
+            // Only use hardcoded fallback if no backend messages are available
+            console.warn('[EZ Translate] No backend messages found, using hardcoded fallback');
+            return {
                 title: 'Choose your favorite edition',
                 description: 'This edition will always load when you visit',
                 confirm_button: 'Confirm',
