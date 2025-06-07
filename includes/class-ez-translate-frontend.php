@@ -53,6 +53,13 @@ class Frontend {
 
         // Hook into wp_head for hreflang tags
         add_action('wp_head', array($this, 'inject_hreflang_tags'), 20);
+
+        // Hook for language detector scripts and data
+        add_action('wp_head', array($this, 'inject_language_detector_config'), 25);
+        add_action('wp_enqueue_scripts', array($this, 'enqueue_language_detector_assets'));
+
+        // Hook to add dataset attributes to body
+        add_filter('body_class', array($this, 'add_language_body_attributes'), 10, 1);
     }
 
     /**
@@ -1403,5 +1410,149 @@ class Frontend {
                 'includes_x_default' => !empty($default_language_post)
             ));
         }
+    }
+
+    /**
+     * Inject language detector configuration into head
+     *
+     * @since 1.0.0
+     */
+    public function inject_language_detector_config() {
+        // Only inject on frontend pages
+        if (is_admin()) {
+            return;
+        }
+
+        // Load language detector class
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-detector.php';
+
+        // Get detector configuration
+        $config = \EZTranslate\LanguageDetector::get_detector_config();
+
+        // Skip if detector is disabled
+        if (!$config['enabled']) {
+            return;
+        }
+
+        // Get current post ID
+        $post_id = get_queried_object_id();
+        $current_language = null;
+
+        if (!empty($post_id)) {
+            $current_language = \EZTranslate\LanguageDetector::get_page_language($post_id);
+        } else {
+            // Fallback to WordPress locale
+            $wp_locale = get_locale();
+            $current_language = substr($wp_locale, 0, 2);
+        }
+
+        // Get available languages
+        $languages = \EZTranslate\LanguageDetector::get_available_languages();
+
+        // Prepare configuration for JavaScript
+        $js_config = array(
+            'enabled' => $config['enabled'],
+            'currentLanguage' => $current_language,
+            'availableLanguages' => $languages,
+            'config' => $config,
+            'postId' => $post_id,
+            'restUrl' => rest_url('ez-translate/v1/'),
+            'homeUrl' => home_url('/'),
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('ez_translate_detector')
+        );
+
+        echo "\n<!-- EZ Translate: Language Detector Configuration -->\n";
+        echo '<script type="text/javascript">';
+        echo 'window.ezTranslateDetector = ' . wp_json_encode($js_config) . ';';
+        echo '</script>';
+        echo "\n<!-- /EZ Translate: Language Detector Configuration -->\n";
+
+        Logger::debug('Language detector configuration injected', array(
+            'post_id' => $post_id,
+            'current_language' => $current_language,
+            'enabled' => $config['enabled']
+        ));
+    }
+
+    /**
+     * Enqueue language detector assets
+     *
+     * @since 1.0.0
+     */
+    public function enqueue_language_detector_assets() {
+        // Only enqueue on frontend pages
+        if (is_admin()) {
+            return;
+        }
+
+        // Load language detector class
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-detector.php';
+
+        // Get detector configuration
+        $config = \EZTranslate\LanguageDetector::get_detector_config();
+
+        // Skip if detector is disabled
+        if (!$config['enabled']) {
+            return;
+        }
+
+        // Enqueue CSS
+        wp_enqueue_style(
+            'ez-translate-language-detector',
+            EZ_TRANSLATE_PLUGIN_URL . 'assets/css/language-detector.css',
+            array(),
+            EZ_TRANSLATE_VERSION
+        );
+
+        // Enqueue JavaScript
+        wp_enqueue_script(
+            'ez-translate-language-detector',
+            EZ_TRANSLATE_PLUGIN_URL . 'assets/js/language-detector.js',
+            array(),
+            EZ_TRANSLATE_VERSION,
+            true
+        );
+
+        Logger::debug('Language detector assets enqueued');
+    }
+
+    /**
+     * Add language dataset attributes to body
+     *
+     * @param array $classes Body classes
+     * @return array Modified body classes
+     * @since 1.0.0
+     */
+    public function add_language_body_attributes($classes) {
+        // Only on frontend pages
+        if (is_admin()) {
+            return $classes;
+        }
+
+        // Get current post ID
+        $post_id = get_queried_object_id();
+
+        if (!empty($post_id)) {
+            // Load language detector class
+            require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-detector.php';
+
+            $current_language = \EZTranslate\LanguageDetector::get_page_language($post_id);
+
+            if (!empty($current_language)) {
+                // Add language class to body
+                $classes[] = 'ez-translate-lang-' . $current_language;
+
+                // Add dataset attribute via JavaScript (since we can't modify body attributes directly)
+                add_action('wp_footer', function() use ($current_language, $post_id) {
+                    echo '<script type="text/javascript">';
+                    echo 'document.body.setAttribute("data-ez-current-language", "' . esc_js($current_language) . '");';
+                    echo 'document.body.setAttribute("data-ez-post-id", "' . esc_js($post_id) . '");';
+                    echo '</script>';
+                }, 1);
+            }
+        }
+
+        return $classes;
     }
 }

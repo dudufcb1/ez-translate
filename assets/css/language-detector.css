@@ -1,0 +1,403 @@
+/**
+ * EZ Translate Language Detector Styles
+ * 
+ * Styles for the three modes: fold, unfold, helper
+ * 
+ * @package EZTranslate
+ * @since 1.0.0
+ */
+
+/* Base detector styles */
+.ez-language-detector {
+    position: fixed;
+    z-index: 999999;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.4;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.ez-language-detector.ez-detector-visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Position variants */
+.ez-detector-bottom-right {
+    bottom: 20px;
+    right: 20px;
+}
+
+.ez-detector-bottom-left {
+    bottom: 20px;
+    left: 20px;
+}
+
+.ez-detector-top-right {
+    top: 20px;
+    right: 20px;
+}
+
+.ez-detector-top-left {
+    top: 20px;
+    left: 20px;
+}
+
+/* FOLD MODE - Passive tab */
+.ez-detector-fold .ez-detector-tab {
+    background: #0073aa;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    min-width: 60px;
+}
+
+.ez-detector-fold .ez-detector-tab:hover {
+    background: #005a87;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.ez-detector-fold .ez-detector-flag {
+    font-size: 16px;
+}
+
+.ez-detector-fold .ez-detector-text {
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.ez-detector-fold .ez-detector-dropdown {
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 12px 0;
+    min-width: 200px;
+    margin-bottom: 8px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+}
+
+.ez-detector-fold:hover .ez-detector-dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.ez-detector-fold .ez-detector-title {
+    padding: 0 16px 8px;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 8px;
+}
+
+.ez-detector-fold .ez-detector-lang-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.2s ease;
+}
+
+.ez-detector-fold .ez-detector-lang-item:hover {
+    background: #f5f5f5;
+}
+
+.ez-detector-fold .ez-detector-lang-item.active {
+    background: #e7f3ff;
+    color: #0073aa;
+}
+
+.ez-detector-fold .ez-detector-current {
+    margin-left: auto;
+    color: #0073aa;
+    font-weight: bold;
+}
+
+/* UNFOLD MODE - Prominent window */
+.ez-detector-unfold .ez-detector-window {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+    max-width: 400px;
+    width: 90vw;
+    overflow: hidden;
+    animation: slideIn 0.4s ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(20px) scale(0.95);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+.ez-detector-unfold .ez-detector-header {
+    background: linear-gradient(135deg, #0073aa, #005a87);
+    color: white;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.ez-detector-unfold .ez-detector-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.ez-detector-unfold .ez-detector-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.2s ease;
+}
+
+.ez-detector-unfold .ez-detector-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.ez-detector-unfold .ez-detector-content {
+    padding: 20px;
+}
+
+.ez-detector-unfold .ez-detector-editions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.ez-detector-unfold .ez-detector-edition {
+    padding: 12px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.ez-detector-unfold .ez-detector-edition:hover {
+    border-color: #0073aa;
+    background: #f8fbff;
+}
+
+.ez-detector-unfold .ez-detector-edition-highlighted {
+    border-color: #0073aa;
+    background: linear-gradient(135deg, #e7f3ff, #f0f8ff);
+    position: relative;
+}
+
+.ez-detector-unfold .ez-detector-edition-highlighted::after {
+    content: "Recomendado";
+    position: absolute;
+    top: -8px;
+    right: 12px;
+    background: #0073aa;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.ez-detector-unfold .ez-detector-flag {
+    font-size: 20px;
+}
+
+.ez-detector-unfold .ez-detector-name {
+    font-weight: 500;
+    color: #333;
+}
+
+.ez-detector-unfold .ez-detector-description {
+    color: #666;
+    margin: 0 0 20px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.ez-detector-unfold .ez-detector-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ez-detector-unfold .ez-detector-btn {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.ez-detector-unfold .ez-detector-btn-primary {
+    background: #d32f2f;
+    color: white;
+}
+
+.ez-detector-unfold .ez-detector-btn-primary:hover {
+    background: #b71c1c;
+    transform: translateY(-1px);
+}
+
+.ez-detector-unfold .ez-detector-btn-secondary {
+    background: #f5f5f5;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+.ez-detector-unfold .ez-detector-btn-secondary:hover {
+    background: #e0e0e0;
+}
+
+.ez-detector-unfold .ez-detector-btn-link {
+    background: none;
+    color: #0073aa;
+    text-decoration: underline;
+    padding: 8px;
+}
+
+.ez-detector-unfold .ez-detector-btn-link:hover {
+    color: #005a87;
+}
+
+/* HELPER MODE - Small button */
+.ez-detector-helper .ez-detector-helper-btn {
+    background: #4caf50;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 10px rgba(76, 175, 80, 0.3);
+    transition: all 0.3s ease;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.ez-detector-helper .ez-detector-helper-btn:hover {
+    background: #45a049;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+}
+
+.ez-detector-helper .ez-detector-flag {
+    font-size: 14px;
+}
+
+.ez-detector-helper .ez-detector-text {
+    font-size: 11px;
+}
+
+/* Responsive design */
+@media (max-width: 480px) {
+    .ez-detector-bottom-right,
+    .ez-detector-bottom-left {
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+    }
+    
+    .ez-detector-top-right,
+    .ez-detector-top-left {
+        top: 10px;
+        left: 10px;
+        right: 10px;
+    }
+    
+    .ez-detector-unfold .ez-detector-window {
+        width: calc(100vw - 20px);
+        max-width: none;
+    }
+    
+    .ez-detector-unfold .ez-detector-content {
+        padding: 16px;
+    }
+    
+    .ez-detector-fold .ez-detector-dropdown {
+        right: auto;
+        left: 0;
+        width: 100%;
+        min-width: auto;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .ez-detector-fold .ez-detector-dropdown {
+        background: #2d2d2d;
+        color: #fff;
+    }
+    
+    .ez-detector-fold .ez-detector-title {
+        color: #fff;
+        border-bottom-color: #444;
+    }
+    
+    .ez-detector-fold .ez-detector-lang-item:hover {
+        background: #404040;
+    }
+    
+    .ez-detector-fold .ez-detector-lang-item.active {
+        background: #1a365d;
+    }
+    
+    .ez-detector-unfold .ez-detector-window {
+        background: #2d2d2d;
+        color: #fff;
+    }
+    
+    .ez-detector-unfold .ez-detector-edition {
+        border-color: #444;
+        background: #333;
+    }
+    
+    .ez-detector-unfold .ez-detector-edition:hover {
+        border-color: #0073aa;
+        background: #1a365d;
+    }
+    
+    .ez-detector-unfold .ez-detector-btn-secondary {
+        background: #404040;
+        color: #fff;
+        border-color: #555;
+    }
+}

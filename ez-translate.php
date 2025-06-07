@@ -360,6 +360,11 @@ final class EZTranslate {
 
         // Initialize redirect manager for all contexts
         $this->init_redirect_manager();
+
+        // Initialize language detector for frontend
+        if (!is_admin()) {
+            $this->init_language_detector();
+        }
     }
 
     /**
@@ -485,6 +490,20 @@ final class EZTranslate {
 
         // Initialize robots manager
         new \EZTranslate\Robots();
+    }
+
+    /**
+     * Initialize language detector
+     *
+     * @since 1.0.0
+     */
+    private function init_language_detector() {
+        // Load language detector class
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-detector.php';
+
+        // Language detector is initialized via Frontend class
+        // No need to instantiate here as it's handled by Frontend hooks
+        $this->log_message('Language detector initialized', 'debug');
     }
 
     /**

@@ -241,6 +241,23 @@ class RestAPI {
             )
         ));
 
+        // Language detector endpoint - returns all data needed for decision making
+        register_rest_route(self::NAMESPACE, '/language-detector', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_language_detector_data'),
+            'permission_callback' => '__return_true', // Public access
+            'args' => array(
+                'post_id' => array(
+                    'required' => false,
+                    'validate_callback' => function($param, $request, $key) {
+                        return empty($param) || is_numeric($param);
+                    }
+                )
+            )
+        ));
+
+
+
         Logger::info('REST API routes registered');
     }
 
@@ -1202,6 +1219,153 @@ class RestAPI {
             return new \WP_Error('alternative_titles_failed', $e->getMessage(), array('status' => 500));
         }
     }
+
+    /**
+     * Get language detector data with available translations
+     *
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     * @since 1.0.0
+     */
+    public function get_language_detector_data($request) {
+        try {
+            // Load language detector class
+            require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-detector.php';
+
+            $post_id = $request->get_param('post_id');
+            $current_language = null;
+            $available_translations = array();
+
+            // Get current page language if post_id is provided
+            if (!empty($post_id)) {
+                $current_language = \EZTranslate\LanguageDetector::get_page_language($post_id);
+
+                // Get available translations for this post
+                $available_translations = $this->get_available_translations_for_post($post_id, $current_language);
+            } else {
+                // Fallback to WordPress locale
+                $wp_locale = get_locale();
+                $current_language = substr($wp_locale, 0, 2);
+            }
+
+            // Get detector configuration
+            $config = \EZTranslate\LanguageDetector::get_detector_config();
+
+            // Get available languages
+            $languages = \EZTranslate\LanguageDetector::get_available_languages();
+
+            $response_data = array(
+                'enabled' => $config['enabled'],
+                'current_language' => $current_language,
+                'available_languages' => $languages,
+                'available_translations' => $available_translations,
+                'config' => $config,
+                'post_id' => $post_id,
+                'has_translations' => !empty($available_translations)
+            );
+
+            Logger::info('Language detector data retrieved', array(
+                'post_id' => $post_id,
+                'current_language' => $current_language,
+                'languages_count' => count($languages),
+                'translations_count' => count($available_translations),
+                'enabled' => $config['enabled']
+            ));
+
+            return new \WP_REST_Response($response_data, 200);
+
+        } catch (Exception $e) {
+            Logger::error('Error retrieving language detector data', array(
+                'error' => $e->getMessage(),
+                'post_id' => $request->get_param('post_id')
+            ));
+
+            return new \WP_REST_Response(array(
+                'error' => 'Failed to retrieve language detector data',
+                'message' => $e->getMessage()
+            ), 500);
+        }
+    }
+
+    /**
+     * Get available translations for a specific post
+     *
+     * @param int $post_id Post ID
+     * @param string $current_language Current page language
+     * @return array Available translations with URLs
+     * @since 1.0.0
+     */
+    private function get_available_translations_for_post($post_id, $current_language) {
+        $translations = array();
+
+        // Get the translation group ID
+        $group_id = get_post_meta($post_id, '_ez_translate_group', true);
+
+        if (empty($group_id)) {
+            return $translations;
+        }
+
+        // Find posts in the same group
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-post-meta-manager.php';
+        $posts_in_group = \EZTranslate\PostMetaManager::get_posts_in_group($group_id);
+
+        foreach ($posts_in_group as $post) {
+            $post_language = get_post_meta($post->ID, '_ez_translate_language', true);
+
+            // Skip current post and posts without language
+            if ($post->ID == $post_id || empty($post_language)) {
+                continue;
+            }
+
+            $translations[] = array(
+                'language_code' => $post_language,
+                'post_id' => $post->ID,
+                'url' => get_permalink($post->ID),
+                'title' => get_the_title($post->ID)
+            );
+        }
+
+        // Also get landing pages for languages that don't have translations
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-detector.php';
+        $available_languages = \EZTranslate\LanguageDetector::get_available_languages();
+
+        foreach ($available_languages as $language) {
+            $lang_code = $language['code'];
+
+            // Skip current language
+            if ($lang_code === $current_language) {
+                continue;
+            }
+
+            // Check if we already have a translation for this language
+            $has_translation = false;
+            foreach ($translations as $translation) {
+                if ($translation['language_code'] === $lang_code) {
+                    $has_translation = true;
+                    break;
+                }
+            }
+
+            // If no translation exists, add landing page option
+            if (!$has_translation) {
+                $landing_page_id = \EZTranslate\LanguageDetector::get_landing_page($lang_code);
+
+                if ($landing_page_id) {
+                    $translations[] = array(
+                        'language_code' => $lang_code,
+                        'post_id' => $landing_page_id,
+                        'url' => get_permalink($landing_page_id),
+                        'title' => get_the_title($landing_page_id),
+                        'is_landing_page' => true
+                    );
+                }
+            }
+        }
+
+        return $translations;
+    }
+
+
 
     /**
      * Check title similarity against existing posts

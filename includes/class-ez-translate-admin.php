@@ -98,6 +98,16 @@ class Admin {
             array($this, 'render_languages_page')        // Callback function
         );
 
+        // Add Language Detector submenu page
+        add_submenu_page(
+            self::MENU_SLUG,                             // Parent slug
+            __('Language Detector', 'ez-translate'),      // Page title
+            __('Language Detector', 'ez-translate'),      // Menu title
+            'manage_options',                             // Capability
+            'ez-translate-detector',                      // Menu slug
+            array($this, 'render_detector_page')         // Callback function
+        );
+
         Logger::info('Admin menu added successfully', array(
             'page_hook' => $page_hook,
             'menu_slug' => self::MENU_SLUG
@@ -153,6 +163,9 @@ class Admin {
                 break;
             case 'update_api_settings':
                 $this->handle_update_api_settings();
+                break;
+            case 'update_detector_settings':
+                $this->handle_update_detector_settings();
                 break;
             default:
                 Logger::warning('Unknown form action', array('action' => $action));
@@ -2390,5 +2403,209 @@ class Admin {
         );
 
         return $language_names[$code] ?? ucfirst($code);
+    }
+
+    /**
+     * Handle detector settings update
+     *
+     * @since 1.0.0
+     */
+    private function handle_update_detector_settings() {
+        Logger::info('Processing detector settings update');
+
+        // Load language detector class
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-detector.php';
+
+        // Sanitize input data
+        $enabled = isset($_POST['detector_enabled']) && $_POST['detector_enabled'] === '1';
+        $auto_redirect = isset($_POST['auto_redirect']) && $_POST['auto_redirect'] === '1';
+        $show_helper = isset($_POST['show_helper']) && $_POST['show_helper'] === '1';
+        $restrict_navigation = isset($_POST['restrict_navigation']) && $_POST['restrict_navigation'] === '1';
+        $position = in_array($_POST['position'] ?? 'bottom-right', array('bottom-right', 'bottom-left', 'top-right', 'top-left'))
+                   ? $_POST['position'] : 'bottom-right';
+        $delay = max(0, min(10000, intval($_POST['delay'] ?? 2000)));
+
+        $settings = array(
+            'enabled' => $enabled,
+            'auto_redirect' => $auto_redirect,
+            'show_helper' => $show_helper,
+            'restrict_navigation' => $restrict_navigation,
+            'position' => $position,
+            'delay' => $delay
+        );
+
+        $result = \EZTranslate\LanguageDetector::update_detector_config($settings);
+
+        if ($result) {
+            $this->add_admin_notice(__('Language detector settings updated successfully!', 'ez-translate'), 'success');
+            Logger::info('Detector settings updated successfully', array(
+                'enabled' => $enabled,
+                'position' => $position,
+                'delay' => $delay
+            ));
+        } else {
+            $this->add_admin_notice(__('Failed to update detector settings.', 'ez-translate'), 'error');
+            Logger::error('Failed to update detector settings');
+        }
+    }
+
+    /**
+     * Render the Language Detector admin page
+     *
+     * @since 1.0.0
+     */
+    public function render_detector_page() {
+        // Verify user capabilities
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.', 'ez-translate'));
+        }
+
+        Logger::info('Language detector admin page accessed', array(
+            'user_id' => get_current_user_id(),
+            'user_login' => wp_get_current_user()->user_login
+        ));
+
+        // Handle form submissions
+        $this->handle_form_submissions();
+
+        // Load language detector class
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-detector.php';
+
+        // Get current settings
+        $config = \EZTranslate\LanguageDetector::get_detector_config();
+
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+
+            <div class="card" style="max-width: 1200px; width: 100%;">
+                <h2><?php _e('Language Detector Configuration', 'ez-translate'); ?></h2>
+                <p><?php _e('Configure the automatic language detection and redirection system for your visitors.', 'ez-translate'); ?></p>
+
+                <form method="post" action="">
+                    <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce'); ?>
+                    <input type="hidden" name="ez_translate_action" value="update_detector_settings">
+
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">
+                                <label for="detector_enabled"><?php _e('Enable Language Detector', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" id="detector_enabled" name="detector_enabled" value="1"
+                                           <?php checked($config['enabled']); ?>>
+                                    <?php _e('Enable automatic language detection and redirection', 'ez-translate'); ?>
+                                </label>
+                                <p class="description">
+                                    <?php _e('When enabled, the detector will analyze visitor browser language and offer appropriate redirections.', 'ez-translate'); ?>
+                                </p>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th scope="row">
+                                <label for="position"><?php _e('Detector Position', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <select id="position" name="position" class="regular-text">
+                                    <option value="bottom-right" <?php selected($config['position'], 'bottom-right'); ?>>
+                                        <?php _e('Bottom Right', 'ez-translate'); ?>
+                                    </option>
+                                    <option value="bottom-left" <?php selected($config['position'], 'bottom-left'); ?>>
+                                        <?php _e('Bottom Left', 'ez-translate'); ?>
+                                    </option>
+                                    <option value="top-right" <?php selected($config['position'], 'top-right'); ?>>
+                                        <?php _e('Top Right', 'ez-translate'); ?>
+                                    </option>
+                                    <option value="top-left" <?php selected($config['position'], 'top-left'); ?>>
+                                        <?php _e('Top Left', 'ez-translate'); ?>
+                                    </option>
+                                </select>
+                                <p class="description">
+                                    <?php _e('Choose where the language detector will appear on the page.', 'ez-translate'); ?>
+                                </p>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th scope="row">
+                                <label for="delay"><?php _e('Display Delay', 'ez-translate'); ?></label>
+                            </th>
+                            <td>
+                                <input type="number" id="delay" name="delay" value="<?php echo esc_attr($config['delay']); ?>"
+                                       min="0" max="10000" step="500" class="small-text">
+                                <span><?php _e('milliseconds', 'ez-translate'); ?></span>
+                                <p class="description">
+                                    <?php _e('Delay before showing the language detector popup (0 = immediate, 2000 = 2 seconds).', 'ez-translate'); ?>
+                                </p>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th scope="row"><?php _e('Behavior Options', 'ez-translate'); ?></th>
+                            <td>
+                                <fieldset>
+                                    <label>
+                                        <input type="checkbox" name="auto_redirect" value="1"
+                                               <?php checked($config['auto_redirect']); ?>>
+                                        <?php _e('Enable automatic redirection', 'ez-translate'); ?>
+                                    </label>
+                                    <p class="description">
+                                        <?php _e('Automatically redirect users to their preferred language without asking.', 'ez-translate'); ?>
+                                    </p>
+
+                                    <label>
+                                        <input type="checkbox" name="show_helper" value="1"
+                                               <?php checked($config['show_helper']); ?>>
+                                        <?php _e('Show helper button', 'ez-translate'); ?>
+                                    </label>
+                                    <p class="description">
+                                        <?php _e('Show a small helper button when translation is available in user\'s language.', 'ez-translate'); ?>
+                                    </p>
+
+                                    <label>
+                                        <input type="checkbox" name="restrict_navigation" value="1"
+                                               <?php checked($config['restrict_navigation']); ?>>
+                                        <?php _e('Restrict navigation to selected language', 'ez-translate'); ?>
+                                    </label>
+                                    <p class="description">
+                                        <?php _e('Keep users within their selected language unless they choose "free navigation".', 'ez-translate'); ?>
+                                    </p>
+                                </fieldset>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <?php submit_button(__('Save Detector Settings', 'ez-translate')); ?>
+                </form>
+            </div>
+
+            <!-- Preview Section -->
+            <div class="card" style="max-width: 1200px; width: 100%; margin-top: 20px;">
+                <h2><?php _e('Preview & Testing', 'ez-translate'); ?></h2>
+                <p><?php _e('The language detector will appear based on your configuration when visitors access your site.', 'ez-translate'); ?></p>
+
+                <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h3><?php _e('How it works:', 'ez-translate'); ?></h3>
+                    <ol>
+                        <li><strong><?php _e('Fold Mode (Passive):', 'ez-translate'); ?></strong> <?php _e('Small tab when user is in correct language', 'ez-translate'); ?></li>
+                        <li><strong><?php _e('Unfold Mode (Active):', 'ez-translate'); ?></strong> <?php _e('Prominent popup when language mismatch detected', 'ez-translate'); ?></li>
+                        <li><strong><?php _e('Helper Mode (Assistant):', 'ez-translate'); ?></strong> <?php _e('Small button when translation exists in user\'s language', 'ez-translate'); ?></li>
+                    </ol>
+                </div>
+
+                <?php if ($config['enabled']): ?>
+                    <p style="color: #0073aa; font-weight: 600;">
+                        ✅ <?php _e('Language detector is currently ENABLED and will appear on your frontend.', 'ez-translate'); ?>
+                    </p>
+                <?php else: ?>
+                    <p style="color: #d63638; font-weight: 600;">
+                        ❌ <?php _e('Language detector is currently DISABLED.', 'ez-translate'); ?>
+                    </p>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php
     }
 }
