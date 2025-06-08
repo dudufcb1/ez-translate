@@ -381,9 +381,22 @@ class SeoGeminiProvider implements AISeoProviderInterface {
      * @since 1.0.0
      */
     private function makeApiCall(string $url, array $payload): array {
-        $json_payload = json_encode($payload);
+        // Sanitize payload content for UTF-8 issues
+        $payload = $this->sanitizePayloadContent($payload);
+
+        $json_payload = json_encode($payload, JSON_UNESCAPED_UNICODE);
         if ($json_payload === false) {
-            throw new Exception('Failed to encode JSON payload: ' . json_last_error_msg());
+            Logger::error('SeoGeminiProvider: JSON encoding failed', array(
+                'json_error' => json_last_error_msg()
+            ));
+
+            // Try fallback with basic encoding
+            $json_payload = json_encode($payload);
+            if ($json_payload === false) {
+                throw new Exception('Failed to encode JSON payload: ' . json_last_error_msg());
+            }
+
+            Logger::warning('SeoGeminiProvider: Using basic encoding as fallback');
         }
 
         $ch = curl_init($url);
@@ -470,5 +483,61 @@ class SeoGeminiProvider implements AISeoProviderInterface {
 
         $distance = levenshtein($str1, $str2);
         return 1.0 - ($distance / $max_len);
+    }
+
+    /**
+     * Sanitize payload content for UTF-8 encoding issues
+     *
+     * @param array $payload Payload to sanitize
+     * @return array Sanitized payload
+     * @since 1.0.0
+     */
+    private function sanitizePayloadContent(array $payload): array {
+        return $this->sanitizeArrayRecursive($payload);
+    }
+
+    /**
+     * Recursively sanitize array content for UTF-8 issues
+     *
+     * @param mixed $data Data to sanitize
+     * @return mixed Sanitized data
+     * @since 1.0.0
+     */
+    private function sanitizeArrayRecursive($data) {
+        if (is_array($data)) {
+            foreach ($data as $key => $value) {
+                $data[$key] = $this->sanitizeArrayRecursive($value);
+            }
+        } elseif (is_string($data)) {
+            $data = $this->sanitizeUtf8Content($data);
+        }
+
+        return $data;
+    }
+
+    /**
+     * Sanitize content for UTF-8 encoding issues
+     *
+     * @param string $content Content to sanitize
+     * @return string Sanitized content
+     * @since 1.0.0
+     */
+    private function sanitizeUtf8Content(string $content): string {
+        // Remove or replace problematic characters
+        $content = mb_convert_encoding($content, 'UTF-8', 'UTF-8');
+
+        // Remove null bytes and other control characters that can cause JSON issues
+        $content = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $content);
+
+        // Ensure proper UTF-8 encoding
+        if (!mb_check_encoding($content, 'UTF-8')) {
+            Logger::warning('SeoGeminiProvider: Content has encoding issues, attempting to fix');
+            $content = mb_convert_encoding($content, 'UTF-8', 'auto');
+        }
+
+        // Additional cleanup for problematic Unicode characters
+        $content = preg_replace('/[\x{FEFF}\x{FFFF}\x{FFFE}]/u', '', $content);
+
+        return $content;
     }
 }

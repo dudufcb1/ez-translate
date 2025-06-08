@@ -28,6 +28,9 @@ class GeminiProvider implements AIProviderInterface {
 
         $promptData = $prompt->build();
 
+        // Sanitize content for UTF-8 encoding issues
+        $promptData['text'] = $this->sanitizeUtf8Content($promptData['text']);
+
         $payload = [
             "contents" => [
                 [
@@ -59,13 +62,20 @@ class GeminiProvider implements AIProviderInterface {
             ],
         ];
 
-        $jsonPayload = json_encode($payload);
+        $jsonPayload = json_encode($payload, JSON_UNESCAPED_UNICODE);
         if ($jsonPayload === false) {
             \EZTranslate\Logger::error('GeminiProvider: Error al codificar JSON del payload', array(
-                'payload' => $payload,
-                'json_error' => json_last_error_msg()
+                'json_error' => json_last_error_msg(),
+                'prompt_length' => strlen($promptData['text'])
             ));
-            throw new Exception("Error al codificar JSON del payload.");
+
+            // Try fallback with basic encoding
+            $jsonPayload = json_encode($payload);
+            if ($jsonPayload === false) {
+                throw new Exception("Error al codificar JSON del payload: " . json_last_error_msg());
+            }
+
+            \EZTranslate\Logger::warning('GeminiProvider: Usando encoding básico como fallback');
         }
 
         \EZTranslate\Logger::info('GeminiProvider: Enviando request a la API', array(
@@ -194,5 +204,30 @@ class GeminiProvider implements AIProviderInterface {
             }
         }
         return $structure;
+    }
+
+    /**
+     * Sanitize content for UTF-8 encoding issues
+     *
+     * @param string $content Content to sanitize
+     * @return string Sanitized content
+     */
+    private function sanitizeUtf8Content($content) {
+        // Remove or replace problematic characters
+        $content = mb_convert_encoding($content, 'UTF-8', 'UTF-8');
+
+        // Remove null bytes and other control characters that can cause JSON issues
+        $content = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $content);
+
+        // Ensure proper UTF-8 encoding
+        if (!mb_check_encoding($content, 'UTF-8')) {
+            \EZTranslate\Logger::warning('GeminiProvider: Content has encoding issues, attempting to fix');
+            $content = mb_convert_encoding($content, 'UTF-8', 'auto');
+        }
+
+        // Additional cleanup for problematic Unicode characters
+        $content = preg_replace('/[\x{FEFF}\x{FFFF}\x{FFFE}]/u', '', $content);
+
+        return $content;
     }
 }

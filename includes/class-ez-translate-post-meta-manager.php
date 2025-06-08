@@ -370,21 +370,30 @@ class PostMetaManager {
      * Get all posts in a translation group
      *
      * @param string $group_id Translation group ID
+     * @param array $post_statuses Post statuses to include (default: ['publish'])
      * @return array Array of post IDs
      * @since 1.0.0
      */
-    public static function get_posts_in_group($group_id) {
+    public static function get_posts_in_group($group_id, $post_statuses = array('publish')) {
         global $wpdb;
+
+        // Ensure post_statuses is an array
+        if (!is_array($post_statuses)) {
+            $post_statuses = array($post_statuses);
+        }
+
+        // Create placeholders for post statuses
+        $status_placeholders = implode(',', array_fill(0, count($post_statuses), '%s'));
 
         $query = $wpdb->prepare("
             SELECT p.ID
             FROM {$wpdb->posts} p
             INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
-            WHERE p.post_status = 'publish'
+            WHERE p.post_status IN ($status_placeholders)
             AND pm.meta_key = %s
             AND pm.meta_value = %s
             ORDER BY p.post_date DESC
-        ", self::META_GROUP, $group_id);
+        ", array_merge($post_statuses, array(self::META_GROUP, $group_id)));
 
         $results = $wpdb->get_col($query);
 

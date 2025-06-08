@@ -639,9 +639,9 @@ class RestAPI {
             $source_metadata = PostMetaManager::get_post_metadata($source_post_id);
             $source_language = $source_metadata['language'] ?? '';
 
-            // Check if translation already exists
+            // Check if translation already exists (include drafts to prevent duplicates)
             if ($source_metadata['group']) {
-                $existing_translations = PostMetaManager::get_posts_in_group($source_metadata['group']);
+                $existing_translations = PostMetaManager::get_posts_in_group($source_metadata['group'], array('publish', 'draft', 'pending', 'private'));
                 foreach ($existing_translations as $translation_id) {
                     $translation_meta = PostMetaManager::get_post_metadata($translation_id);
                     if (isset($translation_meta['language']) && $translation_meta['language'] === $target_language) {
@@ -923,7 +923,8 @@ class RestAPI {
             $group_id = $source_metadata['group'] ?? '';
 
             if (!empty($group_id)) {
-                $related_post_ids = PostMetaManager::get_posts_in_group($group_id);
+                // Include drafts and other statuses to show all existing translations
+                $related_post_ids = PostMetaManager::get_posts_in_group($group_id, array('publish', 'draft', 'pending', 'private'));
 
                 foreach ($related_post_ids as $related_post_id) {
                     $related_post = get_post($related_post_id);
