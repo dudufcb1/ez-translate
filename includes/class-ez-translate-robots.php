@@ -90,6 +90,7 @@ class Robots {
         header('X-Robots-Tag: noindex, nofollow', true);
 
         // Output content and exit
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- robots.txt content is plain text, not HTML
         echo $content;
         exit;
     }

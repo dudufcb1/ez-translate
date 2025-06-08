@@ -139,8 +139,12 @@ class Logger {
         // Format the message
         $formatted_message = self::format_message($level, $message, $context);
 
-        // Log to WordPress error log
-        error_log($formatted_message);
+        // Log to WordPress error log only if WP_DEBUG is enabled or in development
+        if ((defined('WP_DEBUG') && WP_DEBUG) || (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG)) {
+            // Use WordPress native logging with phpcs ignore for legitimate logging use
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+            error_log($formatted_message);
+        }
 
         // For critical errors, also log to WordPress admin notices
         if ($level === 'error' && is_admin()) {

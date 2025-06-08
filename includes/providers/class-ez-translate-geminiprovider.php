@@ -72,7 +72,7 @@ class GeminiProvider implements AIProviderInterface {
             // Try fallback with basic encoding
             $jsonPayload = json_encode($payload);
             if ($jsonPayload === false) {
-                throw new Exception("Error al codificar JSON del payload: " . json_last_error_msg());
+                throw new Exception("Error al codificar JSON del payload: " . esc_html(json_last_error_msg()));
             }
 
             \EZTranslate\Logger::warning('GeminiProvider: Usando encoding básico como fallback');
@@ -84,39 +84,40 @@ class GeminiProvider implements AIProviderInterface {
             'prompt_text_length' => strlen($promptData['text'])
         ));
 
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            "Content-Type: application/json",
-        ]);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload);
+        $args = array(
+            'timeout' => 30,
+            'headers' => array(
+                'Content-Type' => 'application/json',
+            ),
+            'body' => $jsonPayload,
+            'method' => 'POST',
+            'sslverify' => true
+        );
 
-        $response = curl_exec($ch);
+        $response = wp_remote_post($url, $args);
 
-        if ($response === false) {
-            $error = curl_error($ch);
-            curl_close($ch);
-            throw new Exception("Error en cURL: $error");
+        if (is_wp_error($response)) {
+            $error = $response->get_error_message();
+            throw new Exception("Error en petición HTTP: " . esc_html($error));
         }
 
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        $httpCode = wp_remote_retrieve_response_code($response);
+        $response_body = wp_remote_retrieve_body($response);
 
         if ($httpCode !== 200) {
             \EZTranslate\Logger::error('GeminiProvider: Error HTTP de la API', array(
                 'http_code' => $httpCode,
-                'response' => $response,
+                'response' => $response_body,
                 'url' => $url
             ));
-            throw new Exception("Error HTTP: código $httpCode");
+            throw new Exception("Error HTTP: código " . esc_html($httpCode));
         }
 
-        $result = json_decode($response, true);
+        $result = json_decode($response_body, true);
 
         if ($result === null) {
             \EZTranslate\Logger::error('GeminiProvider: Error al decodificar JSON de la respuesta', array(
-                'response' => $response,
+                'response' => $response_body,
                 'json_error' => json_last_error_msg()
             ));
             throw new Exception("Error al decodificar JSON de la respuesta.");

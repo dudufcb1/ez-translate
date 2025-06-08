@@ -12,8 +12,7 @@
  * Tested up to: 6.4
  * Requires PHP: 7.4
  * License: GPL v2 or later
- * License URI: https://www.gnu.org/licenses/gpl-2.0.html
- * Network: false
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html 
  *
  * @package EZTranslate
  */
@@ -517,9 +516,7 @@ final class EZTranslate {
             false,
             dirname(EZ_TRANSLATE_PLUGIN_BASENAME) . '/languages'
         );
-    }
-
-    /**
+    }    /**
      * Log messages with EZ Translate prefix
      *
      * @param string $message The message to log
@@ -527,9 +524,22 @@ final class EZTranslate {
      * @since 1.0.0
      */
     private function log_message($message, $level = 'info') {
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            $formatted_message = sprintf('[EZ-Translate] %s: %s', ucfirst($level), $message);
-            error_log($formatted_message);
+        if (class_exists('\EZTranslate\Logger')) {
+            switch ($level) {
+                case 'error':
+                    \EZTranslate\Logger::error($message);
+                    break;
+                case 'warning':
+                    \EZTranslate\Logger::warning($message);
+                    break;
+                case 'debug':
+                    \EZTranslate\Logger::debug($message);
+                    break;
+                case 'info':
+                default:
+                    \EZTranslate\Logger::info($message);
+                    break;
+            }
         }
     }
 

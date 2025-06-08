@@ -393,37 +393,39 @@ class SeoGeminiProvider implements AISeoProviderInterface {
             // Try fallback with basic encoding
             $json_payload = json_encode($payload);
             if ($json_payload === false) {
-                throw new Exception('Failed to encode JSON payload: ' . json_last_error_msg());
+                throw new Exception('Failed to encode JSON payload: ' . esc_html(json_last_error_msg()));
             }
 
             Logger::warning('SeoGeminiProvider: Using basic encoding as fallback');
         }
 
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $json_payload);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        $args = array(
+            'timeout' => 30,
+            'headers' => array(
+                'Content-Type' => 'application/json',
+            ),
+            'body' => $json_payload,
+            'method' => 'POST',
+            'sslverify' => true
+        );
 
-        $response = curl_exec($ch);
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $response = wp_remote_post($url, $args);
 
-        if ($response === false) {
-            $error = curl_error($ch);
-            curl_close($ch);
-            throw new Exception("cURL error: $error");
+        if (is_wp_error($response)) {
+            $error = $response->get_error_message();
+            throw new Exception("Error en petición HTTP: " . esc_html($error));
         }
 
-        curl_close($ch);
+        $http_code = wp_remote_retrieve_response_code($response);
+        $response_body = wp_remote_retrieve_body($response);
 
         if ($http_code !== 200) {
-            throw new Exception("API returned HTTP $http_code: $response");
+            throw new Exception("API returned HTTP " . esc_html($http_code) . ": " . esc_html($response_body));
         }
 
-        $decoded = json_decode($response, true);
+        $decoded = json_decode($response_body, true);
         if ($decoded === null) {
-            throw new Exception('Failed to decode API response: ' . json_last_error_msg());
+            throw new Exception('Failed to decode API response: ' . esc_html(json_last_error_msg()));
         }
 
         // Handle Gemini streaming response format

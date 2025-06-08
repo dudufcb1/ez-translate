@@ -916,7 +916,7 @@ class Frontend {
         }
 
         // Method 1: Check if any posts reference this post as their original
-        $query = "
+        $related_posts = $wpdb->get_results($wpdb->prepare("
             SELECT p.ID, pm1.meta_value as language, pm2.meta_value as group_id, pm3.meta_value as original_id
             FROM {$wpdb->posts} p
             INNER JOIN {$wpdb->postmeta} pm1 ON p.ID = pm1.post_id AND pm1.meta_key = '_ez_translate_language'
@@ -925,9 +925,7 @@ class Frontend {
             WHERE (pm3.meta_value = %s OR p.post_parent = %s)
             AND p.post_status = 'publish'
             AND p.ID != %s
-        ";
-
-        $related_posts = $wpdb->get_results($wpdb->prepare($query, $post_id, $post_id, $post_id));
+        ", $post_id, $post_id, $post_id));
 
         if (!empty($related_posts)) {
             // Found posts that reference this post as original
@@ -1019,39 +1017,49 @@ class Frontend {
             return array();
         }
 
-        // Build LIKE conditions for each key word
-        $like_conditions = array();
-        $like_values = array();
+        // Build prepared statements for each key word
+        $results = array();
 
         foreach ($title_words as $word) {
             if (strlen($word) > 3) { // Only use words longer than 3 characters
-                $like_conditions[] = "p.post_title LIKE %s";
-                $like_values[] = '%' . $wpdb->esc_like($word) . '%';
+                $like_value = '%' . $wpdb->esc_like($word) . '%';
+
+                $word_results = $wpdb->get_results($wpdb->prepare("
+                    SELECT p.ID, p.post_title, pm1.meta_value as language, pm2.meta_value as group_id
+                    FROM {$wpdb->posts} p
+                    INNER JOIN {$wpdb->postmeta} pm1 ON p.ID = pm1.post_id AND pm1.meta_key = '_ez_translate_language'
+                    INNER JOIN {$wpdb->postmeta} pm2 ON p.ID = pm2.post_id AND pm2.meta_key = '_ez_translate_group'
+                    WHERE p.post_title LIKE %s
+                    AND p.post_status = 'publish'
+                    AND p.ID != %s
+                    AND p.post_type = %s
+                    LIMIT 5
+                ", $like_value, $post->ID, $post->post_type));
+
+                if (!empty($word_results)) {
+                    // Merge results, avoiding duplicates
+                    foreach ($word_results as $result) {
+                        $found = false;
+                        foreach ($results as $existing) {
+                            if ($existing->ID === $result->ID) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (!$found) {
+                            $results[] = $result;
+                        }
+                    }
+
+                    // Stop if we have enough results
+                    if (count($results) >= 5) {
+                        break;
+                    }
+                }
             }
         }
 
-        if (empty($like_conditions)) {
-            return array();
-        }
-
-        $like_clause = implode(' OR ', $like_conditions);
-
-        $query = "
-            SELECT p.ID, p.post_title, pm1.meta_value as language, pm2.meta_value as group_id
-            FROM {$wpdb->posts} p
-            INNER JOIN {$wpdb->postmeta} pm1 ON p.ID = pm1.post_id AND pm1.meta_key = '_ez_translate_language'
-            INNER JOIN {$wpdb->postmeta} pm2 ON p.ID = pm2.post_id AND pm2.meta_key = '_ez_translate_group'
-            WHERE ({$like_clause})
-            AND p.post_status = 'publish'
-            AND p.ID != %s
-            AND p.post_type = %s
-            LIMIT 5
-        ";
-
-        $like_values[] = $post->ID;
-        $like_values[] = $post->post_type;
-
-        return $wpdb->get_results($wpdb->prepare($query, ...$like_values));
+        return array_slice($results, 0, 5);
     }
 
     /**

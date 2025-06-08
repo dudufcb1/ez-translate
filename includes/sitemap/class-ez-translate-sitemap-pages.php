@@ -173,29 +173,44 @@ class SitemapPages extends SitemapGenerator {
      */
     public function get_last_modified($language = '') {
         global $wpdb;
-        
-        $sql = "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts} WHERE post_type = 'page' AND post_status = 'publish'";
-        
+
         if (!empty($language)) {
-            $sql .= $wpdb->prepare(" AND ID IN (
-                SELECT post_id FROM {$wpdb->postmeta} 
-                WHERE meta_key = '_ez_translate_language' AND meta_value = %s
-            )", $language);
+            // Specific language pages
+            $last_modified = $wpdb->get_var($wpdb->prepare(
+                "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts}
+                WHERE post_type = 'page' AND post_status = 'publish'
+                AND ID IN (
+                    SELECT post_id FROM {$wpdb->postmeta}
+                    WHERE meta_key = '_ez_translate_language' AND meta_value = %s
+                )",
+                $language
+            ));
         } else {
             // Default language pages (Spanish or pages without metadata)
             $enabled_languages = $this->get_enabled_languages();
             if (!empty($enabled_languages)) {
-                $sql .= " AND (
-                    ID NOT IN (SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_ez_translate_language')
-                    OR ID IN (
-                        SELECT post_id FROM {$wpdb->postmeta}
-                        WHERE meta_key = '_ez_translate_language' AND meta_value = 'es'
-                    )
-                )";
+                $last_modified = $wpdb->get_var($wpdb->prepare(
+                    "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts}
+                    WHERE post_type = 'page' AND post_status = 'publish'
+                    AND (
+                        ID NOT IN (SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_ez_translate_language')
+                        OR ID IN (
+                            SELECT post_id FROM {$wpdb->postmeta}
+                            WHERE meta_key = '_ez_translate_language' AND meta_value = %s
+                        )
+                    )",
+                    'es'
+                ));
+            } else {
+                // No multilingual setup, get all pages
+                $last_modified = $wpdb->get_var($wpdb->prepare(
+                    "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts}
+                    WHERE post_type = %s AND post_status = %s",
+                    'page',
+                    'publish'
+                ));
             }
         }
-        
-        $last_modified = $wpdb->get_var($sql);
         return $this->format_sitemap_date($last_modified);
     }
 
@@ -208,29 +223,44 @@ class SitemapPages extends SitemapGenerator {
      */
     public function get_pages_count($language = '') {
         global $wpdb;
-        
-        $sql = "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'page' AND post_status = 'publish'";
-        
+
         if (!empty($language)) {
-            $sql .= $wpdb->prepare(" AND ID IN (
-                SELECT post_id FROM {$wpdb->postmeta} 
-                WHERE meta_key = '_ez_translate_language' AND meta_value = %s
-            )", $language);
+            // Specific language pages
+            return (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->posts}
+                WHERE post_type = 'page' AND post_status = 'publish'
+                AND ID IN (
+                    SELECT post_id FROM {$wpdb->postmeta}
+                    WHERE meta_key = '_ez_translate_language' AND meta_value = %s
+                )",
+                $language
+            ));
         } else {
             // Default language pages (Spanish or pages without metadata)
             $enabled_languages = $this->get_enabled_languages();
             if (!empty($enabled_languages)) {
-                $sql .= " AND (
-                    ID NOT IN (SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_ez_translate_language')
-                    OR ID IN (
-                        SELECT post_id FROM {$wpdb->postmeta}
-                        WHERE meta_key = '_ez_translate_language' AND meta_value = 'es'
-                    )
-                )";
+                return (int) $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$wpdb->posts}
+                    WHERE post_type = 'page' AND post_status = 'publish'
+                    AND (
+                        ID NOT IN (SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_ez_translate_language')
+                        OR ID IN (
+                            SELECT post_id FROM {$wpdb->postmeta}
+                            WHERE meta_key = '_ez_translate_language' AND meta_value = %s
+                        )
+                    )",
+                    'es'
+                ));
+            } else {
+                // No multilingual setup, get all pages
+                return (int) $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$wpdb->posts}
+                    WHERE post_type = %s AND post_status = %s",
+                    'page',
+                    'publish'
+                ));
             }
         }
-        
-        return (int) $wpdb->get_var($sql);
     }
 
     /**

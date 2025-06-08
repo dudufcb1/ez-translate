@@ -382,20 +382,27 @@ class PostMetaManager {
             $post_statuses = array($post_statuses);
         }
 
-        // Create placeholders for post statuses
-        $status_placeholders = implode(',', array_fill(0, count($post_statuses), '%s'));
+        // Sanitize inputs
+        $group_id = sanitize_text_field($group_id);
+        $post_statuses = array_map('sanitize_text_field', $post_statuses);
 
-        $query = $wpdb->prepare("
-            SELECT p.ID
-            FROM {$wpdb->posts} p
-            INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
-            WHERE p.post_status IN ($status_placeholders)
-            AND pm.meta_key = %s
-            AND pm.meta_value = %s
-            ORDER BY p.post_date DESC
-        ", array_merge($post_statuses, array(self::META_GROUP, $group_id)));
+        // Build WHERE clause for post statuses using IN with escaped values
+        $status_list = "'" . implode("','", array_map('esc_sql', $post_statuses)) . "'";
 
-        $results = $wpdb->get_col($query);
+        // Use direct query with esc_sql for the IN clause
+        $results = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT p.ID
+                FROM {$wpdb->posts} p
+                INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+                WHERE p.post_status IN ({$status_list})
+                AND pm.meta_key = %s
+                AND pm.meta_value = %s
+                ORDER BY p.post_date DESC",
+                self::META_GROUP,
+                $group_id
+            )
+        );
 
         return array_map('intval', $results);
     }
@@ -419,24 +426,51 @@ class PostMetaManager {
         $args = wp_parse_args($args, $defaults);
 
         $post_types = is_array($args['post_type']) ? $args['post_type'] : array($args['post_type']);
-        $post_types_placeholders = implode(',', array_fill(0, count($post_types), '%s'));
 
-        $query = $wpdb->prepare("
-            SELECT p.ID
-            FROM {$wpdb->posts} p
-            INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
-            WHERE p.post_status = %s
-            AND p.post_type IN ($post_types_placeholders)
-            AND pm.meta_key = %s
-            AND pm.meta_value = %s
-            ORDER BY p.post_date DESC
-        ", array_merge(array($args['post_status']), $post_types, array(self::META_LANGUAGE, $language_code)));
+        // Sanitize inputs
+        $language_code = sanitize_text_field($language_code);
+        $args['post_status'] = sanitize_text_field($args['post_status']);
+        $post_types = array_map('sanitize_text_field', $post_types);
 
+        // Build WHERE clause for post types using IN with escaped values
+        $types_list = "'" . implode("','", array_map('esc_sql', $post_types)) . "'";
+
+        // Build query with LIMIT handling
         if ($args['limit'] > 0) {
-            $query .= $wpdb->prepare(" LIMIT %d", $args['limit']);
+            $results = $wpdb->get_col(
+                $wpdb->prepare(
+                    "SELECT p.ID
+                    FROM {$wpdb->posts} p
+                    INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+                    WHERE p.post_status = %s
+                    AND p.post_type IN ({$types_list})
+                    AND pm.meta_key = %s
+                    AND pm.meta_value = %s
+                    ORDER BY p.post_date DESC
+                    LIMIT %d",
+                    $args['post_status'],
+                    self::META_LANGUAGE,
+                    $language_code,
+                    $args['limit']
+                )
+            );
+        } else {
+            $results = $wpdb->get_col(
+                $wpdb->prepare(
+                    "SELECT p.ID
+                    FROM {$wpdb->posts} p
+                    INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+                    WHERE p.post_status = %s
+                    AND p.post_type IN ({$types_list})
+                    AND pm.meta_key = %s
+                    AND pm.meta_value = %s
+                    ORDER BY p.post_date DESC",
+                    $args['post_status'],
+                    self::META_LANGUAGE,
+                    $language_code
+                )
+            );
         }
-
-        $results = $wpdb->get_col($query);
 
         return array_map('intval', $results);
     }
