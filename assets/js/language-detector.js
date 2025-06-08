@@ -18,8 +18,10 @@
             this.config = window.ezTranslateDetector || {};
             this.isInitialized = false;
             this.detector = null;
+            this.translator = null;
+            this.container = null;
             this.currentMode = 'fold'; // fold, unfold, helper
-            
+
             // localStorage keys
             this.storageKeys = {
                 userLanguage: 'ez_translate_user_language',
@@ -219,6 +221,31 @@
         }
 
         /**
+         * Create or get the main container for detector elements
+         */
+        ensureContainer() {
+            if (!this.container) {
+                this.container = document.createElement('div');
+                this.container.className = `ez-language-container ez-detector-${this.config.config.position}`;
+                this.container.id = 'ez-language-container';
+                document.body.appendChild(this.container);
+            }
+            return this.container;
+        }
+
+        /**
+         * Remove the main container
+         */
+        removeContainer() {
+            if (this.container) {
+                this.container.remove();
+                this.container = null;
+                this.detector = null;
+                this.translator = null;
+            }
+        }
+
+        /**
          * Show translator (small button to help with translations)
          */
         showTranslator(targetLanguage) {
@@ -238,23 +265,26 @@
             // Remove any existing translator
             this.removeTranslator();
 
+            // Ensure container exists
+            const container = this.ensureContainer();
+
             // Use the first available translation as primary target for the tab display
             const primaryTarget = targetLanguage || otherTranslations[0].language_code;
 
             // Create translator element
-            const translator = document.createElement('div');
-            translator.className = `ez-language-detector ez-detector-helper ez-detector-${this.config.config.position}`;
-            translator.id = 'ez-language-translator';
-            translator.innerHTML = this.createTranslatorHTML(primaryTarget);
+            this.translator = document.createElement('div');
+            this.translator.className = `ez-language-detector ez-detector-helper`;
+            this.translator.id = 'ez-language-translator';
+            this.translator.innerHTML = this.createTranslatorHTML(primaryTarget);
 
-            // Add to page
-            document.body.appendChild(translator);
+            // Add to container
+            container.appendChild(this.translator);
 
             // Add event listeners
-            this.attachTranslatorEventListeners(translator);
+            this.attachTranslatorEventListeners(this.translator);
 
             // Show translator
-            translator.classList.add('ez-detector-visible');
+            this.translator.classList.add('ez-detector-visible');
 
             console.log('[EZ Translate] Translator shown with', otherTranslations.length, 'available translations');
         }
@@ -263,9 +293,9 @@
          * Remove translator from page
          */
         removeTranslator() {
-            const existingTranslator = document.getElementById('ez-language-translator');
-            if (existingTranslator) {
-                existingTranslator.remove();
+            if (this.translator) {
+                this.translator.remove();
+                this.translator = null;
                 console.log('[EZ Translate] Translator removed');
             }
         }
@@ -362,11 +392,23 @@
             // Remove existing detector
             this.removeDetector();
 
-            // Create detector element
-            this.detector = this.createDetectorElement(mode, targetLanguage);
-            
-            // Add to page
-            document.body.appendChild(this.detector);
+            // For unfold mode, use full screen positioning (no container)
+            if (mode === 'unfold') {
+                // Create detector element
+                this.detector = this.createDetectorElement(mode, targetLanguage);
+
+                // Add directly to page for full screen modal
+                document.body.appendChild(this.detector);
+            } else {
+                // For minimized/fold modes, use container
+                const container = this.ensureContainer();
+
+                // Create detector element
+                this.detector = this.createDetectorElement(mode, targetLanguage);
+
+                // Add to container
+                container.appendChild(this.detector);
+            }
 
             // Add event listeners
             this.attachEventListeners();
@@ -390,7 +432,15 @@
          */
         createDetectorElement(mode, targetLanguage) {
             const detector = document.createElement('div');
-            detector.className = `ez-language-detector ez-detector-${mode} ez-detector-${this.config.config.position}`;
+
+            // For unfold mode, include position classes (full screen modal)
+            // For other modes, don't include position classes (handled by container)
+            if (mode === 'unfold') {
+                detector.className = `ez-language-detector ez-detector-${mode} ez-detector-${this.config.config.position}`;
+            } else {
+                detector.className = `ez-language-detector ez-detector-${mode}`;
+            }
+
             detector.id = 'ez-language-detector';
 
             if (mode === 'fold') {

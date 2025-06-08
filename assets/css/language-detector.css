@@ -29,10 +29,62 @@
     content: "\f326";
 }
 
-/* Base detector styles */
-.ez-language-detector {
+/* Container for language detector elements */
+.ez-language-container {
     position: fixed;
     z-index: 999999;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Force uniform sizing for all buttons in container */
+.ez-language-container .ez-language-detector {
+    flex-shrink: 0;
+}
+
+.ez-language-container .ez-detector-minimized-btn,
+.ez-language-container .ez-translator-tab {
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    min-height: 48px !important;
+    padding: 12px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+}
+
+/* Container positioning */
+.ez-language-container.ez-detector-bottom-right {
+    bottom: 20px;
+    right: 20px;
+    flex-direction: row-reverse;
+}
+
+.ez-language-container.ez-detector-bottom-left {
+    bottom: 20px;
+    left: 20px;
+    flex-direction: row;
+}
+
+.ez-language-container.ez-detector-top-right {
+    top: 20px;
+    right: 20px;
+    flex-direction: row-reverse;
+}
+
+.ez-language-container.ez-detector-top-left {
+    top: 20px;
+    left: 20px;
+    flex-direction: row;
+}
+
+/* Base detector styles */
+.ez-language-detector {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-size: 14px;
     line-height: 1.4;
@@ -41,28 +93,34 @@
     transition: all 0.3s ease;
 }
 
+/* For unfold mode (modal), keep fixed positioning */
+.ez-language-detector.ez-detector-unfold {
+    position: fixed;
+    z-index: 999999;
+}
+
 .ez-language-detector.ez-detector-visible {
     opacity: 1;
     visibility: visible;
 }
 
-/* Position variants */
-.ez-detector-bottom-right {
+/* Position variants for unfold mode (modal) */
+.ez-detector-unfold.ez-detector-bottom-right {
     bottom: 20px;
     right: 20px;
 }
 
-.ez-detector-bottom-left {
+.ez-detector-unfold.ez-detector-bottom-left {
     bottom: 20px;
     left: 20px;
 }
 
-.ez-detector-top-right {
+.ez-detector-unfold.ez-detector-top-right {
     top: 20px;
     right: 20px;
 }
 
-.ez-detector-top-left {
+.ez-detector-unfold.ez-detector-top-left {
     top: 20px;
     left: 20px;
 }
@@ -181,11 +239,15 @@
 }
 
 .ez-detector-fold .ez-detector-title {
-    padding: 0 16px 8px;
+    padding: 10px;
     font-weight: 600;
     color: #333;
     border-bottom: 1px solid #eee;
     margin-bottom: 8px;
+}
+.ez-detector-dropdown .ez-detector-title {
+    
+    padding: 5px 5px 5px 10px;
 }
 
 .ez-detector-fold .ez-detector-lang-item {
@@ -396,6 +458,8 @@
     transition: all 0.3s ease;
     width: 48px;
     height: 48px;
+    min-width: 48px;
+    min-height: 48px;
     position: relative;
 }
 
@@ -452,6 +516,8 @@
     border: 1px solid #e0e0e0;
     width: 48px;
     height: 48px;
+    min-width: 48px;
+    min-height: 48px;
     position: relative;
 }
 
@@ -529,43 +595,29 @@
     transform: translateX(4px);
 }
 
-/* Translator positioning - offset from main detector */
-.ez-detector-helper.ez-detector-bottom-right {
-    bottom: 20px;
-    right: 80px; /* Offset to the left of the main detector */
-}
-
-.ez-detector-helper.ez-detector-bottom-left {
-    bottom: 20px;
-    left: 80px; /* Offset to the right of the main detector */
-}
-
-.ez-detector-helper.ez-detector-top-right {
-    top: 20px;
-    right: 80px; /* Offset to the left of the main detector */
-}
-
-.ez-detector-helper.ez-detector-top-left {
-    top: 20px;
-    left: 80px; /* Offset to the right of the main detector */
-}
-
-/* Desktop positioning - more space between elements */
+/* Desktop: larger gap between elements in container */
 @media (min-width: 769px) {
-    .ez-detector-helper.ez-detector-bottom-right {
-        right: 120px; /* More space on desktop */
+    .ez-language-container {
+        gap: 16px;
     }
 
-    .ez-detector-helper.ez-detector-bottom-left {
-        left: 120px;
+    /* Desktop sizing for elements in container - override mobile styles */
+    .ez-language-container .ez-detector-minimized-btn {
+        width: auto !important;
+        height: auto !important;
+        min-width: 60px !important;
+        min-height: auto !important;
+        padding: 8px 12px !important;
+        border-radius: 6px !important;
     }
 
-    .ez-detector-helper.ez-detector-top-right {
-        right: 120px;
-    }
-
-    .ez-detector-helper.ez-detector-top-left {
-        left: 120px;
+    .ez-language-container .ez-translator-tab {
+        width: auto !important;
+        height: auto !important;
+        min-width: 160px !important;
+        min-height: auto !important;
+        padding: 10px 14px !important;
+        border-radius: 8px !important;
     }
 }
 
@@ -619,54 +671,34 @@
 
 /* Responsive design */
 @media (max-width: 768px) {
-    /* Main detector positioning on mobile */
-    .ez-detector-bottom-right {
-        bottom: 20px;
-        right: 20px;
-        left: auto;
-    }
-
-    .ez-detector-bottom-left {
+    /* Container positioning on mobile - stack vertically */
+    .ez-language-container.ez-detector-bottom-right,
+    .ez-language-container.ez-detector-bottom-left {
         bottom: 20px;
         left: 20px;
-        right: auto;
-    }
-
-    .ez-detector-top-right {
-        top: 20px;
         right: 20px;
-        left: auto;
+        flex-direction: column;
+        align-items: flex-end;
     }
 
-    .ez-detector-top-left {
+    .ez-language-container.ez-detector-top-right,
+    .ez-language-container.ez-detector-top-left {
         top: 20px;
         left: 20px;
-        right: auto;
-    }
-
-    /* Helper positioning on mobile - stack vertically with proper spacing */
-    .ez-detector-helper.ez-detector-bottom-right {
-        bottom: 80px; /* Above the main detector */
         right: 20px;
-        left: auto;
+        flex-direction: column;
+        align-items: flex-end;
     }
 
-    .ez-detector-helper.ez-detector-bottom-left {
-        bottom: 80px; /* Above the main detector */
-        left: 20px;
-        right: auto;
-    }
-
-    .ez-detector-helper.ez-detector-top-right {
-        top: 80px; /* Below the main detector */
-        right: 20px;
-        left: auto;
-    }
-
-    .ez-detector-helper.ez-detector-top-left {
-        top: 80px; /* Below the main detector */
-        left: 20px;
-        right: auto;
+    /* Mobile: ensure consistent circular buttons */
+    .ez-language-container .ez-detector-minimized-btn,
+    .ez-language-container .ez-translator-tab {
+        width: 48px !important;
+        height: 48px !important;
+        min-width: 48px !important;
+        min-height: 48px !important;
+        padding: 12px !important;
+        border-radius: 50% !important;
     }
 
     .ez-detector-unfold .ez-detector-window {
@@ -702,33 +734,22 @@
 
 /* Extra small screens */
 @media (max-width: 480px) {
-    .ez-detector-bottom-right,
-    .ez-detector-bottom-left {
-        bottom: 10px;
-        left: 10px;
-        right: 10px;
+    .ez-language-container {
+        bottom: 10px !important;
+        top: auto !important;
+        left: 10px !important;
+        right: 10px !important;
+        justify-content: center;
     }
 
-    .ez-detector-top-right,
-    .ez-detector-top-left {
-        top: 10px;
-        left: 10px;
-        right: 10px;
-    }
-
-    /* Helper positioning on very small screens */
-    .ez-detector-helper.ez-detector-bottom-right,
-    .ez-detector-helper.ez-detector-bottom-left {
-        bottom: 70px;
-        left: 10px;
-        right: auto;
-    }
-
-    .ez-detector-helper.ez-detector-top-right,
-    .ez-detector-helper.ez-detector-top-left {
-        top: 70px;
-        left: 10px;
-        right: auto;
+    /* Extra small: slightly smaller buttons */
+    .ez-language-container .ez-detector-minimized-btn,
+    .ez-language-container .ez-translator-tab {
+        width: 44px !important;
+        height: 44px !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
+        padding: 10px !important;
     }
 }
 
