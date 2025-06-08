@@ -212,6 +212,7 @@ class SitemapManager {
         if ($cached_xml !== false) {
             // Serve from cache
             $this->set_sitemap_headers();
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- XML content is already properly formatted
             echo $cached_xml;
             exit;
         }
@@ -241,6 +242,7 @@ class SitemapManager {
 
         // Set headers and output XML
         $this->set_sitemap_headers();
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- XML content is already properly formatted
         echo $xml;
 
         Logger::info('Sitemap served successfully', array(

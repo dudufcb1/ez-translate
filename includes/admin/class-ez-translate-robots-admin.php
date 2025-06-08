@@ -335,58 +335,63 @@ class RobotsAdmin {
     public function render_admin_page() {
         // Check user capabilities
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'ez-translate'));
+            wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'ez-translate'));
         }
 
         // Get current settings
         $settings = \EZTranslate\Robots::get_robots_settings();
 
-        // Handle success/error messages
+        // Handle success/error messages (only for admin users)
         $message = '';
-        if (isset($_GET['updated']) && $_GET['updated'] === 'true') {
-            $message = '<div class="notice notice-success"><p>' . __('Robots.txt settings saved successfully!', 'ez-translate') . '</p></div>';
-        } elseif (isset($_GET['error'])) {
-            $error_code = sanitize_text_field($_GET['error']);
-            $message = '<div class="notice notice-error"><p>' . __('Error saving settings: ', 'ez-translate') . $error_code . '</p></div>';
+        if (current_user_can('manage_options')) {
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- GET parameters for admin messages only
+            if (isset($_GET['updated']) && sanitize_text_field(wp_unslash($_GET['updated'])) === 'true') {
+                $message = '<div class="notice notice-success"><p>' . esc_html__('Robots.txt settings saved successfully!', 'ez-translate') . '</p></div>';
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- GET parameters for admin messages only
+            } elseif (isset($_GET['error'])) {
+                // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- GET parameters for admin messages only
+                $error_code = sanitize_text_field(wp_unslash($_GET['error']));
+                $message = '<div class="notice notice-error"><p>' . esc_html__('Error saving settings: ', 'ez-translate') . esc_html($error_code) . '</p></div>';
+            }
         }
 
         ?>
         <div class="wrap">
-            <h1><?php _e('Robots.txt Settings', 'ez-translate'); ?></h1>
-            
-            <?php echo $message; ?>
-            
-            <p><?php _e('Configure dynamic robots.txt generation for your multilingual site. This will override any existing robots.txt file.', 'ez-translate'); ?></p>
+            <h1><?php esc_html_e('Robots.txt Settings', 'ez-translate'); ?></h1>
 
-            <form method="post" action="<?php echo admin_url('admin-post.php'); ?>">
+            <?php echo wp_kses_post($message); ?>
+
+            <p><?php esc_html_e('Configure dynamic robots.txt generation for your multilingual site. This will override any existing robots.txt file.', 'ez-translate'); ?></p>
+
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                 <?php wp_nonce_field('ez_translate_robots_settings', 'ez_translate_robots_nonce'); ?>
                 <input type="hidden" name="action" value="ez_translate_update_robots_settings">
 
                 <table class="form-table">
                     <tr>
-                        <th scope="row"><?php _e('Enable Dynamic Robots.txt', 'ez-translate'); ?></th>
+                        <th scope="row"><?php esc_html_e('Enable Dynamic Robots.txt', 'ez-translate'); ?></th>
                         <td>
                             <label>
                                 <input type="checkbox" name="enabled" value="1" <?php checked($settings['enabled']); ?>>
-                                <?php _e('Enable dynamic robots.txt generation', 'ez-translate'); ?>
+                                <?php esc_html_e('Enable dynamic robots.txt generation', 'ez-translate'); ?>
                             </label>
-                            <p class="description"><?php _e('When enabled, this will override any existing robots.txt file with dynamically generated content.', 'ez-translate'); ?></p>
+                            <p class="description"><?php esc_html_e('When enabled, this will override any existing robots.txt file with dynamically generated content.', 'ez-translate'); ?></p>
                         </td>
                     </tr>
 
                     <tr>
-                        <th scope="row" style="vertical-align: top; padding-top: 20px;"><?php _e('Default Protection Rules', 'ez-translate'); ?></th>
+                        <th scope="row" style="vertical-align: top; padding-top: 20px;"><?php esc_html_e('Default Protection Rules', 'ez-translate'); ?></th>
                         <td>
-                            <p class="description" style="margin-bottom: 20px;"><?php _e('Configure which default WordPress protection rules to include. Use the group buttons for quick selection, or customize individual options.', 'ez-translate'); ?></p>
+                            <p class="description" style="margin-bottom: 20px;"><?php esc_html_e('Configure which default WordPress protection rules to include. Use the group buttons for quick selection, or customize individual options.', 'ez-translate'); ?></p>
 
                             <!-- Quick Presets -->
                             <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 15px; margin-bottom: 20px;">
-                                <h4 style="margin: 0 0 10px 0; color: #495057;"><?php _e('🚀 Quick Presets', 'ez-translate'); ?></h4>
-                                <p style="margin: 0 0 12px 0; font-size: 13px; color: #6c757d;"><?php _e('Apply recommended configurations for different types of websites:', 'ez-translate'); ?></p>
+                                <h4 style="margin: 0 0 10px 0; color: #495057;"><?php esc_html_e('🚀 Quick Presets', 'ez-translate'); ?></h4>
+                                <p style="margin: 0 0 12px 0; font-size: 13px; color: #6c757d;"><?php esc_html_e('Apply recommended configurations for different types of websites:', 'ez-translate'); ?></p>
                                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                    <button type="button" id="ez-robots-preset-blog" class="button button-secondary">📰 <?php _e('Blog/News Site', 'ez-translate'); ?></button>
-                                    <button type="button" id="ez-robots-preset-ecommerce" class="button button-secondary">🛍️ <?php _e('E-commerce', 'ez-translate'); ?></button>
-                                    <button type="button" id="ez-robots-preset-portfolio" class="button button-secondary">🎨 <?php _e('Portfolio/Photography', 'ez-translate'); ?></button>
+                                    <button type="button" id="ez-robots-preset-blog" class="button button-secondary">📰 <?php esc_html_e('Blog/News Site', 'ez-translate'); ?></button>
+                                    <button type="button" id="ez-robots-preset-ecommerce" class="button button-secondary">🛍️ <?php esc_html_e('E-commerce', 'ez-translate'); ?></button>
+                                    <button type="button" id="ez-robots-preset-portfolio" class="button button-secondary">🎨 <?php esc_html_e('Portfolio/Photography', 'ez-translate'); ?></button>
                                 </div>
                             </div>
 
@@ -394,17 +399,17 @@ class RobotsAdmin {
                             <div class="ez-robots-group" data-group="security">
                                 <div class="ez-robots-group-header">
                                     <h4 class="ez-robots-group-title">
-                                        🔒 <?php _e('Core WordPress Security', 'ez-translate'); ?>
-                                        <span class="ez-robots-recommendation ez-robots-rec-recommended"><?php _e('Recommended', 'ez-translate'); ?></span>
+                                        🔒 <?php esc_html_e('Core WordPress Security', 'ez-translate'); ?>
+                                        <span class="ez-robots-recommendation ez-robots-rec-recommended"><?php esc_html_e('Recommended', 'ez-translate'); ?></span>
                                     </h4>
                                     <div class="ez-robots-group-actions">
-                                        <button type="button" class="ez-robots-group-btn select-all"><?php _e('Select All', 'ez-translate'); ?></button>
-                                        <button type="button" class="ez-robots-group-btn select-none"><?php _e('Select None', 'ez-translate'); ?></button>
+                                        <button type="button" class="ez-robots-group-btn select-all"><?php esc_html_e('Select All', 'ez-translate'); ?></button>
+                                        <button type="button" class="ez-robots-group-btn select-none"><?php esc_html_e('Select None', 'ez-translate'); ?></button>
                                     </div>
                                 </div>
                                 <div class="ez-robots-group-content">
                                     <div class="ez-robots-group-description">
-                                        <strong><?php _e('💡 Recommendation:', 'ez-translate'); ?></strong> <?php _e('All these options are recommended for security. They protect WordPress core files and admin areas from search engine crawling.', 'ez-translate'); ?>
+                                        <strong><?php esc_html_e('💡 Recommendation:', 'ez-translate'); ?></strong> <?php esc_html_e('All these options are recommended for security. They protect WordPress core files and admin areas from search engine crawling.', 'ez-translate'); ?>
                                     </div>
 
                                     <?php $this->render_robots_option('wp_admin', $settings, '🛡️', __('WordPress Admin Area', 'ez-translate'), __('Blocks /wp-admin/ (allows admin-ajax.php for functionality)', 'ez-translate'), 'recommended'); ?>
@@ -431,34 +436,34 @@ class RobotsAdmin {
                             <div class="ez-robots-group" data-group="content">
                                 <div class="ez-robots-group-header">
                                     <h4 class="ez-robots-group-title">
-                                        📄 <?php _e('Content & SEO Options', 'ez-translate'); ?>
-                                        <span class="ez-robots-recommendation ez-robots-rec-optional"><?php _e('Customize', 'ez-translate'); ?></span>
+                                        📄 <?php esc_html_e('Content & SEO Options', 'ez-translate'); ?>
+                                        <span class="ez-robots-recommendation ez-robots-rec-optional"><?php esc_html_e('Customize', 'ez-translate'); ?></span>
                                     </h4>
                                     <div class="ez-robots-group-actions">
-                                        <button type="button" class="ez-robots-group-btn select-all"><?php _e('Block All', 'ez-translate'); ?></button>
-                                        <button type="button" class="ez-robots-group-btn select-none"><?php _e('Allow All', 'ez-translate'); ?></button>
+                                        <button type="button" class="ez-robots-group-btn select-all"><?php esc_html_e('Block All', 'ez-translate'); ?></button>
+                                        <button type="button" class="ez-robots-group-btn select-none"><?php esc_html_e('Allow All', 'ez-translate'); ?></button>
                                     </div>
                                 </div>
                                 <div class="ez-robots-group-content">
                                     <div class="ez-robots-group-description">
-                                        <strong><?php _e('⚠️ Important:', 'ez-translate'); ?></strong> <?php _e('These options affect SEO and functionality. Unchecked items will be indexed by search engines. Choose based on your site type and SEO strategy.', 'ez-translate'); ?>
+                                        <strong><?php esc_html_e('⚠️ Important:', 'ez-translate'); ?></strong> <?php esc_html_e('These options affect SEO and functionality. Unchecked items will be indexed by search engines. Choose based on your site type and SEO strategy.', 'ez-translate'); ?>
                                     </div>
 
-                                    <?php $this->render_robots_option('wp_uploads', $settings, '🖼️', __('Media & Images', 'ez-translate'), __('Blocks /wp-content/uploads/ - UNCHECKED = Images indexed by Google', 'ez-translate'), 'careful', __('⚠️ For image SEO, leave unchecked so Google can index your images')); ?>
+                                    <?php $this->render_robots_option('wp_uploads', $settings, '🖼️', __('Media & Images', 'ez-translate'), __('Blocks /wp-content/uploads/ - UNCHECKED = Images indexed by Google', 'ez-translate'), 'careful', __('⚠️ For image SEO, leave unchecked so Google can index your images', 'ez-translate')); ?>
 
-                                    <?php $this->render_robots_option('wp_json', $settings, '🔌', __('REST API', 'ez-translate'), __('Blocks /wp-json/ - May affect Gutenberg, plugins, mobile apps', 'ez-translate'), 'careful', __('⚠️ May break Gutenberg editor, WooCommerce, forms, and many modern plugins')); ?>
+                                    <?php $this->render_robots_option('wp_json', $settings, '🔌', __('REST API', 'ez-translate'), __('Blocks /wp-json/ - May affect Gutenberg, plugins, mobile apps', 'ez-translate'), 'careful', __('⚠️ May break Gutenberg editor, WooCommerce, forms, and many modern plugins', 'ez-translate')); ?>
 
-                                    <?php $this->render_robots_option('feed', $settings, '📡', __('RSS Feeds', 'ez-translate'), __('Blocks /feed/ and comment feeds - UNCHECKED = Feeds indexed', 'ez-translate'), 'optional', __('💡 Usually better to allow feeds for subscribers and feed readers')); ?>
+                                    <?php $this->render_robots_option('feed', $settings, '📡', __('RSS Feeds', 'ez-translate'), __('Blocks /feed/ and comment feeds - UNCHECKED = Feeds indexed', 'ez-translate'), 'optional', __('💡 Usually better to allow feeds for subscribers and feed readers', 'ez-translate')); ?>
 
-                                    <?php $this->render_robots_option('search', $settings, '🔍', __('Search Results', 'ez-translate'), __('Blocks /?s= and /search/ pages to avoid duplicate content', 'ez-translate'), 'recommended', __('✅ Recommended to prevent duplicate content issues')); ?>
+                                    <?php $this->render_robots_option('search', $settings, '🔍', __('Search Results', 'ez-translate'), __('Blocks /?s= and /search/ pages to avoid duplicate content', 'ez-translate'), 'recommended', __('✅ Recommended to prevent duplicate content issues', 'ez-translate')); ?>
 
                                     <?php $this->render_robots_option('author', $settings, '👤', __('Author Pages', 'ez-translate'), __('Blocks /author/ pages - Consider your content strategy', 'ez-translate'), 'optional'); ?>
 
-                                    <?php $this->render_robots_option('date_archives', $settings, '📅', __('Date Archives', 'ez-translate'), __('Blocks /2024/ style date archives to reduce duplicate content', 'ez-translate'), 'optional', __('💡 Often blocked to avoid duplicate content, especially for news sites')); ?>
+                                    <?php $this->render_robots_option('date_archives', $settings, '📅', __('Date Archives', 'ez-translate'), __('Blocks /2024/ style date archives to reduce duplicate content', 'ez-translate'), 'optional', __('💡 Often blocked to avoid duplicate content, especially for news sites', 'ez-translate')); ?>
 
                                     <?php $this->render_robots_option('tag_archives', $settings, '🏷️', __('Tag Archives', 'ez-translate'), __('Blocks /tag/ pages - Depends on your tagging strategy', 'ez-translate'), 'optional'); ?>
 
-                                    <?php $this->render_robots_option('attachment', $settings, '📎', __('Attachment Pages', 'ez-translate'), __('Blocks /attachment/ pages - UNCHECKED = Media pages indexed', 'ez-translate'), 'optional', __('💡 For portfolios, leave unchecked to show individual media pages')); ?>
+                                    <?php $this->render_robots_option('attachment', $settings, '📎', __('Attachment Pages', 'ez-translate'), __('Blocks /attachment/ pages - UNCHECKED = Media pages indexed', 'ez-translate'), 'optional', __('💡 For portfolios, leave unchecked to show individual media pages', 'ez-translate')); ?>
 
                                     <?php $this->render_robots_option('trackback', $settings, '🔗', __('Trackbacks', 'ez-translate'), __('Blocks /trackback/ - Usually safe to block', 'ez-translate'), 'recommended'); ?>
 
@@ -469,48 +474,48 @@ class RobotsAdmin {
                     </tr>
 
                     <tr>
-                        <th scope="row"><?php _e('Include Sitemap', 'ez-translate'); ?></th>
+                        <th scope="row"><?php esc_html_e('Include Sitemap', 'ez-translate'); ?></th>
                         <td>
                             <label>
                                 <input type="checkbox" name="include_sitemap" value="1" <?php checked($settings['include_sitemap']); ?>>
-                                <?php _e('Automatically include sitemap reference', 'ez-translate'); ?>
+                                <?php esc_html_e('Automatically include sitemap reference', 'ez-translate'); ?>
                             </label>
-                            <p class="description"><?php _e('Adds "Sitemap: [your-site]/sitemap.xml" to robots.txt', 'ez-translate'); ?></p>
+                            <p class="description"><?php esc_html_e('Adds "Sitemap: [your-site]/sitemap.xml" to robots.txt', 'ez-translate'); ?></p>
                         </td>
                     </tr>
                 </table>
 
-                <h2><?php _e('Custom Rules', 'ez-translate'); ?></h2>
-                <p><?php _e('Add custom Allow/Disallow rules for specific user agents and paths.', 'ez-translate'); ?></p>
+                <h2><?php esc_html_e('Custom Rules', 'ez-translate'); ?></h2>
+                <p><?php esc_html_e('Add custom Allow/Disallow rules for specific user agents and paths.', 'ez-translate'); ?></p>
 
                 <div id="custom-rules-container">
                     <?php if (!empty($settings['custom_rules'])): ?>
                         <?php foreach ($settings['custom_rules'] as $index => $rule): ?>
                             <div class="ez-translate-custom-rule">
-                                <select name="custom_rules[<?php echo $index; ?>][user_agent]">
+                                <select name="custom_rules[<?php echo esc_attr($index); ?>][user_agent]">
                                     <option value="*" <?php selected($rule['user_agent'], '*'); ?>>All User Agents (*)</option>
                                     <option value="Googlebot" <?php selected($rule['user_agent'], 'Googlebot'); ?>>Googlebot</option>
                                     <option value="Bingbot" <?php selected($rule['user_agent'], 'Bingbot'); ?>>Bingbot</option>
                                     <option value="facebookexternalhit" <?php selected($rule['user_agent'], 'facebookexternalhit'); ?>>Facebook</option>
                                 </select>
 
-                                <select name="custom_rules[<?php echo $index; ?>][directive]">
+                                <select name="custom_rules[<?php echo esc_attr($index); ?>][directive]">
                                     <option value="Disallow" <?php selected($rule['directive'], 'Disallow'); ?>>Disallow</option>
                                     <option value="Allow" <?php selected($rule['directive'], 'Allow'); ?>>Allow</option>
                                 </select>
 
-                                <input type="text" name="custom_rules[<?php echo $index; ?>][path]" value="<?php echo esc_attr($rule['path']); ?>" placeholder="/path/" style="width: 200px;">
+                                <input type="text" name="custom_rules[<?php echo esc_attr($index); ?>][path]" value="<?php echo esc_attr($rule['path']); ?>" placeholder="/path/" style="width: 200px;">
 
-                                <button type="button" class="button remove-custom-rule"><?php _e('Remove', 'ez-translate'); ?></button>
+                                <button type="button" class="button remove-custom-rule"><?php esc_html_e('Remove', 'ez-translate'); ?></button>
                             </div>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
 
-                <button type="button" id="add-custom-rule" class="button"><?php _e('Add Custom Rule', 'ez-translate'); ?></button>
+                <button type="button" id="add-custom-rule" class="button"><?php esc_html_e('Add Custom Rule', 'ez-translate'); ?></button>
 
-                <h2><?php _e('Additional Content', 'ez-translate'); ?></h2>
-                <p><?php _e('Add any additional content to be included in robots.txt (crawl-delay, host directive, etc.)', 'ez-translate'); ?></p>
+                <h2><?php esc_html_e('Additional Content', 'ez-translate'); ?></h2>
+                <p><?php esc_html_e('Add any additional content to be included in robots.txt (crawl-delay, host directive, etc.)', 'ez-translate'); ?></p>
                 
                 <textarea name="additional_content" rows="5" cols="80" class="large-text"><?php echo esc_textarea($settings['additional_content']); ?></textarea>
 
@@ -518,7 +523,7 @@ class RobotsAdmin {
             </form>
 
             <!-- Preview Section -->
-            <h2><?php _e('Current Robots.txt Preview', 'ez-translate'); ?></h2>
+            <h2><?php esc_html_e('Current Robots.txt Preview', 'ez-translate'); ?></h2>
             <div class="ez-translate-robots-preview">
                 <?php echo esc_html($this->generate_preview($settings)); ?>
             </div>
@@ -540,7 +545,7 @@ class RobotsAdmin {
 
                     <input type="text" name="custom_rules[new][path]" placeholder="/path/" style="width: 200px;">
 
-                    <button type="button" class="button remove-custom-rule"><?php _e('Remove', 'ez-translate'); ?></button>
+                    <button type="button" class="button remove-custom-rule"><?php esc_html_e('Remove', 'ez-translate'); ?></button>
                 </div>
             </script>
         </div>
@@ -727,13 +732,13 @@ class RobotsAdmin {
      */
     public function handle_settings_update() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['ez_translate_robots_nonce'], 'ez_translate_robots_settings')) {
-            wp_die(__('Security check failed. Please try again.', 'ez-translate'));
+        if (!isset($_POST['ez_translate_robots_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['ez_translate_robots_nonce'])), 'ez_translate_robots_settings')) {
+            wp_die(esc_html__('Security check failed. Please try again.', 'ez-translate'));
         }
 
         // Check user capabilities
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to perform this action.', 'ez-translate'));
+            wp_die(esc_html__('You do not have sufficient permissions to perform this action.', 'ez-translate'));
         }
 
         // Prepare settings data
@@ -741,7 +746,7 @@ class RobotsAdmin {
             'enabled' => isset($_POST['enabled']),
             'include_sitemap' => isset($_POST['include_sitemap']),
             'custom_rules' => array(),
-            'additional_content' => sanitize_textarea_field($_POST['additional_content'] ?? '')
+            'additional_content' => isset($_POST['additional_content']) ? sanitize_textarea_field(wp_unslash($_POST['additional_content'])) : ''
         );
 
         // Process default rules (granular configuration)
@@ -759,11 +764,13 @@ class RobotsAdmin {
 
         // Process custom rules
         if (isset($_POST['custom_rules']) && is_array($_POST['custom_rules'])) {
-            foreach ($_POST['custom_rules'] as $rule) {
-                if (!empty($rule['path'])) {
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Array is sanitized field by field below
+            $custom_rules_raw = wp_unslash($_POST['custom_rules']);
+            foreach ($custom_rules_raw as $rule) {
+                if (is_array($rule) && !empty($rule['path'])) {
                     $settings['custom_rules'][] = array(
-                        'user_agent' => sanitize_text_field($rule['user_agent']),
-                        'directive' => sanitize_text_field($rule['directive']),
+                        'user_agent' => isset($rule['user_agent']) ? sanitize_text_field($rule['user_agent']) : '*',
+                        'directive' => isset($rule['directive']) ? sanitize_text_field($rule['directive']) : 'Disallow',
                         'path' => sanitize_text_field($rule['path'])
                     );
                 }
@@ -823,7 +830,7 @@ class RobotsAdmin {
             <div class="ez-robots-option-content">
                 <div class="ez-robots-option-label">
                     <label for="ez_robots_<?php echo esc_attr($option_name); ?>">
-                        <?php echo $icon; ?> <?php echo esc_html($label); ?>
+                        <?php echo wp_kses_post($icon); ?> <?php echo esc_html($label); ?>
                     </label>
                     <?php if ($rec_text): ?>
                         <span class="ez-robots-recommendation <?php echo esc_attr($rec_class); ?>"><?php echo esc_html($rec_text); ?></span>

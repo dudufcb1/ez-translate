@@ -352,7 +352,12 @@ class RedirectManager {
      */
     private function get_current_url() {
         $protocol = is_ssl() ? 'https://' : 'http://';
-        return $protocol . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+
+        // Sanitize and validate $_SERVER variables
+        $http_host = isset($_SERVER['HTTP_HOST']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST'])) : '';
+        $request_uri = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : '';
+
+        return $protocol . $http_host . $request_uri;
     }
 
     /**
@@ -365,8 +370,9 @@ class RedirectManager {
     public function get_redirect_for_url($url) {
         global $wpdb;
 
+        $table_name = esc_sql(self::$table_name);
         $redirect = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM " . self::$table_name . " WHERE old_url = %s ORDER BY created_at DESC LIMIT 1",
+            "SELECT * FROM {$table_name} WHERE old_url = %s ORDER BY created_at DESC LIMIT 1",
             $url
         ));
 
@@ -388,7 +394,7 @@ class RedirectManager {
         }
 
         global $wpdb;
-        $table_name = $wpdb->prefix . 'ez_translate_redirects';
+        $table_name = esc_sql($wpdb->prefix . 'ez_translate_redirects');
 
         // Update redirects where this post is the source
         $source_redirects = $wpdb->get_results($wpdb->prepare(

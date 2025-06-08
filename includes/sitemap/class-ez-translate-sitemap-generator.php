@@ -233,9 +233,9 @@ abstract class SitemapGenerator {
         if (empty($date)) {
             return '';
         }
-        
+
         $timestamp = is_numeric($date) ? $date : strtotime($date);
-        return date('c', $timestamp);
+        return gmdate('c', $timestamp);
     }
 
     /**

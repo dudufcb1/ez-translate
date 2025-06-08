@@ -91,15 +91,15 @@ class RedirectTracker {
      */
     private function get_unverified_redirects() {
         global $wpdb;
-        
-        $table_name = $wpdb->prefix . 'ez_translate_redirects';
-        
+
+        $table_name = esc_sql($wpdb->prefix . 'ez_translate_redirects');
+
         $redirects = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM {$table_name} 
-             WHERE change_type = %s 
-             AND wp_auto_redirect = %d 
-             AND new_url IS NOT NULL 
-             ORDER BY created_at DESC 
+            "SELECT * FROM {$table_name}
+             WHERE change_type = %s
+             AND wp_auto_redirect = %d
+             AND new_url IS NOT NULL
+             ORDER BY created_at DESC
              LIMIT 10",
             'changed',
             0
@@ -235,23 +235,23 @@ class RedirectTracker {
      */
     public function get_redirect_stats() {
         global $wpdb;
-        
-        $table_name = $wpdb->prefix . 'ez_translate_redirects';
-        
+
+        $table_name = esc_sql($wpdb->prefix . 'ez_translate_redirects');
+
         $stats = array();
-        
+
         // Total redirects
         $stats['total'] = $wpdb->get_var("SELECT COUNT(*) FROM {$table_name}");
-        
+
         // WordPress automatic redirects
         $stats['wp_auto'] = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM {$table_name} WHERE wp_auto_redirect = %d",
             1
         ));
-        
+
         // Manual redirects
         $stats['manual'] = $stats['total'] - $stats['wp_auto'];
-        
+
         // By change type
         $stats['changed'] = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM {$table_name} WHERE change_type = %s",
@@ -267,12 +267,12 @@ class RedirectTracker {
             "SELECT COUNT(*) FROM {$table_name} WHERE change_type = %s",
             'deleted_permanently'
         ));
-        
+
         // By redirect type
         $redirect_types = $wpdb->get_results(
             "SELECT redirect_type, COUNT(*) as count FROM {$table_name} GROUP BY redirect_type"
         );
-        
+
         $stats['by_type'] = array();
         foreach ($redirect_types as $type) {
             $stats['by_type'][$type->redirect_type] = $type->count;
@@ -290,11 +290,11 @@ class RedirectTracker {
      */
     public function cleanup_old_redirects($days_old = 90) {
         global $wpdb;
-        
-        $table_name = $wpdb->prefix . 'ez_translate_redirects';
-        
-        $cutoff_date = date('Y-m-d H:i:s', strtotime("-{$days_old} days"));
-        
+
+        $table_name = esc_sql($wpdb->prefix . 'ez_translate_redirects');
+
+        $cutoff_date = gmdate('Y-m-d H:i:s', strtotime("-{$days_old} days"));
+
         $result = $wpdb->query($wpdb->prepare(
             "DELETE FROM {$table_name} WHERE created_at < %s AND change_type = %s",
             $cutoff_date,

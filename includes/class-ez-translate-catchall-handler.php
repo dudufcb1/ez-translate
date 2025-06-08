@@ -119,7 +119,12 @@ class CatchAllHandler {
      */
     private function get_current_url() {
         $protocol = is_ssl() ? 'https://' : 'http://';
-        return $protocol . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+
+        // Sanitize and validate $_SERVER variables
+        $http_host = isset($_SERVER['HTTP_HOST']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST'])) : '';
+        $request_uri = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : '';
+
+        return $protocol . $http_host . $request_uri;
     }
 
     /**
@@ -131,10 +136,9 @@ class CatchAllHandler {
      */
     private function has_specific_redirect($url) {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'ez_translate_redirects';
 
         $redirect = $wpdb->get_var($wpdb->prepare(
-            "SELECT id FROM {$table_name} WHERE old_url = %s LIMIT 1",
+            "SELECT id FROM `{$wpdb->prefix}ez_translate_redirects` WHERE old_url = %s LIMIT 1",
             $url
         ));
 

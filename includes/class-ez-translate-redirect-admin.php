@@ -125,7 +125,7 @@ class RedirectAdmin {
     public function render_admin_page() {
         // Check user capabilities
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'ez-translate'));
+            wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'ez-translate'));
         }
 
         // Handle messages
@@ -137,34 +137,34 @@ class RedirectAdmin {
 
         ?>
         <div class="wrap">
-            <h1><?php _e('URL Redirections Management', 'ez-translate'); ?></h1>
+            <h1><?php esc_html_e('URL Redirections Management', 'ez-translate'); ?></h1>
             
             <div class="ez-translate-redirect-stats">
                 <div class="stats-grid">
                     <div class="stat-box">
                         <h3><?php echo esc_html($stats['total']); ?></h3>
-                        <p><?php _e('Total Redirects', 'ez-translate'); ?></p>
+                        <p><?php esc_html_e('Total Redirects', 'ez-translate'); ?></p>
                     </div>
                     <div class="stat-box">
                         <h3><?php echo esc_html($stats['wp_auto']); ?></h3>
-                        <p><?php _e('WordPress Auto', 'ez-translate'); ?></p>
+                        <p><?php esc_html_e('WordPress Auto', 'ez-translate'); ?></p>
                     </div>
                     <div class="stat-box">
                         <h3><?php echo esc_html($stats['manual']); ?></h3>
-                        <p><?php _e('Manual Redirects', 'ez-translate'); ?></p>
+                        <p><?php esc_html_e('Manual Redirects', 'ez-translate'); ?></p>
                     </div>
                     <div class="stat-box">
                         <h3><?php echo esc_html($stats['changed']); ?></h3>
-                        <p><?php _e('URL Changes', 'ez-translate'); ?></p>
+                        <p><?php esc_html_e('URL Changes', 'ez-translate'); ?></p>
                     </div>
                 </div>
             </div>
 
             <!-- Catch-All Redirect Settings -->
             <div class="ez-translate-catchall-settings">
-                <h2><?php _e('Catch-All Redirect Settings', 'ez-translate'); ?></h2>
+                <h2><?php esc_html_e('Catch-All Redirect Settings', 'ez-translate'); ?></h2>
                 <p class="description">
-                    <?php _e('Configure a fallback redirect for URLs that don\'t have specific redirects configured. This helps handle deleted pages, broken links, and other 404 errors. <strong>Note:</strong> Catch-all redirects work in real-time without creating database records, preventing potential security vulnerabilities from automated attacks.', 'ez-translate'); ?>
+                    <?php esc_html_e('Configure a fallback redirect for URLs that don\'t have specific redirects configured. This helps handle deleted pages, broken links, and other 404 errors. Note: Catch-all redirects work in real-time without creating database records, preventing potential security vulnerabilities from automated attacks.', 'ez-translate'); ?>
                 </p>
 
                 <?php
@@ -178,116 +178,116 @@ class RedirectAdmin {
                 ));
                 ?>
 
-                <form method="post" action="<?php echo admin_url('admin-post.php'); ?>" id="catchall-settings-form">
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" id="catchall-settings-form">
                     <?php wp_nonce_field('ez_translate_catchall_settings', 'ez_translate_catchall_nonce'); ?>
                     <input type="hidden" name="action" value="ez_translate_save_catchall_settings">
 
                     <table class="form-table">
                         <tr>
-                            <th scope="row"><?php _e('Enable Catch-All Redirect', 'ez-translate'); ?></th>
+                            <th scope="row"><?php esc_html_e('Enable Catch-All Redirect', 'ez-translate'); ?></th>
                             <td>
                                 <label>
                                     <input type="checkbox" name="catchall_enabled" value="1"
                                            <?php checked($catchall_settings['enabled']); ?>>
-                                    <?php _e('Enable automatic redirect for unhandled 404 errors', 'ez-translate'); ?>
+                                    <?php esc_html_e('Enable automatic redirect for unhandled 404 errors', 'ez-translate'); ?>
                                 </label>
                                 <p class="description">
-                                    <?php _e('When enabled, any 404 error that doesn\'t have a specific redirect will be automatically redirected to the destination below. Redirects are processed in real-time without creating database records.', 'ez-translate'); ?>
+                                    <?php esc_html_e('When enabled, any 404 error that doesn\'t have a specific redirect will be automatically redirected to the destination below. Redirects are processed in real-time without creating database records.', 'ez-translate'); ?>
                                 </p>
                             </td>
                         </tr>
                         <tr>
-                            <th scope="row"><?php _e('Redirect Type', 'ez-translate'); ?></th>
+                            <th scope="row"><?php esc_html_e('Redirect Type', 'ez-translate'); ?></th>
                             <td>
                                 <select name="catchall_redirect_type">
                                     <option value="301" <?php selected($catchall_settings['redirect_type'], '301'); ?>>
-                                        <?php _e('301 - Permanent Redirect', 'ez-translate'); ?>
+                                        <?php esc_html_e('301 - Permanent Redirect', 'ez-translate'); ?>
                                     </option>
                                     <option value="302" <?php selected($catchall_settings['redirect_type'], '302'); ?>>
-                                        <?php _e('302 - Temporary Redirect', 'ez-translate'); ?>
+                                        <?php esc_html_e('302 - Temporary Redirect', 'ez-translate'); ?>
                                     </option>
                                     <option value="307" <?php selected($catchall_settings['redirect_type'], '307'); ?>>
-                                        <?php _e('307 - Temporary (Preserve Method)', 'ez-translate'); ?>
+                                        <?php esc_html_e('307 - Temporary (Preserve Method)', 'ez-translate'); ?>
                                     </option>
                                 </select>
                             </td>
                         </tr>
                         <tr>
-                            <th scope="row"><?php _e('Destination Type', 'ez-translate'); ?></th>
+                            <th scope="row"><?php esc_html_e('Destination Type', 'ez-translate'); ?></th>
                             <td>
                                 <label>
                                     <input type="radio" name="catchall_destination_type" value="page"
                                            <?php checked($catchall_settings['destination_type'], 'page'); ?>>
-                                    <?php _e('Redirect to a specific page', 'ez-translate'); ?>
+                                    <?php esc_html_e('Redirect to a specific page', 'ez-translate'); ?>
                                 </label><br>
                                 <label>
                                     <input type="radio" name="catchall_destination_type" value="url"
                                            <?php checked($catchall_settings['destination_type'], 'url'); ?>>
-                                    <?php _e('Redirect to a custom URL', 'ez-translate'); ?>
+                                    <?php esc_html_e('Redirect to a custom URL', 'ez-translate'); ?>
                                 </label><br>
                                 <label>
                                     <input type="radio" name="catchall_destination_type" value="home"
                                            <?php checked($catchall_settings['destination_type'], 'home'); ?>>
-                                    <?php _e('Redirect to homepage', 'ez-translate'); ?>
+                                    <?php esc_html_e('Redirect to homepage', 'ez-translate'); ?>
                                 </label>
                             </td>
                         </tr>
                         <tr id="catchall-page-section" style="<?php echo $catchall_settings['destination_type'] !== 'page' ? 'display: none;' : ''; ?>">
-                            <th scope="row"><?php _e('Destination Page', 'ez-translate'); ?></th>
+                            <th scope="row"><?php esc_html_e('Destination Page', 'ez-translate'); ?></th>
                             <td>
                                 <select name="catchall_destination_page_id" class="regular-text">
-                                    <option value=""><?php _e('Select a page...', 'ez-translate'); ?></option>
+                                    <option value=""><?php esc_html_e('Select a page...', 'ez-translate'); ?></option>
                                     <?php
                                     $pages = get_pages(array('post_status' => 'publish'));
                                     foreach ($pages as $page) {
-                                        echo '<option value="' . $page->ID . '" ' .
+                                        echo '<option value="' . esc_attr($page->ID) . '" ' .
                                              selected($catchall_settings['destination_page_id'], $page->ID, false) . '>' .
                                              esc_html($page->post_title) . '</option>';
                                     }
                                     ?>
                                 </select>
                                 <p class="description">
-                                    <?php _e('Choose a page to redirect 404 errors to (e.g., a custom 404 page, contact page, or sitemap).', 'ez-translate'); ?>
+                                    <?php esc_html_e('Choose a page to redirect 404 errors to (e.g., a custom 404 page, contact page, or sitemap).', 'ez-translate'); ?>
                                 </p>
                             </td>
                         </tr>
                         <tr id="catchall-url-section" style="<?php echo $catchall_settings['destination_type'] !== 'url' ? 'display: none;' : ''; ?>">
-                            <th scope="row"><?php _e('Destination URL', 'ez-translate'); ?></th>
+                            <th scope="row"><?php esc_html_e('Destination URL', 'ez-translate'); ?></th>
                             <td>
                                 <input type="url" name="catchall_destination_url" class="regular-text"
                                        value="<?php echo esc_attr($catchall_settings['destination_url']); ?>">
                                 <p class="description">
-                                    <?php _e('Enter a custom URL to redirect 404 errors to.', 'ez-translate'); ?>
+                                    <?php esc_html_e('Enter a custom URL to redirect 404 errors to.', 'ez-translate'); ?>
                                 </p>
                             </td>
                         </tr>
                     </table>
 
                     <p class="submit">
-                        <input type="submit" class="button-primary" value="<?php _e('Save Catch-All Settings', 'ez-translate'); ?>">
+                        <input type="submit" class="button-primary" value="<?php esc_attr_e('Save Catch-All Settings', 'ez-translate'); ?>">
                     </p>
                 </form>
             </div>
 
             <div class="ez-translate-redirect-actions">
                 <button type="button" class="button" id="add-new-redirect">
-                    <?php _e('Add New Redirect', 'ez-translate'); ?>
+                    <?php esc_html_e('Add New Redirect', 'ez-translate'); ?>
                 </button>
                 <button type="button" class="button" id="check-wp-redirects">
-                    <?php _e('Check WordPress Redirects', 'ez-translate'); ?>
+                    <?php esc_html_e('Check WordPress Redirects', 'ez-translate'); ?>
                 </button>
                 <button type="button" class="button" id="cleanup-old-redirects">
-                    <?php _e('Cleanup Old Redirects', 'ez-translate'); ?>
+                    <?php esc_html_e('Cleanup Old Redirects', 'ez-translate'); ?>
                 </button>
                 <button type="button" class="button button-primary" id="test-redirect-system">
-                    <?php _e('Test System', 'ez-translate'); ?>
+                    <?php esc_html_e('Test System', 'ez-translate'); ?>
                 </button>
                 <button type="button" class="button" id="debug-edit-system">
-                    <?php _e('Debug Edit', 'ez-translate'); ?>
+                    <?php esc_html_e('Debug Edit', 'ez-translate'); ?>
                 </button>
             </div>
 
-            <form method="post" action="<?php echo admin_url('admin-post.php'); ?>">
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                 <?php wp_nonce_field('ez_translate_redirect_bulk_action', 'ez_translate_redirect_nonce'); ?>
                 <input type="hidden" name="action" value="ez_translate_redirect_action">
                 <input type="hidden" name="bulk_action" value="">
@@ -295,13 +295,13 @@ class RedirectAdmin {
                 <div class="tablenav top">
                     <div class="alignleft actions bulkactions">
                         <select name="bulk_action_select" id="bulk-action-selector-top">
-                            <option value=""><?php _e('Bulk Actions', 'ez-translate'); ?></option>
-                            <option value="delete"><?php _e('Delete', 'ez-translate'); ?></option>
-                            <option value="change_type_301"><?php _e('Change to 301', 'ez-translate'); ?></option>
-                            <option value="change_type_302"><?php _e('Change to 302', 'ez-translate'); ?></option>
-                            <option value="change_type_410"><?php _e('Change to 410', 'ez-translate'); ?></option>
+                            <option value=""><?php esc_html_e('Bulk Actions', 'ez-translate'); ?></option>
+                            <option value="delete"><?php esc_html_e('Delete', 'ez-translate'); ?></option>
+                            <option value="change_type_301"><?php esc_html_e('Change to 301', 'ez-translate'); ?></option>
+                            <option value="change_type_302"><?php esc_html_e('Change to 302', 'ez-translate'); ?></option>
+                            <option value="change_type_410"><?php esc_html_e('Change to 410', 'ez-translate'); ?></option>
                         </select>
-                        <input type="submit" class="button action" value="<?php _e('Apply', 'ez-translate'); ?>">
+                        <input type="submit" class="button action" value="<?php esc_attr_e('Apply', 'ez-translate'); ?>">
                     </div>
                 </div>
 
@@ -311,20 +311,20 @@ class RedirectAdmin {
                             <td class="manage-column column-cb check-column">
                                 <input type="checkbox" id="cb-select-all-1">
                             </td>
-                            <th class="manage-column"><?php _e('Old URL', 'ez-translate'); ?></th>
-                            <th class="manage-column"><?php _e('New URL', 'ez-translate'); ?></th>
-                            <th class="manage-column"><?php _e('Type', 'ez-translate'); ?></th>
-                            <th class="manage-column"><?php _e('Change Type', 'ez-translate'); ?></th>
-                            <th class="manage-column"><?php _e('WP Auto', 'ez-translate'); ?></th>
-                            <th class="manage-column"><?php _e('Date', 'ez-translate'); ?></th>
-                            <th class="manage-column"><?php _e('Actions', 'ez-translate'); ?></th>
+                            <th class="manage-column"><?php esc_html_e('Old URL', 'ez-translate'); ?></th>
+                            <th class="manage-column"><?php esc_html_e('New URL', 'ez-translate'); ?></th>
+                            <th class="manage-column"><?php esc_html_e('Type', 'ez-translate'); ?></th>
+                            <th class="manage-column"><?php esc_html_e('Change Type', 'ez-translate'); ?></th>
+                            <th class="manage-column"><?php esc_html_e('WP Auto', 'ez-translate'); ?></th>
+                            <th class="manage-column"><?php esc_html_e('Date', 'ez-translate'); ?></th>
+                            <th class="manage-column"><?php esc_html_e('Actions', 'ez-translate'); ?></th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($redirects)) : ?>
                             <tr>
                                 <td colspan="8" class="no-items">
-                                    <?php _e('No redirects found.', 'ez-translate'); ?>
+                                    <?php esc_html_e('No redirects found.', 'ez-translate'); ?>
                                 </td>
                             </tr>
                         <?php else : ?>
@@ -338,7 +338,7 @@ class RedirectAdmin {
                                         <div class="row-actions">
                                             <span class="view">
                                                 <a href="<?php echo esc_url($redirect->old_url); ?>" target="_blank">
-                                                    <?php _e('Test', 'ez-translate'); ?>
+                                                    <?php esc_html_e('Test', 'ez-translate'); ?>
                                                 </a>
                                             </span>
                                         </div>
@@ -349,7 +349,7 @@ class RedirectAdmin {
                                                 <?php echo esc_html($this->truncate_url($redirect->new_url)); ?>
                                             </a>
                                         <?php else : ?>
-                                            <span class="no-redirect"><?php _e('No redirect', 'ez-translate'); ?></span>
+                                            <span class="no-redirect"><?php esc_html_e('No redirect', 'ez-translate'); ?></span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="redirect-type">
@@ -375,11 +375,11 @@ class RedirectAdmin {
                                     <td class="actions">
                                         <button type="button" class="button button-small edit-redirect" 
                                                 data-id="<?php echo esc_attr($redirect->id); ?>">
-                                            <?php _e('Edit', 'ez-translate'); ?>
+                                            <?php esc_html_e('Edit', 'ez-translate'); ?>
                                         </button>
                                         <button type="button" class="button button-small delete-redirect" 
                                                 data-id="<?php echo esc_attr($redirect->id); ?>">
-                                            <?php _e('Delete', 'ez-translate'); ?>
+                                            <?php esc_html_e('Delete', 'ez-translate'); ?>
                                         </button>
                                     </td>
                                 </tr>
@@ -394,36 +394,36 @@ class RedirectAdmin {
         <div id="add-redirect-modal" class="ez-translate-modal" style="display: none;">
             <div class="modal-content">
                 <span class="close">&times;</span>
-                <h2 id="modal-title"><?php _e('Add New Redirect', 'ez-translate'); ?></h2>
+                <h2 id="modal-title"><?php esc_html_e('Add New Redirect', 'ez-translate'); ?></h2>
                 <form id="add-redirect-form">
                     <input type="hidden" name="redirect_id" value="">
                     <table class="form-table">
                         <tr>
-                            <th scope="row"><?php _e('Redirect Type', 'ez-translate'); ?></th>
+                            <th scope="row"><?php esc_html_e('Redirect Type', 'ez-translate'); ?></th>
                             <td>
                                 <label>
                                     <input type="radio" name="redirect_method" value="manual" checked>
-                                    <?php _e('Manual URL Entry', 'ez-translate'); ?>
+                                    <?php esc_html_e('Manual URL Entry', 'ez-translate'); ?>
                                 </label><br>
                                 <label>
                                     <input type="radio" name="redirect_method" value="post_selection">
-                                    <?php _e('Select from Existing Posts', 'ez-translate'); ?>
+                                    <?php esc_html_e('Select from Existing Posts', 'ez-translate'); ?>
                                 </label>
                             </td>
                         </tr>
                         <tr id="manual-url-section">
-                            <th scope="row"><?php _e('Old URL', 'ez-translate'); ?></th>
+                            <th scope="row"><?php esc_html_e('Old URL', 'ez-translate'); ?></th>
                             <td><input type="url" name="old_url" class="regular-text"></td>
                         </tr>
                         <tr id="manual-new-url-section">
-                            <th scope="row"><?php _e('New URL', 'ez-translate'); ?></th>
+                            <th scope="row"><?php esc_html_e('New URL', 'ez-translate'); ?></th>
                             <td><input type="url" name="new_url" class="regular-text"></td>
                         </tr>
                         <tr id="post-selection-section" style="display: none;">
-                            <th scope="row"><?php _e('Select Post', 'ez-translate'); ?></th>
+                            <th scope="row"><?php esc_html_e('Select Post', 'ez-translate'); ?></th>
                             <td>
                                 <select name="source_post_id" class="regular-text">
-                                    <option value=""><?php _e('Select a post...', 'ez-translate'); ?></option>
+                                    <option value=""><?php esc_html_e('Select a post...', 'ez-translate'); ?></option>
                                     <?php
                                     $posts = get_posts(array(
                                         'numberposts' => 100,
@@ -434,36 +434,36 @@ class RedirectAdmin {
                                     ));
                                     foreach ($posts as $post) {
                                         $status_label = $post->post_status === 'trash' ? ' - TRASHED' : ' - ' . $post->post_status;
-                                        echo '<option value="' . $post->ID . '">' .
-                                             esc_html($post->post_title) . ' (' . $post->post_type . $status_label . ')</option>';
+                                        echo '<option value="' . esc_attr($post->ID) . '">' .
+                                             esc_html($post->post_title) . ' (' . esc_html($post->post_type) . esc_html($status_label) . ')</option>';
                                     }
                                     ?>
                                 </select>
-                                <p class="description"><?php _e('Select the post that this redirect should point to. The redirect will automatically update if the post URL changes.', 'ez-translate'); ?></p>
+                                <p class="description"><?php esc_html_e('Select the post that this redirect should point to. The redirect will automatically update if the post URL changes.', 'ez-translate'); ?></p>
                             </td>
                         </tr>
                         <tr id="destination-section" style="display: none;">
-                            <th scope="row"><?php _e('Redirect To', 'ez-translate'); ?></th>
+                            <th scope="row"><?php esc_html_e('Redirect To', 'ez-translate'); ?></th>
                             <td>
                                 <label>
                                     <input type="radio" name="destination_type" value="post" checked>
-                                    <?php _e('Another Post', 'ez-translate'); ?>
+                                    <?php esc_html_e('Another Post', 'ez-translate'); ?>
                                 </label><br>
                                 <label>
                                     <input type="radio" name="destination_type" value="url">
-                                    <?php _e('Custom URL', 'ez-translate'); ?>
+                                    <?php esc_html_e('Custom URL', 'ez-translate'); ?>
                                 </label><br>
                                 <label>
                                     <input type="radio" name="destination_type" value="gone">
-                                    <?php _e('Gone (410)', 'ez-translate'); ?>
+                                    <?php esc_html_e('Gone (410)', 'ez-translate'); ?>
                                 </label>
                             </td>
                         </tr>
                         <tr id="destination-post-section" style="display: none;">
-                            <th scope="row"><?php _e('Destination Post', 'ez-translate'); ?></th>
+                            <th scope="row"><?php esc_html_e('Destination Post', 'ez-translate'); ?></th>
                             <td>
                                 <select name="destination_post_id" class="regular-text">
-                                    <option value=""><?php _e('Select destination post...', 'ez-translate'); ?></option>
+                                    <option value=""><?php esc_html_e('Select destination post...', 'ez-translate'); ?></option>
                                     <?php
                                     foreach ($posts as $post) {
                                         // For destination, prefer published posts but show others too
@@ -471,32 +471,32 @@ class RedirectAdmin {
                                         if ($post->post_status !== 'publish') {
                                             $status_indicator = ' - ' . strtoupper($post->post_status);
                                         }
-                                        echo '<option value="' . $post->ID . '">' .
-                                             esc_html($post->post_title) . ' (' . $post->post_type . $status_indicator . ')</option>';
+                                        echo '<option value="' . esc_attr($post->ID) . '">' .
+                                             esc_html($post->post_title) . ' (' . esc_html($post->post_type) . esc_html($status_indicator) . ')</option>';
                                     }
                                     ?>
                                 </select>
                             </td>
                         </tr>
                         <tr id="destination-url-section" style="display: none;">
-                            <th scope="row"><?php _e('Destination URL', 'ez-translate'); ?></th>
+                            <th scope="row"><?php esc_html_e('Destination URL', 'ez-translate'); ?></th>
                             <td><input type="url" name="destination_url" class="regular-text"></td>
                         </tr>
                         <tr>
-                            <th scope="row"><?php _e('HTTP Status', 'ez-translate'); ?></th>
+                            <th scope="row"><?php esc_html_e('HTTP Status', 'ez-translate'); ?></th>
                             <td>
                                 <select name="redirect_type">
-                                    <option value="301"><?php _e('301 - Permanent Redirect', 'ez-translate'); ?></option>
-                                    <option value="302"><?php _e('302 - Temporary Redirect', 'ez-translate'); ?></option>
-                                    <option value="307"><?php _e('307 - Temporary (Preserve Method)', 'ez-translate'); ?></option>
-                                    <option value="410"><?php _e('410 - Gone', 'ez-translate'); ?></option>
+                                    <option value="301"><?php esc_html_e('301 - Permanent Redirect', 'ez-translate'); ?></option>
+                                    <option value="302"><?php esc_html_e('302 - Temporary Redirect', 'ez-translate'); ?></option>
+                                    <option value="307"><?php esc_html_e('307 - Temporary (Preserve Method)', 'ez-translate'); ?></option>
+                                    <option value="410"><?php esc_html_e('410 - Gone', 'ez-translate'); ?></option>
                                 </select>
                             </td>
                         </tr>
                     </table>
                     <p class="submit">
-                        <input type="submit" class="button-primary" id="submit-redirect" value="<?php _e('Add Redirect', 'ez-translate'); ?>">
-                        <button type="button" class="button cancel-modal"><?php _e('Cancel', 'ez-translate'); ?></button>
+                        <input type="submit" class="button-primary" id="submit-redirect" value="<?php esc_attr_e('Add Redirect', 'ez-translate'); ?>">
+                        <button type="button" class="button cancel-modal"><?php esc_html_e('Cancel', 'ez-translate'); ?></button>
                     </p>
                 </form>
             </div>
@@ -510,9 +510,20 @@ class RedirectAdmin {
      * @since 1.0.0
      */
     private function display_admin_notices() {
-        if (isset($_GET['message'])) {
-            $message = sanitize_text_field($_GET['message']);
-            $type = isset($_GET['type']) ? sanitize_text_field($_GET['type']) : 'success';
+        // Only show messages on our admin page and if user has proper capabilities
+        // Verify nonce for admin notice parameters to prevent CSRF
+        if (isset($_GET['message']) && current_user_can('manage_options') &&
+            isset($_GET['page']) && sanitize_text_field(wp_unslash($_GET['page'])) === 'ez-translate-redirects' &&
+            isset($_GET['_wpnonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'])), 'ez_translate_redirect_notice')) {
+
+            $message = sanitize_text_field(wp_unslash($_GET['message']));
+            $type = isset($_GET['type']) ? sanitize_text_field(wp_unslash($_GET['type'])) : 'success';
+
+            // Validate type to prevent XSS
+            $allowed_types = array('success', 'error', 'warning', 'info');
+            if (!in_array($type, $allowed_types)) {
+                $type = 'success';
+            }
 
             echo '<div class="notice notice-' . esc_attr($type) . ' is-dismissible">';
             echo '<p>' . esc_html($message) . '</p>';
@@ -529,11 +540,10 @@ class RedirectAdmin {
     private function get_redirects_for_display() {
         global $wpdb;
 
-        $table_name = $wpdb->prefix . 'ez_translate_redirects';
-
-        $redirects = $wpdb->get_results(
-            "SELECT * FROM {$table_name} ORDER BY created_at DESC LIMIT 50"
-        );
+        $redirects = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM `{$wpdb->prefix}ez_translate_redirects` ORDER BY created_at DESC LIMIT %d",
+            50
+        ));
 
         return $redirects ? $redirects : array();
     }
@@ -553,18 +563,19 @@ class RedirectAdmin {
 
         // Fallback basic stats
         global $wpdb;
-        $table_name = $wpdb->prefix . 'ez_translate_redirects';
 
         return array(
-            'total' => $wpdb->get_var("SELECT COUNT(*) FROM {$table_name}"),
+            'total' => $wpdb->get_var(
+                "SELECT COUNT(*) FROM `{$wpdb->prefix}ez_translate_redirects`"
+            ),
             'wp_auto' => $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM {$table_name} WHERE wp_auto_redirect = %d", 1
+                "SELECT COUNT(*) FROM `{$wpdb->prefix}ez_translate_redirects` WHERE wp_auto_redirect = %d", 1
             )),
             'manual' => $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM {$table_name} WHERE wp_auto_redirect = %d", 0
+                "SELECT COUNT(*) FROM `{$wpdb->prefix}ez_translate_redirects` WHERE wp_auto_redirect = %d", 0
             )),
             'changed' => $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM {$table_name} WHERE change_type = %s", 'changed'
+                "SELECT COUNT(*) FROM `{$wpdb->prefix}ez_translate_redirects` WHERE change_type = %s", 'changed'
             ))
         );
     }
@@ -592,17 +603,17 @@ class RedirectAdmin {
      */
     public function handle_redirect_action() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['ez_translate_redirect_nonce'], 'ez_translate_redirect_bulk_action')) {
-            wp_die(__('Security check failed.', 'ez-translate'));
+        if (!isset($_POST['ez_translate_redirect_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['ez_translate_redirect_nonce'])), 'ez_translate_redirect_bulk_action')) {
+            wp_die(esc_html__('Security check failed.', 'ez-translate'));
         }
 
         // Check user capabilities
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to perform this action.', 'ez-translate'));
+            wp_die(esc_html__('You do not have sufficient permissions to perform this action.', 'ez-translate'));
         }
 
-        $action = sanitize_text_field($_POST['bulk_action']);
-        $redirect_ids = isset($_POST['redirect_ids']) ? array_map('intval', $_POST['redirect_ids']) : array();
+        $action = isset($_POST['bulk_action']) ? sanitize_text_field(wp_unslash($_POST['bulk_action'])) : '';
+        $redirect_ids = isset($_POST['redirect_ids']) ? array_map('intval', wp_unslash($_POST['redirect_ids'])) : array();
 
         $message = '';
         $type = 'success';
@@ -610,6 +621,7 @@ class RedirectAdmin {
         switch ($action) {
             case 'delete':
                 $deleted = $this->delete_redirects($redirect_ids);
+                /* translators: %d: number of redirects deleted */
                 $message = sprintf(__('%d redirects deleted successfully.', 'ez-translate'), $deleted);
                 break;
 
@@ -618,7 +630,8 @@ class RedirectAdmin {
             case 'change_type_410':
                 $new_type = str_replace('change_type_', '', $action);
                 $updated = $this->update_redirect_types($redirect_ids, $new_type);
-                $message = sprintf(__('%d redirects updated to type %s.', 'ez-translate'), $updated, $new_type);
+                /* translators: %1$d: number of redirects updated, %2$s: redirect type */
+                $message = sprintf(__('%1$d redirects updated to type %2$s.', 'ez-translate'), $updated, $new_type);
                 break;
 
             default:
@@ -630,7 +643,8 @@ class RedirectAdmin {
         $redirect_url = add_query_arg(array(
             'page' => 'ez-translate-redirects',
             'message' => urlencode($message),
-            'type' => $type
+            'type' => $type,
+            '_wpnonce' => wp_create_nonce('ez_translate_redirect_notice')
         ), admin_url('admin.php'));
 
         wp_redirect($redirect_url);
@@ -650,12 +664,17 @@ class RedirectAdmin {
         }
 
         global $wpdb;
-        $table_name = $wpdb->prefix . 'ez_translate_redirects';
 
-        $placeholders = implode(',', array_fill(0, count($redirect_ids), '%d'));
-        $query = "DELETE FROM {$table_name} WHERE id IN ({$placeholders})";
+        // Sanitize IDs and create safe placeholders for IN clause
+        $sanitized_ids = array_map('intval', $redirect_ids);
+        $placeholders = implode(',', array_fill(0, count($sanitized_ids), '%d'));
 
-        $result = $wpdb->query($wpdb->prepare($query, $redirect_ids));
+        $result = $wpdb->query(
+            $wpdb->prepare(
+                "DELETE FROM `{$wpdb->prefix}ez_translate_redirects` WHERE id IN ({$placeholders})",
+                $sanitized_ids
+            )
+        );
 
         Logger::info('Redirects deleted via admin', array(
             'deleted_count' => $result,
@@ -679,13 +698,18 @@ class RedirectAdmin {
         }
 
         global $wpdb;
-        $table_name = $wpdb->prefix . 'ez_translate_redirects';
 
-        $placeholders = implode(',', array_fill(0, count($redirect_ids), '%d'));
-        $query = "UPDATE {$table_name} SET redirect_type = %s WHERE id IN ({$placeholders})";
+        // Sanitize IDs and create safe placeholders for IN clause
+        $sanitized_ids = array_map('intval', $redirect_ids);
+        $placeholders = implode(',', array_fill(0, count($sanitized_ids), '%d'));
 
-        $params = array_merge(array($new_type), $redirect_ids);
-        $result = $wpdb->query($wpdb->prepare($query, $params));
+        // Prepare query parameters: new_type first, then all IDs
+        $query_params = array_merge(array($new_type), $sanitized_ids);
+
+        $result = $wpdb->query($wpdb->prepare(
+            "UPDATE `{$wpdb->prefix}ez_translate_redirects` SET redirect_type = %s WHERE id IN ({$placeholders})",
+            $query_params
+        ));
 
         Logger::info('Redirect types updated via admin', array(
             'updated_count' => $result,
@@ -703,7 +727,7 @@ class RedirectAdmin {
      */
     public function ajax_add_redirect() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'ez_translate_redirect_nonce')) {
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ez_translate_redirect_nonce')) {
             wp_die('Security check failed.');
         }
 
@@ -712,8 +736,8 @@ class RedirectAdmin {
             wp_send_json_error('Insufficient permissions.');
         }
 
-        $method = sanitize_text_field($_POST['redirect_method']);
-        $redirect_type = sanitize_text_field($_POST['redirect_type']);
+        $method = isset($_POST['redirect_method']) ? sanitize_text_field(wp_unslash($_POST['redirect_method'])) : '';
+        $redirect_type = isset($_POST['redirect_type']) ? sanitize_text_field(wp_unslash($_POST['redirect_type'])) : '';
 
         // Validate redirect type
         $valid_types = array('301', '302', '307', '410');
@@ -728,8 +752,8 @@ class RedirectAdmin {
 
         if ($method === 'manual') {
             // Manual URL entry
-            $old_url = sanitize_url($_POST['old_url']);
-            $new_url = !empty($_POST['new_url']) ? sanitize_url($_POST['new_url']) : null;
+            $old_url = isset($_POST['old_url']) ? sanitize_url(wp_unslash($_POST['old_url'])) : '';
+            $new_url = !empty($_POST['new_url']) ? sanitize_url(wp_unslash($_POST['new_url'])) : null;
 
             if (empty($old_url)) {
                 wp_send_json_error('Old URL is required.');
@@ -740,8 +764,8 @@ class RedirectAdmin {
 
         } else {
             // Post selection method
-            $source_post_id = intval($_POST['source_post_id']);
-            $destination_type = sanitize_text_field($_POST['destination_type']);
+            $source_post_id = isset($_POST['source_post_id']) ? intval(wp_unslash($_POST['source_post_id'])) : 0;
+            $destination_type = isset($_POST['destination_type']) ? sanitize_text_field(wp_unslash($_POST['destination_type'])) : '';
 
             if ($source_post_id <= 0) {
                 wp_send_json_error('Please select a source post.');
@@ -756,7 +780,7 @@ class RedirectAdmin {
             $redirect_data['post_id'] = $source_post_id;
 
             if ($destination_type === 'post') {
-                $destination_post_id = intval($_POST['destination_post_id']);
+                $destination_post_id = isset($_POST['destination_post_id']) ? intval(wp_unslash($_POST['destination_post_id'])) : 0;
                 if ($destination_post_id <= 0) {
                     wp_send_json_error('Please select a destination post.');
                 }
@@ -770,7 +794,7 @@ class RedirectAdmin {
                 $redirect_data['destination_post_id'] = $destination_post_id;
 
             } else if ($destination_type === 'url') {
-                $destination_url = sanitize_url($_POST['destination_url']);
+                $destination_url = isset($_POST['destination_url']) ? sanitize_url(wp_unslash($_POST['destination_url'])) : '';
                 if (empty($destination_url)) {
                     wp_send_json_error('Destination URL is required.');
                 }
@@ -805,50 +829,45 @@ class RedirectAdmin {
      */
     public function ajax_get_redirect() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'ez_translate_redirect_nonce')) {
-            error_log('EZ Translate: Nonce verification failed for get_redirect');
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ez_translate_redirect_nonce')) {
             wp_send_json_error('Security check failed.');
         }
 
         // Check user capabilities
         if (!current_user_can('manage_options')) {
-            error_log('EZ Translate: Insufficient permissions for get_redirect');
             wp_send_json_error('Insufficient permissions.');
         }
 
-        $redirect_id = intval($_POST['redirect_id']);
-
-        error_log('EZ Translate: Getting redirect data for ID: ' . $redirect_id);
+        $redirect_id = isset($_POST['redirect_id']) ? intval(wp_unslash($_POST['redirect_id'])) : 0;
 
         if ($redirect_id <= 0) {
-            error_log('EZ Translate: Invalid redirect ID: ' . $redirect_id);
             wp_send_json_error('Invalid redirect ID: ' . $redirect_id);
         }
 
         global $wpdb;
-        $table_name = $wpdb->prefix . 'ez_translate_redirects';
 
         // First, check if table exists
-        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$table_name}'");
+        $table_exists = $wpdb->get_var($wpdb->prepare(
+            "SHOW TABLES LIKE %s",
+            $wpdb->prefix . 'ez_translate_redirects'
+        ));
         if (!$table_exists) {
-            error_log('EZ Translate: Redirects table does not exist');
             wp_send_json_error('Redirects table does not exist.');
         }
 
         // Try simple query first
         $redirect = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$table_name} WHERE id = %d",
+            "SELECT * FROM `{$wpdb->prefix}ez_translate_redirects` WHERE id = %d",
             $redirect_id
         ));
 
         if (!$redirect) {
-            error_log('EZ Translate: Redirect not found with ID: ' . $redirect_id);
-            error_log('EZ Translate: Last SQL error: ' . $wpdb->last_error);
-
             // Check what redirects exist
-            $existing_redirects = $wpdb->get_results("SELECT id FROM {$table_name} ORDER BY id DESC LIMIT 10");
+            $existing_redirects = $wpdb->get_results($wpdb->prepare(
+                "SELECT id FROM `{$wpdb->prefix}ez_translate_redirects` ORDER BY id DESC LIMIT %d",
+                10
+            ));
             $existing_ids = array_map(function($r) { return $r->id; }, $existing_redirects);
-            error_log('EZ Translate: Existing redirect IDs: ' . implode(', ', $existing_ids));
 
             wp_send_json_error('Redirect not found. ID: ' . $redirect_id . '. Existing IDs: ' . implode(', ', $existing_ids));
         }
@@ -858,7 +877,7 @@ class RedirectAdmin {
             "SELECT r.*,
                     sp.post_title as source_post_title,
                     dp.post_title as destination_post_title
-             FROM {$table_name} r
+             FROM `{$wpdb->prefix}ez_translate_redirects` r
              LEFT JOIN {$wpdb->posts} sp ON r.post_id = sp.ID
              LEFT JOIN {$wpdb->posts} dp ON r.destination_post_id = dp.ID
              WHERE r.id = %d",
@@ -868,9 +887,6 @@ class RedirectAdmin {
         if ($redirect_with_posts) {
             $redirect = $redirect_with_posts;
         }
-
-        error_log('EZ Translate: Successfully retrieved redirect data for ID: ' . $redirect_id);
-        error_log('EZ Translate: Redirect data: ' . print_r($redirect, true));
 
         wp_send_json_success($redirect);
     }
@@ -882,7 +898,7 @@ class RedirectAdmin {
      */
     public function ajax_update_redirect() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'ez_translate_redirect_nonce')) {
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ez_translate_redirect_nonce')) {
             wp_die('Security check failed.');
         }
 
@@ -891,14 +907,14 @@ class RedirectAdmin {
             wp_send_json_error('Insufficient permissions.');
         }
 
-        $redirect_id = intval($_POST['redirect_id']);
+        $redirect_id = isset($_POST['redirect_id']) ? intval(wp_unslash($_POST['redirect_id'])) : 0;
 
         if ($redirect_id <= 0) {
             wp_send_json_error('Invalid redirect ID.');
         }
 
-        $method = sanitize_text_field($_POST['redirect_method']);
-        $redirect_type = sanitize_text_field($_POST['redirect_type']);
+        $method = isset($_POST['redirect_method']) ? sanitize_text_field(wp_unslash($_POST['redirect_method'])) : '';
+        $redirect_type = isset($_POST['redirect_type']) ? sanitize_text_field(wp_unslash($_POST['redirect_type'])) : '';
 
         // Validate redirect type
         $valid_types = array('301', '302', '307', '410');
@@ -912,8 +928,8 @@ class RedirectAdmin {
 
         if ($method === 'manual') {
             // Manual URL entry
-            $old_url = sanitize_url($_POST['old_url']);
-            $new_url = !empty($_POST['new_url']) ? sanitize_url($_POST['new_url']) : null;
+            $old_url = isset($_POST['old_url']) ? sanitize_url(wp_unslash($_POST['old_url'])) : '';
+            $new_url = !empty($_POST['new_url']) ? sanitize_url(wp_unslash($_POST['new_url'])) : null;
 
             if (empty($old_url)) {
                 wp_send_json_error('Old URL is required.');
@@ -926,8 +942,8 @@ class RedirectAdmin {
 
         } else {
             // Post selection method
-            $source_post_id = intval($_POST['source_post_id']);
-            $destination_type = sanitize_text_field($_POST['destination_type']);
+            $source_post_id = isset($_POST['source_post_id']) ? intval(wp_unslash($_POST['source_post_id'])) : 0;
+            $destination_type = isset($_POST['destination_type']) ? sanitize_text_field(wp_unslash($_POST['destination_type'])) : '';
 
             if ($source_post_id <= 0) {
                 wp_send_json_error('Please select a source post.');
@@ -942,7 +958,7 @@ class RedirectAdmin {
             $update_data['post_id'] = $source_post_id;
 
             if ($destination_type === 'post') {
-                $destination_post_id = intval($_POST['destination_post_id']);
+                $destination_post_id = isset($_POST['destination_post_id']) ? intval(wp_unslash($_POST['destination_post_id'])) : 0;
                 if ($destination_post_id <= 0) {
                     wp_send_json_error('Please select a destination post.');
                 }
@@ -956,7 +972,7 @@ class RedirectAdmin {
                 $update_data['destination_post_id'] = $destination_post_id;
 
             } else if ($destination_type === 'url') {
-                $destination_url = sanitize_url($_POST['destination_url']);
+                $destination_url = isset($_POST['destination_url']) ? sanitize_url(wp_unslash($_POST['destination_url'])) : '';
                 if (empty($destination_url)) {
                     wp_send_json_error('Destination URL is required.');
                 }
@@ -973,10 +989,6 @@ class RedirectAdmin {
 
         // Update redirect in database
         global $wpdb;
-        $table_name = $wpdb->prefix . 'ez_translate_redirects';
-
-        error_log('EZ Translate: Updating redirect ID: ' . $redirect_id);
-        error_log('EZ Translate: Update data: ' . print_r($update_data, true));
 
         // Build format array dynamically based on update_data
         $format = array();
@@ -988,23 +1000,18 @@ class RedirectAdmin {
             }
         }
 
-        error_log('EZ Translate: Format array: ' . print_r($format, true));
-
         $result = $wpdb->update(
-            $table_name,
+            $wpdb->prefix . 'ez_translate_redirects',
             $update_data,
             array('id' => $redirect_id),
             $format,
             array('%d')
         );
 
-        error_log('EZ Translate: Update result: ' . ($result !== false ? $result : 'FALSE'));
-        error_log('EZ Translate: Last SQL error: ' . $wpdb->last_error);
-
         if ($result !== false) {
             wp_send_json_success('Redirect updated successfully.');
         } else {
-            wp_send_json_error('Failed to update redirect. SQL Error: ' . $wpdb->last_error);
+            wp_send_json_error('Failed to update redirect.');
         }
     }
 
@@ -1015,7 +1022,7 @@ class RedirectAdmin {
      */
     public function ajax_delete_redirect() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'ez_translate_redirect_nonce')) {
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ez_translate_redirect_nonce')) {
             wp_die('Security check failed.');
         }
 
@@ -1024,7 +1031,7 @@ class RedirectAdmin {
             wp_send_json_error('Insufficient permissions.');
         }
 
-        $redirect_id = intval($_POST['redirect_id']);
+        $redirect_id = isset($_POST['redirect_id']) ? intval(wp_unslash($_POST['redirect_id'])) : 0;
 
         if ($redirect_id <= 0) {
             wp_send_json_error('Invalid redirect ID.');
@@ -1046,7 +1053,7 @@ class RedirectAdmin {
      */
     public function ajax_check_wp_redirects() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'ez_translate_redirect_nonce')) {
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ez_translate_redirect_nonce')) {
             wp_die('Security check failed.');
         }
 
@@ -1071,7 +1078,7 @@ class RedirectAdmin {
      */
     public function ajax_cleanup_redirects() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'ez_translate_redirect_nonce')) {
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ez_translate_redirect_nonce')) {
             wp_die('Security check failed.');
         }
 
@@ -1096,7 +1103,7 @@ class RedirectAdmin {
      */
     public function ajax_test_redirect_system() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'ez_translate_redirect_nonce')) {
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ez_translate_redirect_nonce')) {
             wp_die('Security check failed.');
         }
 
@@ -1164,10 +1171,10 @@ class RedirectAdmin {
 
                 // Check if redirect was created
                 global $wpdb;
-                $table_name = $wpdb->prefix . 'ez_translate_redirects';
                 $redirect = $wpdb->get_row($wpdb->prepare(
-                    "SELECT * FROM {$table_name} WHERE post_id = %d AND change_type = 'changed' ORDER BY created_at DESC LIMIT 1",
-                    $post_id
+                    "SELECT * FROM `{$wpdb->prefix}ez_translate_redirects` WHERE post_id = %d AND change_type = %s ORDER BY created_at DESC LIMIT 1",
+                    $post_id,
+                    'changed'
                 ));
 
                 if ($redirect) {
@@ -1192,22 +1199,22 @@ class RedirectAdmin {
      */
     public function handle_save_catchall_settings() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['ez_translate_catchall_nonce'], 'ez_translate_catchall_settings')) {
-            wp_die(__('Security check failed.', 'ez-translate'));
+        if (!isset($_POST['ez_translate_catchall_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['ez_translate_catchall_nonce'])), 'ez_translate_catchall_settings')) {
+            wp_die(esc_html__('Security check failed.', 'ez-translate'));
         }
 
         // Check user capabilities
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to perform this action.', 'ez-translate'));
+            wp_die(esc_html__('You do not have sufficient permissions to perform this action.', 'ez-translate'));
         }
 
         // Sanitize and validate input
         $settings = array(
-            'enabled' => isset($_POST['catchall_enabled']) && $_POST['catchall_enabled'] === '1',
-            'redirect_type' => sanitize_text_field($_POST['catchall_redirect_type']),
-            'destination_type' => sanitize_text_field($_POST['catchall_destination_type']),
-            'destination_page_id' => intval($_POST['catchall_destination_page_id']),
-            'destination_url' => sanitize_url($_POST['catchall_destination_url']),
+            'enabled' => isset($_POST['catchall_enabled']) && sanitize_text_field(wp_unslash($_POST['catchall_enabled'])) === '1',
+            'redirect_type' => isset($_POST['catchall_redirect_type']) ? sanitize_text_field(wp_unslash($_POST['catchall_redirect_type'])) : '301',
+            'destination_type' => isset($_POST['catchall_destination_type']) ? sanitize_text_field(wp_unslash($_POST['catchall_destination_type'])) : 'home',
+            'destination_page_id' => isset($_POST['catchall_destination_page_id']) ? intval(wp_unslash($_POST['catchall_destination_page_id'])) : 0,
+            'destination_url' => isset($_POST['catchall_destination_url']) ? sanitize_url(wp_unslash($_POST['catchall_destination_url'])) : '',
             'exclude_patterns' => array() // For future use
         );
 
@@ -1265,7 +1272,8 @@ class RedirectAdmin {
         $redirect_url = add_query_arg(array(
             'page' => 'ez-translate-redirects',
             'message' => urlencode($message),
-            'type' => $type
+            'type' => $type,
+            '_wpnonce' => wp_create_nonce('ez_translate_redirect_notice')
         ), admin_url('admin.php'));
 
         wp_redirect($redirect_url);

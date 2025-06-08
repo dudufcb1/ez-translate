@@ -240,7 +240,7 @@ class SitemapCache {
             $files = glob($pattern);
             
             foreach ($files as $file) {
-                if (unlink($file)) {
+                if (wp_delete_file($file)) {
                     $files_deleted++;
                 }
             }
@@ -251,14 +251,14 @@ class SitemapCache {
                 $files = glob($pattern);
                 
                 foreach ($files as $file) {
-                    if (unlink($file)) {
+                    if (wp_delete_file($file)) {
                         $files_deleted++;
                     }
                 }
             } else {
                 // Delete specific file
                 $cache_file = self::get_cache_file_path($type, $language);
-                if (file_exists($cache_file) && unlink($cache_file)) {
+                if (file_exists($cache_file) && wp_delete_file($cache_file)) {
                     $files_deleted++;
                 }
             }
@@ -293,7 +293,7 @@ class SitemapCache {
             
             // Delete files older than cache duration
             if (($current_time - $file_time) > self::$cache_duration) {
-                if (unlink($file)) {
+                if (wp_delete_file($file)) {
                     $files_deleted++;
                 }
             }

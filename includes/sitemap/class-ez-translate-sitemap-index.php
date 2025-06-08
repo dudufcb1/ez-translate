@@ -172,29 +172,43 @@ class SitemapIndex extends SitemapGenerator {
     private function get_posts_last_modified($language = '') {
         global $wpdb;
 
-        $sql = "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts} WHERE post_type = 'post' AND post_status = 'publish'";
-
         if (!empty($language)) {
             // Specific language content
-            $sql .= $wpdb->prepare(" AND ID IN (
-                SELECT post_id FROM {$wpdb->postmeta}
-                WHERE meta_key = '_ez_translate_language' AND meta_value = %s
-            )", $language);
+            $last_modified = $wpdb->get_var($wpdb->prepare(
+                "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts}
+                WHERE post_type = 'post' AND post_status = 'publish'
+                AND ID IN (
+                    SELECT post_id FROM {$wpdb->postmeta}
+                    WHERE meta_key = '_ez_translate_language' AND meta_value = %s
+                )",
+                $language
+            ));
         } else {
             // Default language content (Spanish or no language metadata)
             $enabled_languages = $this->get_enabled_languages();
             if (!empty($enabled_languages)) {
-                $sql .= " AND (
-                    ID NOT IN (SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_ez_translate_language')
-                    OR ID IN (
-                        SELECT post_id FROM {$wpdb->postmeta}
-                        WHERE meta_key = '_ez_translate_language' AND meta_value = 'es'
-                    )
-                )";
+                $last_modified = $wpdb->get_var($wpdb->prepare(
+                    "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts}
+                    WHERE post_type = 'post' AND post_status = 'publish'
+                    AND (
+                        ID NOT IN (SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_ez_translate_language')
+                        OR ID IN (
+                            SELECT post_id FROM {$wpdb->postmeta}
+                            WHERE meta_key = '_ez_translate_language' AND meta_value = %s
+                        )
+                    )",
+                    'es'
+                ));
+            } else {
+                // No multilingual setup, get all posts
+                $last_modified = $wpdb->get_var($wpdb->prepare(
+                    "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts}
+                    WHERE post_type = %s AND post_status = %s",
+                    'post',
+                    'publish'
+                ));
             }
         }
-
-        $last_modified = $wpdb->get_var($sql);
         return $this->format_sitemap_date($last_modified);
     }
 
@@ -208,29 +222,43 @@ class SitemapIndex extends SitemapGenerator {
     private function get_pages_last_modified($language = '') {
         global $wpdb;
 
-        $sql = "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts} WHERE post_type = 'page' AND post_status = 'publish'";
-
         if (!empty($language)) {
             // Specific language content
-            $sql .= $wpdb->prepare(" AND ID IN (
-                SELECT post_id FROM {$wpdb->postmeta}
-                WHERE meta_key = '_ez_translate_language' AND meta_value = %s
-            )", $language);
+            $last_modified = $wpdb->get_var($wpdb->prepare(
+                "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts}
+                WHERE post_type = 'page' AND post_status = 'publish'
+                AND ID IN (
+                    SELECT post_id FROM {$wpdb->postmeta}
+                    WHERE meta_key = '_ez_translate_language' AND meta_value = %s
+                )",
+                $language
+            ));
         } else {
             // Default language content (Spanish or no language metadata)
             $enabled_languages = $this->get_enabled_languages();
             if (!empty($enabled_languages)) {
-                $sql .= " AND (
-                    ID NOT IN (SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_ez_translate_language')
-                    OR ID IN (
-                        SELECT post_id FROM {$wpdb->postmeta}
-                        WHERE meta_key = '_ez_translate_language' AND meta_value = 'es'
-                    )
-                )";
+                $last_modified = $wpdb->get_var($wpdb->prepare(
+                    "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts}
+                    WHERE post_type = 'page' AND post_status = 'publish'
+                    AND (
+                        ID NOT IN (SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_ez_translate_language')
+                        OR ID IN (
+                            SELECT post_id FROM {$wpdb->postmeta}
+                            WHERE meta_key = '_ez_translate_language' AND meta_value = %s
+                        )
+                    )",
+                    'es'
+                ));
+            } else {
+                // No multilingual setup, get all pages
+                $last_modified = $wpdb->get_var($wpdb->prepare(
+                    "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts}
+                    WHERE post_type = %s AND post_status = %s",
+                    'page',
+                    'publish'
+                ));
             }
         }
-
-        $last_modified = $wpdb->get_var($sql);
         return $this->format_sitemap_date($last_modified);
     }
 
@@ -244,37 +272,62 @@ class SitemapIndex extends SitemapGenerator {
     private function get_taxonomies_last_modified($language = '') {
         global $wpdb;
 
-        // Get the most recent post modification that affects taxonomies
-        $taxonomies = implode("','", array_map('esc_sql', $this->settings['taxonomies']));
+        // Build taxonomy conditions using individual OR clauses to avoid interpolation
+        $taxonomy_conditions = array();
+        foreach ($this->settings['taxonomies'] as $taxonomy) {
+            $taxonomy_conditions[] = $wpdb->prepare('tt.taxonomy = %s', esc_sql($taxonomy));
+        }
+        $taxonomy_where = '(' . implode(' OR ', $taxonomy_conditions) . ')';
 
-        $sql = "SELECT MAX(p.post_modified_gmt)
+        if (!empty($language)) {
+            // Specific language content
+            $last_modified = $wpdb->get_var($wpdb->prepare(
+                "SELECT MAX(p.post_modified_gmt)
                 FROM {$wpdb->posts} p
                 INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
                 INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
                 WHERE p.post_status = 'publish'
-                AND tt.taxonomy IN ('{$taxonomies}')";
-
-        if (!empty($language)) {
-            // Specific language content
-            $sql .= $wpdb->prepare(" AND p.ID IN (
-                SELECT post_id FROM {$wpdb->postmeta}
-                WHERE meta_key = '_ez_translate_language' AND meta_value = %s
-            )", $language);
+                AND {$taxonomy_where}
+                AND p.ID IN (
+                    SELECT post_id FROM {$wpdb->postmeta}
+                    WHERE meta_key = '_ez_translate_language' AND meta_value = %s
+                )",
+                $language
+            ));
         } else {
             // Default language content (Spanish or no language metadata)
             $enabled_languages = $this->get_enabled_languages();
             if (!empty($enabled_languages)) {
-                $sql .= " AND (
-                    p.ID NOT IN (SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_ez_translate_language')
-                    OR p.ID IN (
-                        SELECT post_id FROM {$wpdb->postmeta}
-                        WHERE meta_key = '_ez_translate_language' AND meta_value = 'es'
-                    )
-                )";
+                $last_modified = $wpdb->get_var($wpdb->prepare(
+                    "SELECT MAX(p.post_modified_gmt)
+                    FROM {$wpdb->posts} p
+                    INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
+                    INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+                    WHERE p.post_status = 'publish'
+                    AND {$taxonomy_where}
+                    AND (
+                        p.ID NOT IN (SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_ez_translate_language')
+                        OR p.ID IN (
+                            SELECT post_id FROM {$wpdb->postmeta}
+                            WHERE meta_key = '_ez_translate_language' AND meta_value = %s
+                        )
+                    )",
+                    'es'
+                ));
+            } else {
+                // No multilingual setup, get all taxonomy posts
+                $last_modified = $wpdb->get_var($wpdb->prepare(
+                    "SELECT MAX(p.post_modified_gmt)
+                    FROM {$wpdb->posts} p
+                    INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
+                    INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+                    WHERE p.post_status = %s
+                    AND {$taxonomy_where}",
+                    'publish'
+                ));
             }
         }
 
-        $last_modified = $wpdb->get_var($sql);
         return $this->format_sitemap_date($last_modified);
     }
 

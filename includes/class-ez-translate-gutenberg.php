@@ -219,9 +219,27 @@ class Gutenberg {
 
         // Check for post edit screen with block editor
         if ($current_screen->base === 'post' && $current_screen->action !== 'add') {
-            $post_id = isset($_GET['post']) ? (int) $_GET['post'] : 0;
-            if ($post_id && use_block_editor_for_post($post_id)) {
-                return true;
+            // Validate admin context and capabilities
+            if (is_admin() && current_user_can('edit_posts')) {
+                // Get post ID from safe WordPress methods only
+                global $post;
+                $post_id = 0;
+
+                // Try to get post ID from global $post object first
+                if ($post && isset($post->ID)) {
+                    $post_id = (int) $post->ID;
+                }
+
+                // If we have a valid post ID, check if it uses block editor
+                if ($post_id && current_user_can('edit_post', $post_id) && use_block_editor_for_post($post_id)) {
+                    return true;
+                }
+
+                // Fallback: if no post ID but we're on a post edit screen, assume block editor
+                // This handles cases where global $post might not be set yet
+                if (!$post_id && $current_screen->post_type) {
+                    return use_block_editor_for_post_type($current_screen->post_type);
+                }
             }
         }
 

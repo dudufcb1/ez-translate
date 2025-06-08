@@ -107,7 +107,7 @@ class SitemapAdmin {
     public function render_admin_page() {
         // Check user capabilities
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.'));
+            wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'ez-translate'));
         }
 
         $settings = $this->get_sitemap_settings();
@@ -128,34 +128,34 @@ class SitemapAdmin {
                     <!-- General Settings -->
                     <div class="postbox">
                         <div class="postbox-header">
-                            <h2 class="hndle"><?php _e('General Settings', 'ez-translate'); ?></h2>
+                            <h2 class="hndle"><?php esc_html_e('General Settings', 'ez-translate'); ?></h2>
                         </div>
                         <div class="inside">
                             <table class="form-table">
                                 <tr>
-                                    <th scope="row"><?php _e('Enable Sitemap', 'ez-translate'); ?></th>
+                                    <th scope="row"><?php esc_html_e('Enable Sitemap', 'ez-translate'); ?></th>
                                     <td>
                                         <label>
                                             <input type="checkbox" name="enabled" value="1" <?php checked($settings['enabled']); ?>>
-                                            <?php _e('Generate XML sitemaps for your multilingual content', 'ez-translate'); ?>
+                                            <?php esc_html_e('Generate XML sitemaps for your multilingual content', 'ez-translate'); ?>
                                         </label>
                                         <p class="description">
-                                            <?php _e('When enabled, EZ Translate will generate XML sitemaps for all your content in different languages.', 'ez-translate'); ?>
+                                            <?php esc_html_e('When enabled, EZ Translate will generate XML sitemaps for all your content in different languages.', 'ez-translate'); ?>
                                         </p>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <th scope="row"><?php _e('Cache Duration', 'ez-translate'); ?></th>
+                                    <th scope="row"><?php esc_html_e('Cache Duration', 'ez-translate'); ?></th>
                                     <td>
                                         <select name="cache_duration">
-                                            <option value="3600" <?php selected($settings['cache_duration'], 3600); ?>><?php _e('1 Hour', 'ez-translate'); ?></option>
-                                            <option value="21600" <?php selected($settings['cache_duration'], 21600); ?>><?php _e('6 Hours', 'ez-translate'); ?></option>
-                                            <option value="43200" <?php selected($settings['cache_duration'], 43200); ?>><?php _e('12 Hours', 'ez-translate'); ?></option>
-                                            <option value="86400" <?php selected($settings['cache_duration'], 86400); ?>><?php _e('24 Hours', 'ez-translate'); ?></option>
-                                            <option value="604800" <?php selected($settings['cache_duration'], 604800); ?>><?php _e('1 Week', 'ez-translate'); ?></option>
+                                            <option value="3600" <?php selected($settings['cache_duration'], 3600); ?>><?php esc_html_e('1 Hour', 'ez-translate'); ?></option>
+                                            <option value="21600" <?php selected($settings['cache_duration'], 21600); ?>><?php esc_html_e('6 Hours', 'ez-translate'); ?></option>
+                                            <option value="43200" <?php selected($settings['cache_duration'], 43200); ?>><?php esc_html_e('12 Hours', 'ez-translate'); ?></option>
+                                            <option value="86400" <?php selected($settings['cache_duration'], 86400); ?>><?php esc_html_e('24 Hours', 'ez-translate'); ?></option>
+                                            <option value="604800" <?php selected($settings['cache_duration'], 604800); ?>><?php esc_html_e('1 Week', 'ez-translate'); ?></option>
                                         </select>
                                         <p class="description">
-                                            <?php _e('How long to cache generated sitemaps before regenerating them.', 'ez-translate'); ?>
+                                            <?php esc_html_e('How long to cache generated sitemaps before regenerating them.', 'ez-translate'); ?>
                                         </p>
                                     </td>
                                 </tr>
@@ -166,43 +166,43 @@ class SitemapAdmin {
                     <!-- Content Types -->
                     <div class="postbox">
                         <div class="postbox-header">
-                            <h2 class="hndle"><?php _e('Content Types', 'ez-translate'); ?></h2>
+                            <h2 class="hndle"><?php esc_html_e('Content Types', 'ez-translate'); ?></h2>
                         </div>
                         <div class="inside">
                             <table class="form-table">
                                 <tr>
-                                    <th scope="row"><?php _e('Include in Sitemap', 'ez-translate'); ?></th>
+                                    <th scope="row"><?php esc_html_e('Include in Sitemap', 'ez-translate'); ?></th>
                                     <td>
                                         <fieldset>
                                             <label>
                                                 <input type="checkbox" name="post_types[]" value="post" <?php checked(in_array('post', $settings['post_types'])); ?>>
-                                                <?php _e('Posts', 'ez-translate'); ?>
+                                                <?php esc_html_e('Posts', 'ez-translate'); ?>
                                             </label><br>
                                             <label>
                                                 <input type="checkbox" name="post_types[]" value="page" <?php checked(in_array('page', $settings['post_types'])); ?>>
-                                                <?php _e('Pages', 'ez-translate'); ?>
+                                                <?php esc_html_e('Pages', 'ez-translate'); ?>
                                             </label>
                                         </fieldset>
                                         <p class="description">
-                                            <?php _e('Select which content types to include in your sitemaps.', 'ez-translate'); ?>
+                                            <?php esc_html_e('Select which content types to include in your sitemaps.', 'ez-translate'); ?>
                                         </p>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <th scope="row"><?php _e('Taxonomies', 'ez-translate'); ?></th>
+                                    <th scope="row"><?php esc_html_e('Taxonomies', 'ez-translate'); ?></th>
                                     <td>
                                         <fieldset>
                                             <label>
                                                 <input type="checkbox" name="taxonomies[]" value="category" <?php checked(in_array('category', $settings['taxonomies'])); ?>>
-                                                <?php _e('Categories', 'ez-translate'); ?>
+                                                <?php esc_html_e('Categories', 'ez-translate'); ?>
                                             </label><br>
                                             <label>
                                                 <input type="checkbox" name="taxonomies[]" value="post_tag" <?php checked(in_array('post_tag', $settings['taxonomies'])); ?>>
-                                                <?php _e('Tags', 'ez-translate'); ?>
+                                                <?php esc_html_e('Tags', 'ez-translate'); ?>
                                             </label>
                                         </fieldset>
                                         <p class="description">
-                                            <?php _e('Select which taxonomies to include in your sitemaps.', 'ez-translate'); ?>
+                                            <?php esc_html_e('Select which taxonomies to include in your sitemaps.', 'ez-translate'); ?>
                                         </p>
                                     </td>
                                 </tr>
@@ -213,47 +213,47 @@ class SitemapAdmin {
                     <!-- Priority Settings -->
                     <div class="postbox">
                         <div class="postbox-header">
-                            <h2 class="hndle"><?php _e('Priority Settings', 'ez-translate'); ?></h2>
+                            <h2 class="hndle"><?php esc_html_e('Priority Settings', 'ez-translate'); ?></h2>
                         </div>
                         <div class="inside">
                             <table class="form-table">
                                 <tr>
-                                    <th scope="row"><?php _e('Content Priorities', 'ez-translate'); ?></th>
+                                    <th scope="row"><?php esc_html_e('Content Priorities', 'ez-translate'); ?></th>
                                     <td>
                                         <table class="widefat">
                                             <thead>
                                                 <tr>
-                                                    <th><?php _e('Content Type', 'ez-translate'); ?></th>
-                                                    <th><?php _e('Priority', 'ez-translate'); ?></th>
+                                                    <th><?php esc_html_e('Content Type', 'ez-translate'); ?></th>
+                                                    <th><?php esc_html_e('Priority', 'ez-translate'); ?></th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 <tr>
-                                                    <td><?php _e('Landing Pages', 'ez-translate'); ?></td>
+                                                    <td><?php esc_html_e('Landing Pages', 'ez-translate'); ?></td>
                                                     <td>
                                                         <input type="number" name="priorities[landing_page]" value="<?php echo esc_attr($settings['priorities']['landing_page']); ?>" min="0" max="1" step="0.1" style="width: 80px;">
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td><?php _e('Pages', 'ez-translate'); ?></td>
+                                                    <td><?php esc_html_e('Pages', 'ez-translate'); ?></td>
                                                     <td>
                                                         <input type="number" name="priorities[page]" value="<?php echo esc_attr($settings['priorities']['page']); ?>" min="0" max="1" step="0.1" style="width: 80px;">
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td><?php _e('Posts', 'ez-translate'); ?></td>
+                                                    <td><?php esc_html_e('Posts', 'ez-translate'); ?></td>
                                                     <td>
                                                         <input type="number" name="priorities[post]" value="<?php echo esc_attr($settings['priorities']['post']); ?>" min="0" max="1" step="0.1" style="width: 80px;">
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td><?php _e('Categories', 'ez-translate'); ?></td>
+                                                    <td><?php esc_html_e('Categories', 'ez-translate'); ?></td>
                                                     <td>
                                                         <input type="number" name="priorities[category]" value="<?php echo esc_attr($settings['priorities']['category']); ?>" min="0" max="1" step="0.1" style="width: 80px;">
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td><?php _e('Tags', 'ez-translate'); ?></td>
+                                                    <td><?php esc_html_e('Tags', 'ez-translate'); ?></td>
                                                     <td>
                                                         <input type="number" name="priorities[post_tag]" value="<?php echo esc_attr($settings['priorities']['post_tag']); ?>" min="0" max="1" step="0.1" style="width: 80px;">
                                                     </td>
@@ -261,7 +261,7 @@ class SitemapAdmin {
                                             </tbody>
                                         </table>
                                         <p class="description">
-                                            <?php _e('Set the priority for different content types (0.0 to 1.0). Higher values indicate more important content.', 'ez-translate'); ?>
+                                            <?php esc_html_e('Set the priority for different content types (0.0 to 1.0). Higher values indicate more important content.', 'ez-translate'); ?>
                                         </p>
                                     </td>
                                 </tr>
@@ -273,10 +273,10 @@ class SitemapAdmin {
                     <?php if ($settings['enabled']): ?>
                     <div class="postbox">
                         <div class="postbox-header">
-                            <h2 class="hndle"><?php _e('Sitemap URLs', 'ez-translate'); ?></h2>
+                            <h2 class="hndle"><?php esc_html_e('Sitemap URLs', 'ez-translate'); ?></h2>
                         </div>
                         <div class="inside">
-                            <p><?php _e('Your sitemaps are available at the following URLs:', 'ez-translate'); ?></p>
+                            <p><?php esc_html_e('Your sitemaps are available at the following URLs:', 'ez-translate'); ?></p>
                             <?php $this->render_sitemap_urls($languages); ?>
                         </div>
                     </div>
@@ -285,7 +285,7 @@ class SitemapAdmin {
                     <!-- Cache Management -->
                     <div class="postbox">
                         <div class="postbox-header">
-                            <h2 class="hndle"><?php _e('Cache Management', 'ez-translate'); ?></h2>
+                            <h2 class="hndle"><?php esc_html_e('Cache Management', 'ez-translate'); ?></h2>
                         </div>
                         <div class="inside">
                             <?php $this->render_cache_management(); ?>
@@ -294,7 +294,7 @@ class SitemapAdmin {
 
                 </div>
 
-                <?php submit_button(__('Save Settings', 'ez-translate')); ?>
+                <?php submit_button(esc_html__('Save Settings', 'ez-translate')); ?>
             </form>
         </div>
         <?php
@@ -334,26 +334,28 @@ class SitemapAdmin {
      */
     public function handle_settings_update() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['ez_translate_sitemap_nonce'], 'ez_translate_sitemap_settings')) {
-            wp_die(__('Security check failed.'));
+        if (!isset($_POST['ez_translate_sitemap_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['ez_translate_sitemap_nonce'])), 'ez_translate_sitemap_settings')) {
+            wp_die(esc_html__('Security check failed.', 'ez-translate'));
         }
 
         // Check user capabilities
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to perform this action.'));
+            wp_die(esc_html__('You do not have sufficient permissions to perform this action.', 'ez-translate'));
         }
 
         $settings = array(
             'enabled' => isset($_POST['enabled']) ? true : false,
-            'cache_duration' => intval($_POST['cache_duration']),
-            'post_types' => isset($_POST['post_types']) ? array_map('sanitize_text_field', $_POST['post_types']) : array(),
-            'taxonomies' => isset($_POST['taxonomies']) ? array_map('sanitize_text_field', $_POST['taxonomies']) : array(),
+            'cache_duration' => isset($_POST['cache_duration']) ? intval($_POST['cache_duration']) : 3600,
+            'post_types' => isset($_POST['post_types']) ? array_map('sanitize_text_field', wp_unslash($_POST['post_types'])) : array(),
+            'taxonomies' => isset($_POST['taxonomies']) ? array_map('sanitize_text_field', wp_unslash($_POST['taxonomies'])) : array(),
             'priorities' => array()
         );
 
         // Sanitize priorities
         if (isset($_POST['priorities']) && is_array($_POST['priorities'])) {
-            foreach ($_POST['priorities'] as $type => $priority) {
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Array is sanitized field by field below
+            $priorities_raw = wp_unslash($_POST['priorities']);
+            foreach ($priorities_raw as $type => $priority) {
                 $settings['priorities'][sanitize_text_field($type)] = floatval($priority);
             }
         }
@@ -390,14 +392,19 @@ class SitemapAdmin {
      * @since 1.0.0
      */
     private function show_admin_notices() {
-        if (isset($_GET['updated']) && $_GET['updated'] === 'true') {
-            echo '<div class="notice notice-success is-dismissible"><p>' .
-                 __('Sitemap settings saved successfully!', 'ez-translate') . '</p></div>';
-        }
+        // Only show notices for admin users
+        if (current_user_can('manage_options')) {
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- GET parameters for admin messages only
+            if (isset($_GET['updated']) && sanitize_text_field(wp_unslash($_GET['updated'])) === 'true') {
+                echo '<div class="notice notice-success is-dismissible"><p>' .
+                     esc_html__('Sitemap settings saved successfully!', 'ez-translate') . '</p></div>';
+            }
 
-        if (isset($_GET['error']) && $_GET['error'] === 'save_failed') {
-            echo '<div class="notice notice-error is-dismissible"><p>' .
-                 __('Failed to save sitemap settings. Please try again.', 'ez-translate') . '</p></div>';
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- GET parameters for admin messages only
+            if (isset($_GET['error']) && sanitize_text_field(wp_unslash($_GET['error'])) === 'save_failed') {
+                echo '<div class="notice notice-error is-dismissible"><p>' .
+                     esc_html__('Failed to save sitemap settings. Please try again.', 'ez-translate') . '</p></div>';
+            }
         }
     }
 
@@ -413,12 +420,12 @@ class SitemapAdmin {
         echo '<div class="sitemap-urls">';
 
         // Main sitemap
-        echo '<p><strong>' . __('Main Sitemap:', 'ez-translate') . '</strong></p>';
+        echo '<p><strong>' . esc_html__('Main Sitemap:', 'ez-translate') . '</strong></p>';
         echo '<p><a href="' . esc_url($site_url . '/sitemap.xml') . '" target="_blank">' .
              esc_url($site_url . '/sitemap.xml') . '</a></p>';
 
         if (!empty($languages)) {
-            echo '<p><strong>' . __('Language-specific Sitemaps:', 'ez-translate') . '</strong></p>';
+            echo '<p><strong>' . esc_html__('Language-specific Sitemaps:', 'ez-translate') . '</strong></p>';
             echo '<ul>';
 
             foreach ($languages as $language) {
@@ -451,24 +458,24 @@ class SitemapAdmin {
 
         echo '<table class="form-table">';
         echo '<tr>';
-        echo '<th scope="row">' . __('Cache Statistics', 'ez-translate') . '</th>';
+        echo '<th scope="row">' . esc_html__('Cache Statistics', 'ez-translate') . '</th>';
         echo '<td>';
-        echo '<p><strong>' . __('Total cached files:', 'ez-translate') . '</strong> ' . $stats['total_files'] . '</p>';
-        echo '<p><strong>' . __('Valid files:', 'ez-translate') . '</strong> ' . $stats['valid_files'] . '</p>';
-        echo '<p><strong>' . __('Expired files:', 'ez-translate') . '</strong> ' . $stats['expired_files'] . '</p>';
-        echo '<p><strong>' . __('Total cache size:', 'ez-translate') . '</strong> ' . size_format($stats['total_size']) . '</p>';
+        echo '<p><strong>' . esc_html__('Total cached files:', 'ez-translate') . '</strong> ' . esc_html($stats['total_files']) . '</p>';
+        echo '<p><strong>' . esc_html__('Valid files:', 'ez-translate') . '</strong> ' . esc_html($stats['valid_files']) . '</p>';
+        echo '<p><strong>' . esc_html__('Expired files:', 'ez-translate') . '</strong> ' . esc_html($stats['expired_files']) . '</p>';
+        echo '<p><strong>' . esc_html__('Total cache size:', 'ez-translate') . '</strong> ' . esc_html(size_format($stats['total_size'])) . '</p>';
         echo '</td>';
         echo '</tr>';
 
         echo '<tr>';
-        echo '<th scope="row">' . __('Cache Actions', 'ez-translate') . '</th>';
+        echo '<th scope="row">' . esc_html__('Cache Actions', 'ez-translate') . '</th>';
         echo '<td>';
         echo '<button type="button" class="button" onclick="ezTranslateClearCache()">' .
-             __('Clear All Cache', 'ez-translate') . '</button> ';
+             esc_html__('Clear All Cache', 'ez-translate') . '</button> ';
         echo '<button type="button" class="button" onclick="ezTranslateCleanupCache()">' .
-             __('Cleanup Old Files', 'ez-translate') . '</button>';
+             esc_html__('Cleanup Old Files', 'ez-translate') . '</button>';
         echo '<p class="description">' .
-             __('Clear cache to force regeneration of all sitemaps, or cleanup to remove only expired files.', 'ez-translate') .
+             esc_html__('Clear cache to force regeneration of all sitemaps, or cleanup to remove only expired files.', 'ez-translate') .
              '</p>';
         echo '</td>';
         echo '</tr>';
@@ -477,16 +484,16 @@ class SitemapAdmin {
         // Add AJAX handlers
         echo '<script>
         function ezTranslateClearCache() {
-            if (confirm("' . __('Are you sure you want to clear all sitemap cache?', 'ez-translate') . '")) {
+            if (confirm("' . esc_js(__('Are you sure you want to clear all sitemap cache?', 'ez-translate')) . '")) {
                 jQuery.post(ajaxurl, {
                     action: "ez_translate_clear_sitemap_cache",
-                    nonce: "' . wp_create_nonce('ez_translate_cache_action') . '"
+                    nonce: "' . esc_js(wp_create_nonce('ez_translate_cache_action')) . '"
                 }, function(response) {
                     if (response.success) {
-                        alert("' . __('Cache cleared successfully!', 'ez-translate') . '");
+                        alert("' . esc_js(__('Cache cleared successfully!', 'ez-translate')) . '");
                         location.reload();
                     } else {
-                        alert("' . __('Failed to clear cache.', 'ez-translate') . '");
+                        alert("' . esc_js(__('Failed to clear cache.', 'ez-translate')) . '");
                     }
                 });
             }
@@ -495,13 +502,13 @@ class SitemapAdmin {
         function ezTranslateCleanupCache() {
             jQuery.post(ajaxurl, {
                 action: "ez_translate_cleanup_sitemap_cache",
-                nonce: "' . wp_create_nonce('ez_translate_cache_action') . '"
+                nonce: "' . esc_js(wp_create_nonce('ez_translate_cache_action')) . '"
             }, function(response) {
                 if (response.success) {
-                    alert("' . __('Cleanup completed! Files removed: ', 'ez-translate') . '" + response.data.files_removed);
+                    alert("' . esc_js(__('Cleanup completed! Files removed: ', 'ez-translate')) . '" + response.data.files_removed);
                     location.reload();
                 } else {
-                    alert("' . __('Failed to cleanup cache.', 'ez-translate') . '");
+                    alert("' . esc_js(__('Failed to cleanup cache.', 'ez-translate')) . '");
                 }
             });
         }
@@ -515,7 +522,7 @@ class SitemapAdmin {
      */
     public function ajax_clear_cache() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'ez_translate_cache_action')) {
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ez_translate_cache_action')) {
             wp_die('Security check failed');
         }
 
@@ -545,7 +552,7 @@ class SitemapAdmin {
      */
     public function ajax_cleanup_cache() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'ez_translate_cache_action')) {
+        if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'ez_translate_cache_action')) {
             wp_die('Security check failed');
         }
 

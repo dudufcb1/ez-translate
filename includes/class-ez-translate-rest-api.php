@@ -640,7 +640,7 @@ class RestAPI {
             $source_language = $source_metadata['language'] ?? '';
 
             // Check if translation already exists (include drafts to prevent duplicates)
-            if ($source_metadata['group']) {
+            if (!empty($source_metadata['group'])) {
                 $existing_translations = PostMetaManager::get_posts_in_group($source_metadata['group'], array('publish', 'draft', 'pending', 'private'));
                 foreach ($existing_translations as $translation_id) {
                     $translation_meta = PostMetaManager::get_post_metadata($translation_id);
@@ -752,7 +752,7 @@ class RestAPI {
             }
 
             // Set up translation group
-            $group_id = $source_metadata['group'];
+            $group_id = $source_metadata['group'] ?? '';
             if (!$group_id) {
                 // Create new group and assign to source post
                 $group_id = PostMetaManager::generate_group_id();
