@@ -114,11 +114,119 @@
         }
 
         /**
+         * Setup navigation interception for restricted users
+         */
+        setupNavigationInterception() {
+            const userChoice = this.getUserChoice();
+            const availableCodes = this.config.availableLanguages.map(l => l.code);
+
+            // Only setup interception if user is restricted to a specific language
+            if (!this.config.config.restrict_navigation || !userChoice || !availableCodes.includes(userChoice)) {
+                return;
+            }
+
+            console.log('[EZ Translate] Setting up navigation interception for restricted user:', userChoice);
+
+            // Intercept all link clicks
+            document.addEventListener('click', async (e) => {
+                const link = e.target.closest('a[href]');
+                if (!link) return;
+
+                const href = link.getAttribute('href');
+
+                // Skip external links, anchors, and admin links
+                if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:') ||
+                    href.includes('wp-admin') || href.includes('wp-login') ||
+                    href.startsWith('http') && !href.includes(window.location.hostname)) {
+                    return;
+                }
+
+                // Get the target URL
+                let targetUrl;
+                if (href.startsWith('/')) {
+                    targetUrl = window.location.origin + href;
+                } else if (href.startsWith('http')) {
+                    targetUrl = href;
+                } else {
+                    targetUrl = new URL(href, window.location.href).href;
+                }
+
+                // Extract post ID from target URL
+                const targetPostId = this.extractPostIdFromUrl(targetUrl);
+
+                if (targetPostId) {
+                    console.log('[EZ Translate] Intercepting navigation to:', targetUrl, 'Post ID:', targetPostId);
+
+                    // Prevent default navigation
+                    e.preventDefault();
+
+                    // Check if target post has translation in user's language
+                    const translation = await this.findTranslationForPost(targetPostId, userChoice);
+
+                    if (translation) {
+                        console.log('[EZ Translate] Redirecting to translation:', translation.url);
+                        window.location.href = translation.url;
+                    } else {
+                        console.log('[EZ Translate] No translation found, redirecting to landing page');
+                        this.redirectToUserLanguageLanding(userChoice);
+                    }
+                }
+            });
+        }
+
+        /**
+         * Redirect to user's language landing page
+         */
+        redirectToUserLanguageLanding(userLanguage) {
+            try {
+                // If no translation, redirect to landing page for that language
+                const targetLang = this.config.availableLanguages.find(lang => lang.code === userLanguage);
+                if (targetLang && targetLang.landing_page_id) {
+                    const landingUrl = `${this.config.homeUrl}?p=${targetLang.landing_page_id}`;
+                    console.log('[EZ Translate] Redirecting to user language landing page:', landingUrl);
+                    window.location.href = landingUrl;
+                    return;
+                }
+
+                // Special case for Spanish - redirect to home page
+                if (userLanguage === 'es') {
+                    console.log('[EZ Translate] Redirecting to home page for Spanish');
+                    window.location.href = this.config.homeUrl;
+                    return;
+                }
+
+                // Fallback to home page
+                console.log('[EZ Translate] No landing page found, redirecting to home page');
+                window.location.href = this.config.homeUrl;
+
+            } catch (error) {
+                console.error('[EZ Translate] Error during landing page redirection:', error);
+                window.location.href = this.config.homeUrl;
+            }
+        }
+
+        /**
          * Redirect user to their chosen language
          */
-        redirectToUserLanguage(userLanguage) {
+        async redirectToUserLanguage(userLanguage) {
             try {
-                // Try to find a translation of current page in user's language
+                // Get the current URL to determine target post
+                const currentUrl = window.location.href;
+                const targetPostId = this.extractPostIdFromUrl(currentUrl);
+
+                console.log('[EZ Translate] Redirecting user to language:', userLanguage, 'from URL:', currentUrl, 'Post ID:', targetPostId);
+
+                // If we can identify the target post, check for its translations
+                if (targetPostId) {
+                    const targetTranslation = await this.findTranslationForPost(targetPostId, userLanguage);
+                    if (targetTranslation) {
+                        console.log('[EZ Translate] Found translation for target post:', targetTranslation.url);
+                        window.location.href = targetTranslation.url;
+                        return;
+                    }
+                }
+
+                // Fallback: Try to find a translation of current page in user's language
                 const translation = this.findTranslationInData(userLanguage);
 
                 if (translation) {
@@ -213,6 +321,9 @@
                 // Mostrar siempre el minimizado para poder cambiar idioma
                 this.showDetector('minimized');
                 // No mostrar traductor si navegación está restringida
+
+                // Setup navigation interception for restricted users
+                this.setupNavigationInterception();
             } else if (userChoice === 'free' || userChoice === 'dismissed') {
                 // Mostrar traductor siempre en estos estados
                 this.showDetector('minimized');
@@ -951,6 +1062,131 @@
             return this.availableTranslations.find(translation =>
                 translation.language_code === targetLanguage
             );
+        }
+
+        /**
+         * Extract post ID from URL
+         */
+        extractPostIdFromUrl(url) {
+            try {
+                // Try different URL patterns
+
+                // Pattern 1: ?p=123 or ?page_id=123
+                const urlParams = new URLSearchParams(new URL(url).search);
+                if (urlParams.has('p')) {
+                    return parseInt(urlParams.get('p'));
+                }
+                if (urlParams.has('page_id')) {
+                    return parseInt(urlParams.get('page_id'));
+                }
+
+                // Pattern 2: /post-slug/ - we'll need to make an API call for this
+                const urlObj = new URL(url);
+                const pathname = urlObj.pathname;
+
+                // Skip home page and admin URLs
+                if (pathname === '/' || pathname.includes('/wp-admin/') || pathname.includes('/wp-content/')) {
+                    return null;
+                }
+
+                // For pretty permalinks, we'll need to resolve via API
+                // Return a special marker that indicates we need to resolve this
+                return { needsResolution: true, url: url };
+
+            } catch (error) {
+                console.error('[EZ Translate] Error extracting post ID from URL:', error);
+                return null;
+            }
+        }
+
+        /**
+         * Find translation for a specific post
+         */
+        async findTranslationForPost(postId, targetLanguage) {
+            try {
+                // If postId is an object with needsResolution, resolve the URL first
+                if (typeof postId === 'object' && postId.needsResolution) {
+                    postId = await this.resolvePostIdFromUrl(postId.url);
+                    if (!postId) {
+                        return null;
+                    }
+                }
+
+                console.log('[EZ Translate] Looking for translation of post', postId, 'in language', targetLanguage);
+
+                // Make API call to get translations for this specific post
+                const response = await fetch(`${this.config.restUrl}language-detector?post_id=${postId}`);
+
+                if (!response.ok) {
+                    console.error('[EZ Translate] Failed to fetch translations for post:', postId);
+                    return null;
+                }
+
+                const data = await response.json();
+
+                if (data.available_translations) {
+                    const translation = data.available_translations.find(t => t.language_code === targetLanguage);
+                    if (translation) {
+                        console.log('[EZ Translate] Found translation for post', postId, ':', translation);
+                        return translation;
+                    }
+                }
+
+                console.log('[EZ Translate] No translation found for post', postId, 'in language', targetLanguage);
+                return null;
+
+            } catch (error) {
+                console.error('[EZ Translate] Error finding translation for post:', error);
+                return null;
+            }
+        }
+
+        /**
+         * Resolve post ID from URL using WordPress API
+         */
+        async resolvePostIdFromUrl(url) {
+            try {
+                // Use WordPress REST API to resolve URL to post ID
+                const urlObj = new URL(url);
+                const pathname = urlObj.pathname;
+
+                // Extract slug from pathname
+                const pathParts = pathname.split('/').filter(p => p);
+                if (pathParts.length === 0) {
+                    return null;
+                }
+
+                const slug = pathParts[pathParts.length - 1];
+
+                // Try to get post by slug
+                const postResponse = await fetch(`${this.config.restUrl.replace('ez-translate/v1/', '')}wp/v2/posts?slug=${slug}&_fields=id`);
+
+                if (postResponse.ok) {
+                    const posts = await postResponse.json();
+                    if (posts.length > 0) {
+                        console.log('[EZ Translate] Resolved post ID from slug:', slug, '-> ID:', posts[0].id);
+                        return posts[0].id;
+                    }
+                }
+
+                // Try pages if post didn't work
+                const pageResponse = await fetch(`${this.config.restUrl.replace('ez-translate/v1/', '')}wp/v2/pages?slug=${slug}&_fields=id`);
+
+                if (pageResponse.ok) {
+                    const pages = await pageResponse.json();
+                    if (pages.length > 0) {
+                        console.log('[EZ Translate] Resolved page ID from slug:', slug, '-> ID:', pages[0].id);
+                        return pages[0].id;
+                    }
+                }
+
+                console.log('[EZ Translate] Could not resolve post/page ID for slug:', slug);
+                return null;
+
+            } catch (error) {
+                console.error('[EZ Translate] Error resolving post ID from URL:', error);
+                return null;
+            }
         }
 
 

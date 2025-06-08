@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Navigation Interception - EZ Translate</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            background: #f5f5f5;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #0073aa;
+        }
+        .success { color: #00a32a; }
+        .error { color: #d63638; }
+        .warning { color: #dba617; }
+        .info { color: #0073aa; }
+        .test-links {
+            background: #fff;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .test-links a {
+            display: block;
+            margin: 5px 0;
+            padding: 8px;
+            background: #e7f3ff;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .test-links a:hover {
+            background: #cce7ff;
+        }
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        button {
+            background: #0073aa;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #005a87;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Navigation Interception</h1>
+    <p>Esta página simula el comportamiento del sistema de interceptación de navegación cuando un usuario está "encerrado" en un idioma específico.</p>
+
+    <div class="test-section">
+        <h2>📋 Configuración de Prueba</h2>
+        <div id="config-status" class="status"></div>
+        
+        <h3>Simular Usuario Restringido:</h3>
+        <button onclick="simulateRestrictedUser('pt')">🇵🇹 Usuario Restringido a Portugués</button>
+        <button onclick="simulateRestrictedUser('en')">🇬🇧 Usuario Restringido a Inglés</button>
+        <button onclick="simulateRestrictedUser('fr')">🇫🇷 Usuario Restringido a Francés</button>
+        <button onclick="simulateFreeUser()">🌐 Usuario Libre</button>
+        
+        <h3>Enlaces de Prueba:</h3>
+        <div class="test-links">
+            <a href="/?p=123" data-post-id="123">📄 Artículo 123 (tiene traducción en PT y EN)</a>
+            <a href="/?p=456" data-post-id="456">📄 Artículo 456 (solo tiene traducción en EN)</a>
+            <a href="/?p=789" data-post-id="789">📄 Artículo 789 (sin traducciones)</a>
+            <a href="/sample-post/" data-post-id="999">📄 Post con permalink bonito</a>
+            <a href="#anchor">🔗 Enlace ancla (no debe interceptar)</a>
+            <a href="https://google.com">🌐 Enlace externo (no debe interceptar)</a>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Resultados de Prueba</h2>
+        <div id="test-results"></div>
+        <div id="console-log" class="log"></div>
+    </div>
+
+    <script>
+        // Mock data para simular las traducciones disponibles
+        const mockTranslations = {
+            123: [
+                { language_code: 'pt', post_id: 124, url: '/?p=124', title: 'Artigo 123 em Português' },
+                { language_code: 'en', post_id: 125, url: '/?p=125', title: 'Article 123 in English' }
+            ],
+            456: [
+                { language_code: 'en', post_id: 457, url: '/?p=457', title: 'Article 456 in English' }
+            ],
+            789: [], // Sin traducciones
+            999: [
+                { language_code: 'pt', post_id: 1000, url: '/post-em-portugues/', title: 'Post em Português' }
+            ]
+        };
+
+        const mockLanguages = [
+            { code: 'es', name: 'Español', native_name: 'Español', flag: '🇪🇸', landing_page_id: null },
+            { code: 'pt', name: 'Portuguese', native_name: 'Português', flag: '🇵🇹', landing_page_id: 100 },
+            { code: 'en', name: 'English', native_name: 'English', flag: '🇬🇧', landing_page_id: 200 },
+            { code: 'fr', name: 'French', native_name: 'Français', flag: '🇫🇷', landing_page_id: 300 }
+        ];
+
+        let currentUserChoice = null;
+        let interceptorActive = false;
+
+        // Mock de las funciones del detector
+        function extractPostIdFromUrl(url) {
+            try {
+                const urlParams = new URLSearchParams(new URL(url).search);
+                if (urlParams.has('p')) {
+                    return parseInt(urlParams.get('p'));
+                }
+                
+                // Para permalinks bonitos, usar el mock
+                if (url.includes('sample-post')) {
+                    return 999;
+                }
+                
+                return null;
+            } catch (error) {
+                logToConsole('Error extracting post ID: ' + error.message, 'error');
+                return null;
+            }
+        }
+
+        async function findTranslationForPost(postId, targetLanguage) {
+            logToConsole(`🔍 Buscando traducción del post ${postId} en idioma ${targetLanguage}`, 'info');
+            
+            // Simular delay de API
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            const translations = mockTranslations[postId] || [];
+            const translation = translations.find(t => t.language_code === targetLanguage);
+            
+            if (translation) {
+                logToConsole(`✅ Traducción encontrada: ${translation.url}`, 'success');
+                return translation;
+            } else {
+                logToConsole(`❌ No se encontró traducción en ${targetLanguage}`, 'warning');
+                return null;
+            }
+        }
+
+        function redirectToUserLanguageLanding(userLanguage) {
+            const targetLang = mockLanguages.find(lang => lang.code === userLanguage);
+            if (targetLang && targetLang.landing_page_id) {
+                const landingUrl = `/?p=${targetLang.landing_page_id}`;
+                logToConsole(`🏠 Redirigiendo a landing page: ${landingUrl}`, 'info');
+                // En lugar de redirigir realmente, solo mostrar el resultado
+                showTestResult(`Redirección a landing page de ${userLanguage}: ${landingUrl}`, 'info');
+            } else {
+                logToConsole(`🏠 Redirigiendo a página principal`, 'info');
+                showTestResult(`Redirección a página principal (no hay landing para ${userLanguage})`, 'warning');
+            }
+        }
+
+        function setupNavigationInterception() {
+            if (interceptorActive) {
+                logToConsole('⚠️ Interceptor ya está activo', 'warning');
+                return;
+            }
+
+            if (!currentUserChoice || currentUserChoice === 'free') {
+                logToConsole('ℹ️ No se configura interceptor (usuario libre)', 'info');
+                return;
+            }
+
+            logToConsole(`🛡️ Configurando interceptor para usuario restringido a: ${currentUserChoice}`, 'info');
+            interceptorActive = true;
+
+            document.addEventListener('click', async (e) => {
+                const link = e.target.closest('a[href]');
+                if (!link) return;
+
+                const href = link.getAttribute('href');
+                
+                // Skip external links, anchors, and admin links
+                if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:') || 
+                    href.includes('wp-admin') || href.includes('wp-login') || 
+                    href.startsWith('http') && !href.includes(window.location.hostname)) {
+                    logToConsole(`⏭️ Enlace ignorado: ${href}`, 'info');
+                    return;
+                }
+
+                // Get the target URL
+                let targetUrl;
+                if (href.startsWith('/')) {
+                    targetUrl = window.location.origin + href;
+                } else if (href.startsWith('http')) {
+                    targetUrl = href;
+                } else {
+                    targetUrl = new URL(href, window.location.href).href;
+                }
+
+                // Extract post ID from target URL
+                const targetPostId = extractPostIdFromUrl(targetUrl);
+                
+                if (targetPostId) {
+                    logToConsole(`🔗 Interceptando navegación a: ${targetUrl} (Post ID: ${targetPostId})`, 'info');
+                    
+                    // Prevent default navigation
+                    e.preventDefault();
+                    
+                    // Check if target post has translation in user's language
+                    const translation = await findTranslationForPost(targetPostId, currentUserChoice);
+                    
+                    if (translation) {
+                        logToConsole(`✅ Redirigiendo a traducción: ${translation.url}`, 'success');
+                        showTestResult(`Éxito: Redirigido a traducción en ${currentUserChoice}: ${translation.url}`, 'success');
+                    } else {
+                        logToConsole(`❌ No hay traducción, redirigiendo a landing`, 'warning');
+                        redirectToUserLanguageLanding(currentUserChoice);
+                    }
+                } else {
+                    logToConsole(`⏭️ No se pudo extraer post ID de: ${targetUrl}`, 'info');
+                }
+            });
+        }
+
+        function simulateRestrictedUser(language) {
+            currentUserChoice = language;
+            interceptorActive = false;
+            
+            updateConfigStatus();
+            setupNavigationInterception();
+            logToConsole(`👤 Usuario configurado como restringido a: ${language}`, 'info');
+            clearTestResults();
+        }
+
+        function simulateFreeUser() {
+            currentUserChoice = 'free';
+            interceptorActive = false;
+            
+            updateConfigStatus();
+            logToConsole(`👤 Usuario configurado como libre`, 'info');
+            clearTestResults();
+        }
+
+        function updateConfigStatus() {
+            const statusDiv = document.getElementById('config-status');
+            if (currentUserChoice && currentUserChoice !== 'free') {
+                const lang = mockLanguages.find(l => l.code === currentUserChoice);
+                statusDiv.innerHTML = `<strong>Estado:</strong> Usuario restringido a ${lang.flag} ${lang.native_name} (${currentUserChoice})`;
+                statusDiv.className = 'status warning';
+            } else {
+                statusDiv.innerHTML = `<strong>Estado:</strong> Usuario con navegación libre`;
+                statusDiv.className = 'status success';
+            }
+        }
+
+        function logToConsole(message, type = 'info') {
+            const logDiv = document.getElementById('console-log');
+            const timestamp = new Date().toLocaleTimeString();
+            const colors = {
+                info: '#0ff',
+                success: '#0f0',
+                warning: '#ff0',
+                error: '#f00'
+            };
+            
+            logDiv.innerHTML += `<div style="color: ${colors[type]}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function showTestResult(message, type) {
+            const resultsDiv = document.getElementById('test-results');
+            const colors = {
+                success: '#d1edff',
+                warning: '#fff3cd',
+                error: '#f8d7da',
+                info: '#e7f3ff'
+            };
+            
+            resultsDiv.innerHTML += `<div style="background: ${colors[type]}; padding: 10px; margin: 5px 0; border-radius: 4px;">${message}</div>`;
+        }
+
+        function clearTestResults() {
+            document.getElementById('test-results').innerHTML = '';
+        }
+
+        // Inicializar
+        logToConsole('🚀 Sistema de prueba inicializado', 'success');
+        updateConfigStatus();
+    </script>
+</body>
+</html>
