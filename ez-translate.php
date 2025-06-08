@@ -3,7 +3,7 @@
  * Plugin Name: EZ Translate
  * Plugin URI: https://github.com/your-username/ez-translate
  * Description: A comprehensive multilingual system for WordPress that simplifies managing content in multiple languages with advanced SEO optimization.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: Your Name
  * Author URI: https://yourwebsite.com
  * Text Domain: ez-translate
@@ -24,7 +24,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('EZ_TRANSLATE_VERSION', '1.0.0');
+define('EZ_TRANSLATE_VERSION', '1.0.1');
 define('EZ_TRANSLATE_PLUGIN_FILE', __FILE__);
 define('EZ_TRANSLATE_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('EZ_TRANSLATE_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -287,8 +287,8 @@ final class EZTranslate {
 
         // Only set version if it's a new installation (version is 0)
         if ($current_db_version === '0') {
-            update_option('ez_translate_db_version', '1.0.0');
-            $this->log_message('Database version set to 1.0.0 for new installation', 'info');
+            update_option('ez_translate_db_version', '1.0.1');
+            $this->log_message('Database version set to 1.0.1 for new installation', 'info');
         }
     }
 

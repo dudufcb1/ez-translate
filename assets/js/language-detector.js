@@ -175,15 +175,22 @@
         }
 
         /**
-         * Redirect to user's language landing page
+         * Redirect to user's language landing page using slug-based URL
          */
-        redirectToUserLanguageLanding(userLanguage) {
+        async redirectToUserLanguageLanding(userLanguage) {
             try {
-                // If no translation, redirect to landing page for that language
-                const targetLang = this.config.availableLanguages.find(lang => lang.code === userLanguage);
-                if (targetLang && targetLang.landing_page_id) {
-                    const landingUrl = `${this.config.homeUrl}?p=${targetLang.landing_page_id}`;
-                    console.log('[EZ Translate] Redirecting to user language landing page:', landingUrl);
+                // First, try to find landing page from available translations (which includes URLs)
+                const landingTranslation = this.findLandingPageInTranslations(userLanguage);
+                if (landingTranslation) {
+                    console.log('[EZ Translate] Redirecting to landing page via translation data:', landingTranslation.url);
+                    window.location.href = landingTranslation.url;
+                    return;
+                }
+
+                // If not found in translations, try to get landing page URL via API
+                const landingUrl = await this.getLandingPageUrl(userLanguage);
+                if (landingUrl) {
+                    console.log('[EZ Translate] Redirecting to landing page via API:', landingUrl);
                     window.location.href = landingUrl;
                     return;
                 }
@@ -236,10 +243,17 @@
                 }
 
                 // If no translation, redirect to landing page for that language
-                const targetLang = this.config.availableLanguages.find(lang => lang.code === userLanguage);
-                if (targetLang && targetLang.landing_page_id) {
-                    const landingUrl = `${this.config.homeUrl}?p=${targetLang.landing_page_id}`;
-                    console.log('[EZ Translate] Redirecting to user language landing page:', landingUrl);
+                const landingTranslation = this.findLandingPageInTranslations(userLanguage);
+                if (landingTranslation) {
+                    console.log('[EZ Translate] Redirecting to landing page via translation data:', landingTranslation.url);
+                    window.location.href = landingTranslation.url;
+                    return;
+                }
+
+                // If not found in translations, try to get landing page URL via API
+                const landingUrl = await this.getLandingPageUrl(userLanguage);
+                if (landingUrl) {
+                    console.log('[EZ Translate] Redirecting to landing page via API:', landingUrl);
                     window.location.href = landingUrl;
                     return;
                 }
@@ -303,19 +317,31 @@
                 browserLanguage,
                 currentLanguage,
                 userChoice,
-                hasTranslations: this.hasTranslations
+                hasTranslations: this.hasTranslations,
+                hasLandingPages: this.hasLandingPages()
             });
 
             // Remove any existing translator first
             this.removeTranslator();
 
-            const restrictNavigation = this.config.config.restrict_navigation;
+            // Si no hay landing pages configuradas, no mostrar nada
+            if (!this.hasLandingPages()) {
+                console.log('[EZ Translate] No landing pages configured, not showing detector');
+                return;
+            }
+
             const availableCodes = this.config.availableLanguages.map(l => l.code);
 
             if (!userChoice) {
-                // Usuario no ha elegido nada - mostrar selector desplegado + traductor activo
-                this.showDetector('unfold', browserLanguage);
-                this.showTranslator(browserLanguage);
+                // Primera visita - verificar si debe mostrarse automáticamente
+                if (this.shouldShowDetectorAutomatically(browserLanguage, currentLanguage)) {
+                    this.showDetector('unfold', browserLanguage);
+                    this.showTranslator(browserLanguage);
+                } else {
+                    // No mostrar automáticamente, solo el botón minimizado
+                    this.showDetector('minimized');
+                    this.showTranslator(browserLanguage);
+                }
             } else if (availableCodes.includes(userChoice)) {
                 // Si userChoice es un código de idioma válido (ej: 'en', 'es', etc)
                 // Mostrar siempre el minimizado para poder cambiar idioma
@@ -329,6 +355,46 @@
                 this.showDetector('minimized');
                 this.showTranslator(browserLanguage);
             }
+        }
+
+        /**
+         * Check if there are landing pages configured
+         */
+        hasLandingPages() {
+            // Check if any language has a landing page configured
+            return this.config.availableLanguages.some(lang => lang.landing_page_id);
+        }
+
+        /**
+         * Check if detector should show automatically on first visit
+         */
+        shouldShowDetectorAutomatically(browserLanguage, currentLanguage) {
+            // No mostrar si el usuario está en su idioma nativo
+            if (browserLanguage === currentLanguage) {
+                console.log('[EZ Translate] User is in their native language, not showing detector automatically');
+                return false;
+            }
+
+            // No mostrar si no hay idiomas disponibles diferentes al actual
+            const otherLanguages = this.config.availableLanguages.filter(lang =>
+                lang.code !== currentLanguage && lang.landing_page_id
+            );
+
+            if (otherLanguages.length === 0) {
+                console.log('[EZ Translate] No other languages with landing pages available');
+                return false;
+            }
+
+            // Mostrar si el idioma del navegador tiene landing page disponible
+            const browserLangHasLanding = otherLanguages.some(lang => lang.code === browserLanguage);
+            if (browserLangHasLanding) {
+                console.log('[EZ Translate] Browser language has landing page, showing detector');
+                return true;
+            }
+
+            // No mostrar automáticamente en otros casos
+            console.log('[EZ Translate] Browser language does not have landing page, not showing automatically');
+            return false;
         }
 
         /**
@@ -440,11 +506,11 @@
          */
         attachTranslatorEventListeners(translator) {
             // Handle language selection from translator dropdown
-            translator.addEventListener('click', (e) => {
+            translator.addEventListener('click', async (e) => {
                 if (e.target.closest('.ez-translator-lang-item')) {
                     const langItem = e.target.closest('.ez-translator-lang-item');
                     const language = langItem.dataset.language;
-                    this.handleSwitch(language);
+                    await this.handleSwitch(language);
                 }
             });
         }
@@ -453,12 +519,12 @@
          * Attach event listeners to helper element
          */
         attachHelperEventListeners(helper) {
-            helper.addEventListener('click', (e) => {
+            helper.addEventListener('click', async (e) => {
                 const action = e.target.dataset.action;
                 const language = e.target.dataset.language;
 
                 if (action === 'switch') {
-                    this.handleSwitch(language);
+                    await this.handleSwitch(language);
                 }
             });
         }
@@ -653,14 +719,19 @@
         }
 
         /**
-         * Create language list for dropdown (all available languages)
+         * Create language list for dropdown (all available languages with landing pages)
          */
         createLanguageList() {
             let html = '';
             const messages = this.getMessages(this.config.currentLanguage);
 
-            // Show ALL available languages, not just those with translations of current page
+            // Show ALL available languages that have landing pages configured
             this.config.availableLanguages.forEach(lang => {
+                // Skip languages without landing pages
+                if (!lang.landing_page_id) {
+                    return;
+                }
+
                 const isActive = lang.code === this.config.currentLanguage;
 
                 // Check if this language has a translation or landing page
@@ -672,7 +743,7 @@
                 } else if (translation) {
                     statusText = translation.is_landing_page ? `<small>${messages.landing_label}</small>` : `<small>${messages.translation_label}</small>`;
                 } else {
-                    // Check if language has a landing page configured
+                    // Language has landing page configured
                     statusText = `<small>${messages.landing_label}</small>`;
                 }
 
@@ -736,20 +807,27 @@
         }
 
         /**
-         * Create editions list for unfold mode
+         * Create editions list for unfold mode - shows ALL available languages with landing pages
          */
         createEditionsList(targetLanguage) {
             let html = '<div class="ez-detector-editions-list">';
 
-            // Show target language first (highlighted) if translation exists
+            // Show target language first (highlighted) if it has landing page or translation
+            const targetLang = this.getLanguageData(targetLanguage);
             const targetTranslation = this.findTranslationInData(targetLanguage);
-            if (targetTranslation) {
-                const targetLang = this.getLanguageData(targetLanguage);
+            const targetHasLanding = this.config.availableLanguages.find(lang =>
+                lang.code === targetLanguage && lang.landing_page_id
+            );
+
+            if (targetTranslation || targetHasLanding) {
                 html += `
                     <div class="ez-detector-edition ez-detector-edition-highlighted" data-language="${targetLanguage}">
                         <span class="ez-detector-flag">${targetLang.flag || '🌐'}</span>
                         <span class="ez-detector-name">${targetLang.native_name || targetLang.name}</span>
-                        ${targetTranslation.is_landing_page ? '<small>(Landing Page)</small>' : ''}
+                        ${targetTranslation ?
+                            (targetTranslation.is_landing_page ? '<small>(Landing Page)</small>' : '<small>(Translation)</small>') :
+                            '<small>(Landing Page)</small>'
+                        }
                     </div>
                 `;
             }
@@ -766,21 +844,27 @@
                 `;
             }
 
-            // Show other available translations
-            if (this.availableTranslations) {
-                this.availableTranslations.forEach(translation => {
-                    if (translation.language_code !== targetLanguage && translation.language_code !== this.config.currentLanguage) {
-                        const lang = this.getLanguageData(translation.language_code);
-                        html += `
-                            <div class="ez-detector-edition" data-language="${translation.language_code}">
-                                <span class="ez-detector-flag">${lang.flag || '🌐'}</span>
-                                <span class="ez-detector-name">${lang.native_name || lang.name}</span>
-                                ${translation.is_landing_page ? '<small>(Landing Page)</small>' : ''}
-                            </div>
-                        `;
-                    }
-                });
-            }
+            // Show ALL other available languages that have landing pages
+            this.config.availableLanguages.forEach(lang => {
+                // Skip if it's the target language or current language, or if no landing page
+                if (lang.code === targetLanguage || lang.code === this.config.currentLanguage || !lang.landing_page_id) {
+                    return;
+                }
+
+                // Check if this language has a real translation for current page
+                const translation = this.findTranslationInData(lang.code);
+                const statusText = translation ?
+                    (translation.is_landing_page ? '<small>(Landing Page)</small>' : '<small>(Translation)</small>') :
+                    '<small>(Landing Page)</small>';
+
+                html += `
+                    <div class="ez-detector-edition" data-language="${lang.code}">
+                        <span class="ez-detector-flag">${lang.flag || '🌐'}</span>
+                        <span class="ez-detector-name">${lang.native_name || lang.name}</span>
+                        ${statusText}
+                    </div>
+                `;
+            });
 
             html += '</div>';
             return html;
@@ -872,20 +956,20 @@
             });
 
             // Handle language selection in dropdown
-            this.detector.addEventListener('click', (e) => {
+            this.detector.addEventListener('click', async (e) => {
                 if (e.target.closest('.ez-detector-lang-item')) {
                     const langItem = e.target.closest('.ez-detector-lang-item');
                     const language = langItem.dataset.language;
-                    this.handleLanguageSelect(language);
+                    await this.handleLanguageSelect(language);
                 }
             });
 
             // Handle edition selection
-            this.detector.addEventListener('click', (e) => {
+            this.detector.addEventListener('click', async (e) => {
                 if (e.target.closest('.ez-detector-edition')) {
                     const edition = e.target.closest('.ez-detector-edition');
                     const language = edition.dataset.language;
-                    this.handleConfirm(language);
+                    await this.handleConfirm(language);
                 }
             });
 
@@ -907,7 +991,7 @@
         /**
          * Handle confirm action (redirect to selected language)
          */
-        handleConfirm(language) {
+        async handleConfirm(language) {
             console.log('[EZ Translate] Confirming language:', language);
 
             // Guardar preferencia de navegación
@@ -917,7 +1001,7 @@
             this.removeTranslator();
 
             // Redirect to appropriate page
-            this.redirectToLanguage(language);
+            await this.redirectToLanguage(language);
         }
 
         /**
@@ -977,11 +1061,11 @@
         /**
          * Handle switch action (from helper mode)
          */
-        handleSwitch(language) {
+        async handleSwitch(language) {
             console.log('[EZ Translate] Switching to language:', language);
 
             // Solo redirigir, NO guardar preferencia
-            this.redirectToLanguage(language);
+            await this.redirectToLanguage(language);
         }
 
         /**
@@ -996,7 +1080,7 @@
         /**
          * Handle language selection from dropdown
          */
-        handleLanguageSelect(language) {
+        async handleLanguageSelect(language) {
             console.log('[EZ Translate] Language selected:', language);
 
             if (language === this.config.currentLanguage) {
@@ -1013,13 +1097,13 @@
 
             // No quitamos el traductor, permitimos seguir navegando
             // Redirigir a la página en el idioma seleccionado
-            this.redirectToLanguage(language);
+            await this.redirectToLanguage(language);
         }
 
         /**
          * Redirect to appropriate page in target language
          */
-        redirectToLanguage(targetLanguage) {
+        async redirectToLanguage(targetLanguage) {
             try {
                 // Find translation in already loaded data
                 const translation = this.findTranslationInData(targetLanguage);
@@ -1031,10 +1115,17 @@
                 }
 
                 // If no specific translation, try to find landing page for the language
-                const targetLang = this.config.availableLanguages.find(lang => lang.code === targetLanguage);
-                if (targetLang && targetLang.landing_page_id) {
-                    const landingUrl = `${this.config.homeUrl}?p=${targetLang.landing_page_id}`;
-                    console.log('[EZ Translate] Redirecting to landing page:', landingUrl);
+                const landingTranslation = this.findLandingPageInTranslations(targetLanguage);
+                if (landingTranslation) {
+                    console.log('[EZ Translate] Redirecting to landing page via translation data:', landingTranslation.url);
+                    window.location.href = landingTranslation.url;
+                    return;
+                }
+
+                // If not found in translations, try to get landing page URL via API
+                const landingUrl = await this.getLandingPageUrl(targetLanguage);
+                if (landingUrl) {
+                    console.log('[EZ Translate] Redirecting to landing page via API:', landingUrl);
                     window.location.href = landingUrl;
                     return;
                 }
@@ -1068,6 +1159,60 @@
             return this.availableTranslations.find(translation =>
                 translation.language_code === targetLanguage
             );
+        }
+
+        /**
+         * Find landing page in available translations
+         */
+        findLandingPageInTranslations(targetLanguage) {
+            if (!this.availableTranslations) {
+                return null;
+            }
+
+            return this.availableTranslations.find(translation =>
+                translation.language_code === targetLanguage && translation.is_landing_page
+            );
+        }
+
+        /**
+         * Get landing page URL via API call
+         */
+        async getLandingPageUrl(targetLanguage) {
+            try {
+                console.log('[EZ Translate] Getting landing page URL for language:', targetLanguage);
+
+                // Get the landing page ID from config
+                const targetLang = this.config.availableLanguages.find(lang => lang.code === targetLanguage);
+                if (!targetLang || !targetLang.landing_page_id) {
+                    console.log('[EZ Translate] No landing page ID configured for language:', targetLanguage);
+                    return null;
+                }
+
+                // Use WordPress REST API to get the permalink (which uses slug)
+                const postResponse = await fetch(`${this.config.restUrl.replace('ez-translate/v1/', '')}wp/v2/pages/${targetLang.landing_page_id}?_fields=link`);
+
+                if (postResponse.ok) {
+                    const post = await postResponse.json();
+                    console.log('[EZ Translate] Found landing page URL via API:', post.link);
+                    return post.link;
+                }
+
+                // Try posts if pages failed
+                const pageResponse = await fetch(`${this.config.restUrl.replace('ez-translate/v1/', '')}wp/v2/posts/${targetLang.landing_page_id}?_fields=link`);
+
+                if (pageResponse.ok) {
+                    const page = await pageResponse.json();
+                    console.log('[EZ Translate] Found landing post URL via API:', page.link);
+                    return page.link;
+                }
+
+                console.log('[EZ Translate] Could not get landing page URL via API for ID:', targetLang.landing_page_id);
+                return null;
+
+            } catch (error) {
+                console.error('[EZ Translate] Error getting landing page URL:', error);
+                return null;
+            }
         }
 
         /**
