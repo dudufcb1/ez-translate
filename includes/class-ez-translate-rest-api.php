@@ -256,7 +256,32 @@ class RestAPI {
             )
         ));
 
+        // API status endpoint - check if AI translation is available
+        register_rest_route(self::NAMESPACE, '/api-status', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_api_status'),
+            'permission_callback' => '__return_true', // Public access
+        ));
 
+        // Multiple translations endpoint
+        register_rest_route(self::NAMESPACE, '/create-multiple-translations/(?P<id>\d+)', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'create_multiple_translations'),
+            'permission_callback' => array($this, 'check_post_permissions'),
+            'args' => array(
+                'id' => array(
+                    'validate_callback' => function($param, $request, $key) {
+                        return is_numeric($param);
+                    }
+                ),
+                'target_languages' => array(
+                    'required' => true,
+                    'validate_callback' => function($param, $request, $key) {
+                        return is_array($param) && !empty($param);
+                    }
+                )
+            )
+        ));
 
         Logger::info('REST API routes registered');
     }
@@ -1545,5 +1570,143 @@ class RestAPI {
                 'description' => 'SEO description for landing pages',
             ),
         );
+    }
+
+    /**
+     * Get API status
+     *
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     * @since 1.0.0
+     */
+    public function get_api_status($request) {
+        try {
+            $api_enabled = LanguageManager::is_api_enabled();
+            $api_settings = LanguageManager::get_api_settings();
+
+            Logger::info('REST API: API status requested', array(
+                'api_enabled' => $api_enabled,
+                'has_api_key' => !empty($api_settings['api_key'])
+            ));
+
+            return rest_ensure_response(array(
+                'success' => true,
+                'data' => array(
+                    'api_enabled' => $api_enabled,
+                    'has_api_key' => !empty($api_settings['api_key']),
+                    'provider' => 'gemini'
+                )
+            ));
+        } catch (Exception $e) {
+            Logger::error('REST API: Failed to get API status', array(
+                'error' => $e->getMessage()
+            ));
+
+            return new \WP_Error('api_status_failed', 'Failed to get API status', array('status' => 500));
+        }
+    }
+
+    /**
+     * Create multiple translations
+     *
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     * @since 1.0.0
+     */
+    public function create_multiple_translations($request) {
+        try {
+            $source_post_id = (int) $request->get_param('id');
+            $target_languages = $request->get_param('target_languages');
+
+            // Get the source post
+            $source_post = get_post($source_post_id);
+            if (!$source_post) {
+                return new \WP_Error('source_post_not_found', 'Source post not found', array('status' => 404));
+            }
+
+            // Validate all target languages exist
+            foreach ($target_languages as $target_language) {
+                $language = LanguageManager::get_language($target_language);
+                if (!$language) {
+                    return new \WP_Error('invalid_target_language', 'Target language not found: ' . $target_language, array('status' => 400));
+                }
+            }
+
+            $results = array();
+            $errors = array();
+
+            Logger::info('REST API: Creating multiple translations', array(
+                'source_post_id' => $source_post_id,
+                'target_languages' => $target_languages,
+                'count' => count($target_languages)
+            ));
+
+            // Create translations one by one
+            foreach ($target_languages as $target_language) {
+                try {
+                    // Create a mock request for the single translation endpoint
+                    $single_request = new \WP_REST_Request('POST', '/ez-translate/v1/create-translation/' . $source_post_id);
+                    $single_request->set_param('id', $source_post_id);
+                    $single_request->set_param('target_language', $target_language);
+
+                    // Call the existing create_translation method
+                    $result = $this->create_translation($single_request);
+
+                    if (is_wp_error($result)) {
+                        $errors[] = array(
+                            'language' => $target_language,
+                            'error' => $result->get_error_message()
+                        );
+                    } else {
+                        $response_data = $result->get_data();
+                        if ($response_data['success']) {
+                            $results[] = array(
+                                'language' => $target_language,
+                                'translation_id' => $response_data['data']['translation_id'],
+                                'edit_url' => $response_data['data']['edit_url'],
+                                'translation_method' => $response_data['data']['translation_method'] ?? 'copy'
+                            );
+                        } else {
+                            $errors[] = array(
+                                'language' => $target_language,
+                                'error' => 'Failed to create translation'
+                            );
+                        }
+                    }
+                } catch (Exception $e) {
+                    $errors[] = array(
+                        'language' => $target_language,
+                        'error' => $e->getMessage()
+                    );
+                }
+            }
+
+            Logger::info('REST API: Multiple translations completed', array(
+                'source_post_id' => $source_post_id,
+                'successful' => count($results),
+                'failed' => count($errors)
+            ));
+
+            return rest_ensure_response(array(
+                'success' => true,
+                'message' => 'Multiple translations process completed',
+                'data' => array(
+                    'successful_translations' => $results,
+                    'failed_translations' => $errors,
+                    'total_requested' => count($target_languages),
+                    'successful_count' => count($results),
+                    'failed_count' => count($errors)
+                )
+            ));
+
+        } catch (Exception $e) {
+            Logger::error('REST API: Failed to create multiple translations', array(
+                'error' => $e->getMessage(),
+                'source_post_id' => $request->get_param('id'),
+                'target_languages' => $request->get_param('target_languages')
+            ));
+
+            return new \WP_Error('create_multiple_translations_failed', 'Failed to create multiple translations', array('status' => 500));
+        }
     }
 }

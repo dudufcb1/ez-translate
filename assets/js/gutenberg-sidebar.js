@@ -49,6 +49,15 @@
         const [similarityCheck, setSimilarityCheck] = useState({});
         const [manualCheckResult, setManualCheckResult] = useState(null);
 
+        // API status states
+        const [apiStatus, setApiStatus] = useState(null);
+        const [loadingApiStatus, setLoadingApiStatus] = useState(false);
+
+        // Multi-translation states
+        const [selectedLanguages, setSelectedLanguages] = useState([]);
+        const [creatingMultiple, setCreatingMultiple] = useState(false);
+        const [multiTranslationProgress, setMultiTranslationProgress] = useState(null);
+
         // Landing page functionality removed - legacy state removed
 
         // Get post data from WordPress data store
@@ -87,6 +96,7 @@
         useEffect(() => {
             loadLanguages();
             loadExistingTranslations();
+            loadApiStatus();
         }, []);
 
         // Reload translations when post ID changes
@@ -205,6 +215,34 @@
         };
 
         /**
+         * Load API status
+         */
+        const loadApiStatus = async () => {
+            try {
+                setLoadingApiStatus(true);
+
+                const response = await apiFetch({
+                    path: 'ez-translate/v1/api-status',
+                    method: 'GET'
+                });
+
+                if (response.success) {
+                    setApiStatus(response.data);
+                }
+            } catch (err) {
+                console.error('Failed to load API status:', err);
+                // Set default status if API call fails
+                setApiStatus({
+                    api_enabled: false,
+                    has_api_key: false,
+                    provider: 'none'
+                });
+            } finally {
+                setLoadingApiStatus(false);
+            }
+        };
+
+        /**
          * Update post meta field
          */
         const updateMeta = (key, value) => {
@@ -241,6 +279,32 @@
             setCreating(true);
             setError(null);
 
+            // Check API status and show appropriate message
+            let translationMethod = 'copy';
+            let warningMessage = '';
+
+            if (apiStatus) {
+                if (!apiStatus.api_enabled || !apiStatus.has_api_key) {
+                    translationMethod = 'copy';
+                    warningMessage = __('AI translation is not available. The content will be copied and you can translate it manually.', 'ez-translate');
+                } else {
+                    translationMethod = 'ai';
+                }
+            }
+
+            // Show warning if using fallback method
+            if (warningMessage) {
+                const shouldContinue = confirm(
+                    warningMessage + '\n\n' +
+                    __('Do you want to continue?', 'ez-translate')
+                );
+
+                if (!shouldContinue) {
+                    setCreating(false);
+                    return;
+                }
+            }
+
             try {
                 // Call the REST API to create translation
                 const response = await wp.apiFetch({
@@ -255,13 +319,27 @@
                     // Reload translations to update the UI
                     await loadExistingTranslations();
 
-                    // Show success message
-                    const message = __('Translation created successfully!', 'ez-translate') +
-                                  '\n\n' + __('You will be redirected to edit the new translation.', 'ez-translate');
+                    // Determine the actual method used
+                    const actualMethod = response.data.translation_method || 'copy';
+                    let successMessage = __('Translation created successfully!', 'ez-translate');
 
-                    if (confirm(message)) {
-                        // Redirect to edit the new translation
-                        window.location.href = response.data.edit_url;
+                    // Add method-specific message
+                    if (actualMethod === 'copy') {
+                        successMessage += '\n\n' + __('Content was copied. You can now edit and translate it manually.', 'ez-translate');
+                    } else if (actualMethod === 'ai') {
+                        successMessage += '\n\n' + __('Content was translated using AI. Please review and edit as needed.', 'ez-translate');
+                    }
+
+                    // Show fallback message if AI was expected but copy was used
+                    if (translationMethod === 'ai' && actualMethod === 'copy') {
+                        successMessage += '\n\n' + __('Note: AI translation failed, so content was copied instead.', 'ez-translate');
+                    }
+
+                    successMessage += '\n\n' + __('Click OK to open the translation in a new window.', 'ez-translate');
+
+                    if (confirm(successMessage)) {
+                        // Open in new window instead of redirecting
+                        window.open(response.data.edit_url, '_blank');
                     }
                 } else {
                     setError(__('Failed to create translation. Please try again.', 'ez-translate'));
@@ -283,6 +361,122 @@
                 }
             } finally {
                 setCreating(false);
+            }
+        };
+
+        /**
+         * Handle multi-language selection
+         */
+        const handleMultiLanguageChange = (languageCode, isChecked) => {
+            if (isChecked) {
+                setSelectedLanguages(prev => [...prev, languageCode]);
+            } else {
+                setSelectedLanguages(prev => prev.filter(code => code !== languageCode));
+            }
+        };
+
+        /**
+         * Create multiple translations
+         */
+        const createMultipleTranslations = async () => {
+            if (selectedLanguages.length === 0) {
+                setError(__('Please select at least one language for translation.', 'ez-translate'));
+                return;
+            }
+
+            setCreatingMultiple(true);
+            setError(null);
+            setMultiTranslationProgress({
+                total: selectedLanguages.length,
+                completed: 0,
+                current: null,
+                results: []
+            });
+
+            // Check API status and show appropriate message
+            let warningMessage = '';
+            if (apiStatus && (!apiStatus.api_enabled || !apiStatus.has_api_key)) {
+                warningMessage = __('AI translation is not available. All content will be copied and you can translate manually.', 'ez-translate');
+            }
+
+            // Show warning if using fallback method
+            if (warningMessage) {
+                const shouldContinue = confirm(
+                    warningMessage + '\n\n' +
+                    __('Do you want to continue creating translations for all selected languages?', 'ez-translate')
+                );
+
+                if (!shouldContinue) {
+                    setCreatingMultiple(false);
+                    setMultiTranslationProgress(null);
+                    return;
+                }
+            }
+
+            try {
+                // Call the REST API to create multiple translations
+                const response = await wp.apiFetch({
+                    path: `/ez-translate/v1/create-multiple-translations/${postId}`,
+                    method: 'POST',
+                    data: {
+                        target_languages: selectedLanguages
+                    }
+                });
+
+                if (response.success) {
+                    // Reload translations to update the UI
+                    await loadExistingTranslations();
+
+                    const data = response.data;
+                    const successCount = data.successful_count;
+                    const failedCount = data.failed_count;
+
+                    // Open successful translations in new windows
+                    if (data.successful_translations && data.successful_translations.length > 0) {
+                        let openMessage = __('Translations created successfully!', 'ez-translate') + '\n\n';
+                        openMessage += __('Successful:', 'ez-translate') + ' ' + successCount + '\n';
+                        if (failedCount > 0) {
+                            openMessage += __('Failed:', 'ez-translate') + ' ' + failedCount + '\n';
+                        }
+                        openMessage += '\n' + __('Click OK to open all successful translations in new windows.', 'ez-translate');
+
+                        if (confirm(openMessage)) {
+                            // Open each successful translation in a new window with a small delay
+                            data.successful_translations.forEach((translation, index) => {
+                                setTimeout(() => {
+                                    window.open(translation.edit_url, '_blank');
+                                }, index * 500); // 500ms delay between windows
+                            });
+                        }
+                    }
+
+                    // Show summary
+                    let summaryMessage = __('Multi-translation completed!', 'ez-translate') + '\n\n';
+                    summaryMessage += __('Total requested:', 'ez-translate') + ' ' + data.total_requested + '\n';
+                    summaryMessage += __('Successful:', 'ez-translate') + ' ' + successCount + '\n';
+                    summaryMessage += __('Failed:', 'ez-translate') + ' ' + failedCount;
+
+                    if (failedCount > 0) {
+                        summaryMessage += '\n\n' + __('Failed languages:', 'ez-translate') + '\n';
+                        data.failed_translations.forEach(failure => {
+                            summaryMessage += '- ' + failure.language + ': ' + failure.error + '\n';
+                        });
+                    }
+
+                    alert(summaryMessage);
+                } else {
+                    setError(__('Failed to create multiple translations. Please try again.', 'ez-translate'));
+                }
+
+                // Reset selections
+                setSelectedLanguages([]);
+
+            } catch (err) {
+                console.error('Failed to create multiple translations:', err);
+                setError(__('Failed to create multiple translations. Please try again.', 'ez-translate'));
+            } finally {
+                setCreatingMultiple(false);
+                setMultiTranslationProgress(null);
             }
         };
 
@@ -661,6 +855,117 @@
                         }
                     },
                         __('This will create a new page with the same content in the selected language.', 'ez-translate')
+                    )
+                )
+            ),
+
+            // Multi-Translation Panel
+            languages.length > 1 && el(PanelBody, {
+                title: __('Create Multiple Translations', 'ez-translate'),
+                initialOpen: false
+            },
+                el('div', { style: { marginBottom: '16px' } },
+                    el('p', { style: { margin: '0 0 12px 0', fontSize: '13px', color: '#666' } },
+                        __('Select multiple languages to create all translations at once:', 'ez-translate')
+                    )
+                ),
+
+                // Language checkboxes
+                el('div', { style: { marginBottom: '16px' } },
+                    languages.filter(lang => lang.value !== '').map(language =>
+                        el('div', {
+                            key: language.value,
+                            style: {
+                                display: 'flex',
+                                alignItems: 'center',
+                                marginBottom: '8px',
+                                padding: '8px',
+                                backgroundColor: selectedLanguages.includes(language.value) ? '#e7f3ff' : '#f9f9f9',
+                                border: '1px solid ' + (selectedLanguages.includes(language.value) ? '#72aee6' : '#ddd'),
+                                borderRadius: '4px'
+                            }
+                        },
+                            el('input', {
+                                type: 'checkbox',
+                                id: 'multi-lang-' + language.value,
+                                checked: selectedLanguages.includes(language.value),
+                                onChange: (e) => handleMultiLanguageChange(language.value, e.target.checked),
+                                style: { marginRight: '8px' }
+                            }),
+                            el('label', {
+                                htmlFor: 'multi-lang-' + language.value,
+                                style: {
+                                    fontSize: '13px',
+                                    cursor: 'pointer',
+                                    flex: 1,
+                                    color: selectedLanguages.includes(language.value) ? '#0073aa' : '#333'
+                                }
+                            }, language.label)
+                        )
+                    )
+                ),
+
+                // Progress indicator
+                multiTranslationProgress && el('div', {
+                    style: {
+                        marginBottom: '16px',
+                        padding: '12px',
+                        backgroundColor: '#e7f3ff',
+                        border: '1px solid #72aee6',
+                        borderRadius: '4px'
+                    }
+                },
+                    el('div', { style: { display: 'flex', alignItems: 'center', marginBottom: '8px' } },
+                        el('span', { className: 'dashicons dashicons-update', style: { animation: 'rotation 1s infinite linear', marginRight: '8px', color: '#0073aa' } }),
+                        el('strong', { style: { color: '#0073aa' } }, __('Creating Translations...', 'ez-translate'))
+                    ),
+                    el('div', { style: { fontSize: '12px', color: '#666' } },
+                        __('Progress:', 'ez-translate') + ' ' + multiTranslationProgress.completed + '/' + multiTranslationProgress.total
+                    )
+                ),
+
+                // Create button
+                selectedLanguages.length > 0 && el('div', {
+                    style: { marginTop: '16px' }
+                },
+                    el('button', {
+                        className: 'components-button is-primary',
+                        onClick: createMultipleTranslations,
+                        disabled: creatingMultiple,
+                        style: { width: '100%', marginBottom: '8px' }
+                    },
+                        creatingMultiple
+                            ? __('Creating Translations...', 'ez-translate')
+                            : __('Create All Selected Translations', 'ez-translate') + ' (' + selectedLanguages.length + ')'
+                    ),
+
+                    el('p', {
+                        style: {
+                            margin: '8px 0 0 0',
+                            fontSize: '12px',
+                            color: '#757575',
+                            fontStyle: 'italic'
+                        }
+                    },
+                        __('Each translation will be created one by one and opened in a new window.', 'ez-translate')
+                    )
+                ),
+
+                // API status warning
+                apiStatus && (!apiStatus.api_enabled || !apiStatus.has_api_key) && el('div', {
+                    style: {
+                        marginTop: '12px',
+                        padding: '8px',
+                        backgroundColor: '#fff3cd',
+                        border: '1px solid #ffeaa7',
+                        borderRadius: '4px'
+                    }
+                },
+                    el('div', { style: { display: 'flex', alignItems: 'center' } },
+                        el('span', { className: 'dashicons dashicons-info', style: { marginRight: '6px', color: '#856404' } }),
+                        el('span', { style: { fontSize: '12px', color: '#856404' } },
+                            __('AI translation not available. Content will be copied for manual translation.', 'ez-translate')
+                        )
                     )
                 )
             ),
