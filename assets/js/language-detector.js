@@ -592,10 +592,11 @@
         createMinimizedModeHTML() {
             const currentLang = this.getLanguageData(this.config.currentLanguage);
             // Usar icono de bandera para el estado minimizado
+            // Agregar data-action a todos los elementos para asegurar que el clic funcione en toda el área
             return `
                 <button class="ez-detector-minimized-btn" data-action="expand" title="${this.getMessages(this.config.currentLanguage).dropdown_title || 'Change language'}">
-                    <span class="ez-detector-minimized-icon">
-                        <span class="ez-detector-flag">${currentLang.flag || '🌐'}</span>
+                    <span class="ez-detector-minimized-icon" data-action="expand">
+                        <span class="ez-detector-flag" data-action="expand">${currentLang.flag || '🌐'}</span>
                     </span>
                 </button>
             `;
@@ -840,28 +841,33 @@
 
             // Handle all clicks on detector
             this.detector.addEventListener('click', (e) => {
-                const action = e.target.dataset.action;
-                const language = e.target.dataset.language;
+                // Find the closest element with data-action (bubble up the DOM tree)
+                const actionElement = e.target.closest('[data-action]');
 
-                switch (action) {
-                    case 'confirm':
-                        this.handleConfirm(language);
-                        break;
-                    case 'stay':
-                        this.handleStay();
-                        break;
-                    case 'free':
-                        this.handleFreeNavigation();
-                        break;
-                    case 'close':
-                        this.handleClose();
-                        break;
-                    case 'switch':
-                        this.handleSwitch(language);
-                        break;
-                    case 'expand':
-                        this.handleExpand();
-                        break;
+                if (actionElement) {
+                    const action = actionElement.dataset.action;
+                    const language = actionElement.dataset.language;
+
+                    switch (action) {
+                        case 'confirm':
+                            this.handleConfirm(language);
+                            break;
+                        case 'stay':
+                            this.handleStay();
+                            break;
+                        case 'free':
+                            this.handleFreeNavigation();
+                            break;
+                        case 'close':
+                            this.handleClose();
+                            break;
+                        case 'switch':
+                            this.handleSwitch(language);
+                            break;
+                        case 'expand':
+                            this.handleExpand();
+                            break;
+                    }
                 }
             });
 
