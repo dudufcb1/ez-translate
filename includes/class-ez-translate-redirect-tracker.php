@@ -91,16 +91,24 @@ class RedirectTracker {
      */
     private function get_unverified_redirects() {
         global $wpdb;
+        // Construct the table name.
+        $raw_table_name = $wpdb->prefix . 'ez_translate_redirects';
 
-        $table_name = esc_sql($wpdb->prefix . 'ez_translate_redirects');
-
-        $redirects = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM {$table_name}
-             WHERE change_type = %s
-             AND wp_auto_redirect = %d
+        // Construct the SQL query string using sprintf for the table name.
+        $sql = sprintf(
+            "SELECT * FROM %s
+             WHERE change_type = %%s
+             AND wp_auto_redirect = %%d
              AND new_url IS NOT NULL
              ORDER BY created_at DESC
              LIMIT 10",
+            $raw_table_name // Pass table name to sprintf
+        );
+
+        // Prepare the SQL query with placeholders for values.
+        // Note the double %% for sprintf to output single % for prepare.
+        $redirects = $wpdb->get_results($wpdb->prepare(
+            $sql,
             'changed',
             0
         ));
@@ -236,16 +244,17 @@ class RedirectTracker {
     public function get_redirect_stats() {
         global $wpdb;
 
-        $table_name = esc_sql($wpdb->prefix . 'ez_translate_redirects');
+        $raw_table_name = $wpdb->prefix . 'ez_translate_redirects';
 
         $stats = array();
 
         // Total redirects
-        $stats['total'] = $wpdb->get_var("SELECT COUNT(*) FROM {$table_name}");
+        $sql_total = sprintf("SELECT COUNT(*) FROM %s", $raw_table_name);
+        $stats['total'] = $wpdb->get_var($wpdb->prepare($sql_total));
 
         // WordPress automatic redirects
         $stats['wp_auto'] = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$table_name} WHERE wp_auto_redirect = %d",
+            "SELECT COUNT(*) FROM {$raw_table_name} WHERE wp_auto_redirect = %d",
             1
         ));
 
@@ -254,23 +263,23 @@ class RedirectTracker {
 
         // By change type
         $stats['changed'] = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$table_name} WHERE change_type = %s",
+            "SELECT COUNT(*) FROM {$raw_table_name} WHERE change_type = %s",
             'changed'
         ));
 
         $stats['trashed'] = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$table_name} WHERE change_type = %s",
+            "SELECT COUNT(*) FROM {$raw_table_name} WHERE change_type = %s",
             'trashed'
         ));
 
         $stats['deleted'] = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$table_name} WHERE change_type = %s",
+            "SELECT COUNT(*) FROM {$raw_table_name} WHERE change_type = %s",
             'deleted_permanently'
         ));
 
         // By redirect type
         $redirect_types = $wpdb->get_results(
-            "SELECT redirect_type, COUNT(*) as count FROM {$table_name} GROUP BY redirect_type"
+            $wpdb->prepare("SELECT redirect_type, COUNT(*) as count FROM %s GROUP BY redirect_type", $raw_table_name)
         );
 
         $stats['by_type'] = array();
@@ -291,12 +300,20 @@ class RedirectTracker {
     public function cleanup_old_redirects($days_old = 90) {
         global $wpdb;
 
-        $table_name = esc_sql($wpdb->prefix . 'ez_translate_redirects');
+        $raw_table_name = $wpdb->prefix . 'ez_translate_redirects';
 
         $cutoff_date = gmdate('Y-m-d H:i:s', strtotime("-{$days_old} days"));
 
+        // Construct the SQL query string using sprintf for the table name.
+        // Remember to escape literal % signs for sprintf if they need to reach prepare.
+        $sql = sprintf(
+            "DELETE FROM %s WHERE created_at < %%s AND change_type = %%s",
+            $raw_table_name // Pass table name to sprintf
+        );
+
+        // Prepare the SQL query with placeholders for values.
         $result = $wpdb->query($wpdb->prepare(
-            "DELETE FROM {$table_name} WHERE created_at < %s AND change_type = %s",
+            $sql,
             $cutoff_date,
             'changed'
         ));
