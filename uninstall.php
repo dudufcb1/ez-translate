@@ -20,10 +20,7 @@ if (!defined('WP_UNINSTALL_PLUGIN')) {
  * @since 1.0.0
  */
 function ez_translate_uninstall_cleanup() {
-    // Log the uninstall process
-    if (defined('WP_DEBUG') && WP_DEBUG) {
-        error_log('[EZ-Translate] Uninstall: Starting cleanup process');
-    }
+    // Log the uninstall process (removed error_log for production compliance)
 
     // Remove plugin options
     delete_option('ez_translate_languages');
@@ -73,16 +70,12 @@ function ez_translate_uninstall_cleanup() {
     );
 
     // Drop custom tables
-    $redirect_table = $wpdb->prefix . 'ez_translate_redirects';
-    $wpdb->query("DROP TABLE IF EXISTS {$redirect_table}");
+    $wpdb->query("DROP TABLE IF EXISTS " . $wpdb->prefix . "ez_translate_redirects");
 
     // Clear any scheduled cron jobs
     wp_clear_scheduled_hook('ez_translate_check_redirects');
 
-    // Log completion
-    if (defined('WP_DEBUG') && WP_DEBUG) {
-        error_log('[EZ-Translate] Uninstall: Cleanup completed successfully');
-    }
+    // Cleanup completed (removed error_log for production compliance)
 }
 
 // Execute cleanup

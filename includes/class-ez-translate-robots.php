@@ -115,10 +115,11 @@ class Robots {
         }
 
         // Alternative check for direct robots.txt access
-        if (isset($_SERVER['REQUEST_URI']) &&
-            (rtrim($_SERVER['REQUEST_URI'], '/') === '/robots.txt' ||
-             $_SERVER['REQUEST_URI'] === '/robots.txt')) {
-            return true;
+        if (isset($_SERVER['REQUEST_URI'])) {
+            $request_uri = sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI']));
+            if (rtrim($request_uri, '/') === '/robots.txt' || $request_uri === '/robots.txt') {
+                return true;
+            }
         }
 
         return false;

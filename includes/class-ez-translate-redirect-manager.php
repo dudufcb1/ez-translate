@@ -168,6 +168,9 @@ class RedirectManager {
         global $wpdb;
         $table_name = $wpdb->prefix . 'ez_translate_redirects';
 
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+        // Delete operation on custom redirects table - no cache needed for CRUD operations
         $deleted = $wpdb->delete(
             $table_name,
             array(
@@ -176,6 +179,8 @@ class RedirectManager {
             ),
             array('%d', '%s')
         );
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
 
         if ($deleted) {
             Logger::info('Post restored from trash - redirect removed', array(
@@ -257,6 +262,8 @@ class RedirectManager {
             $data['redirect_type'] = '301';
         }
 
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // Insert operation on custom redirects table - no cache needed for CRUD operations
         $result = $wpdb->insert(
             self::$table_name,
             array(
@@ -269,6 +276,7 @@ class RedirectManager {
             ),
             array('%s', '%s', '%s', '%s', '%d', '%d')
         );
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
 
         if ($result === false) {
             Logger::error('Failed to add redirect record', array(
@@ -370,11 +378,26 @@ class RedirectManager {
     public function get_redirect_for_url($url) {
         global $wpdb;
 
-        $table_name = esc_sql(self::$table_name);
+        // Check cache first - critical for 404 performance
+        $cache_key = 'ez_translate_redirect_' . md5($url);
+        $redirect = wp_cache_get($cache_key, 'ez_translate');
+
+        if ($redirect !== false) {
+            return $redirect === 'none' ? null : $redirect;
+        }
+
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+        // Critical frontend query for 404 redirects - cache implemented above
         $redirect = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$table_name} WHERE old_url = %s ORDER BY created_at DESC LIMIT 1",
+            "SELECT * FROM `{$wpdb->prefix}ez_translate_redirects` WHERE old_url = %s ORDER BY created_at DESC LIMIT 1",
             $url
         ));
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
+
+        // Cache result for 15 minutes (longer for redirects as they're stable)
+        wp_cache_set($cache_key, $redirect ? $redirect : 'none', 'ez_translate', 900);
 
         return $redirect;
     }
@@ -394,11 +417,14 @@ class RedirectManager {
         }
 
         global $wpdb;
-        $table_name = esc_sql($wpdb->prefix . 'ez_translate_redirects');
+
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+        // Update operations on custom redirects table - no cache needed for CRUD operations
 
         // Update redirects where this post is the source
         $source_redirects = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM {$table_name} WHERE post_id = %d AND change_type = 'manual'",
+            "SELECT * FROM `{$wpdb->prefix}ez_translate_redirects` WHERE post_id = %d AND change_type = 'manual'",
             $post_id
         ));
 
@@ -407,7 +433,7 @@ class RedirectManager {
 
             if ($redirect->old_url !== $new_old_url) {
                 $wpdb->update(
-                    $table_name,
+                    $wpdb->prefix . 'ez_translate_redirects',
                     array('old_url' => $new_old_url),
                     array('id' => $redirect->id),
                     array('%s'),
@@ -425,7 +451,7 @@ class RedirectManager {
 
         // Update redirects where this post is the destination
         $destination_redirects = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM {$table_name} WHERE destination_post_id = %d AND change_type = 'manual'",
+            "SELECT * FROM `{$wpdb->prefix}ez_translate_redirects` WHERE destination_post_id = %d AND change_type = 'manual'",
             $post_id
         ));
 
@@ -434,7 +460,7 @@ class RedirectManager {
 
             if ($redirect->new_url !== $new_new_url) {
                 $wpdb->update(
-                    $table_name,
+                    $wpdb->prefix . 'ez_translate_redirects',
                     array('new_url' => $new_new_url),
                     array('id' => $redirect->id),
                     array('%s'),
@@ -449,5 +475,8 @@ class RedirectManager {
                 ));
             }
         }
+
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
     }
 }

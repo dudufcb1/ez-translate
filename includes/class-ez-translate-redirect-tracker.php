@@ -92,10 +92,11 @@ class RedirectTracker {
     private function get_unverified_redirects() {
         global $wpdb;
 
-        $table_name = esc_sql($wpdb->prefix . 'ez_translate_redirects');
-
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+        // Background task query on custom redirects table - no cache needed for cron jobs
         $redirects = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM {$table_name}
+            "SELECT * FROM `{$wpdb->prefix}ez_translate_redirects`
              WHERE change_type = %s
              AND wp_auto_redirect = %d
              AND new_url IS NOT NULL
@@ -104,6 +105,8 @@ class RedirectTracker {
             'changed',
             0
         ));
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
 
         return $redirects ? $redirects : array();
     }
@@ -205,9 +208,12 @@ class RedirectTracker {
      */
     private function mark_as_wordpress_redirect($redirect_id) {
         global $wpdb;
-        
+
         $table_name = $wpdb->prefix . 'ez_translate_redirects';
-        
+
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+        // Background update operation on custom redirects table - no cache needed
         $result = $wpdb->update(
             $table_name,
             array('wp_auto_redirect' => 1),
@@ -215,6 +221,8 @@ class RedirectTracker {
             array('%d'),
             array('%d')
         );
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
 
         if ($result === false) {
             Logger::error('Failed to mark redirect as WordPress automatic', array(
@@ -236,16 +244,18 @@ class RedirectTracker {
     public function get_redirect_stats() {
         global $wpdb;
 
-        $table_name = esc_sql($wpdb->prefix . 'ez_translate_redirects');
-
         $stats = array();
 
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+        // Admin statistics queries on custom redirects table - no cache needed for admin dashboard
+
         // Total redirects
-        $stats['total'] = $wpdb->get_var("SELECT COUNT(*) FROM {$table_name}");
+        $stats['total'] = $wpdb->get_var("SELECT COUNT(*) FROM `{$wpdb->prefix}ez_translate_redirects`");
 
         // WordPress automatic redirects
         $stats['wp_auto'] = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$table_name} WHERE wp_auto_redirect = %d",
+            "SELECT COUNT(*) FROM `{$wpdb->prefix}ez_translate_redirects` WHERE wp_auto_redirect = %d",
             1
         ));
 
@@ -254,24 +264,27 @@ class RedirectTracker {
 
         // By change type
         $stats['changed'] = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$table_name} WHERE change_type = %s",
+            "SELECT COUNT(*) FROM `{$wpdb->prefix}ez_translate_redirects` WHERE change_type = %s",
             'changed'
         ));
 
         $stats['trashed'] = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$table_name} WHERE change_type = %s",
+            "SELECT COUNT(*) FROM `{$wpdb->prefix}ez_translate_redirects` WHERE change_type = %s",
             'trashed'
         ));
 
         $stats['deleted'] = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$table_name} WHERE change_type = %s",
+            "SELECT COUNT(*) FROM `{$wpdb->prefix}ez_translate_redirects` WHERE change_type = %s",
             'deleted_permanently'
         ));
 
         // By redirect type
         $redirect_types = $wpdb->get_results(
-            "SELECT redirect_type, COUNT(*) as count FROM {$table_name} GROUP BY redirect_type"
+            "SELECT redirect_type, COUNT(*) as count FROM `{$wpdb->prefix}ez_translate_redirects` GROUP BY redirect_type"
         );
+
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
 
         $stats['by_type'] = array();
         foreach ($redirect_types as $type) {
@@ -291,15 +304,18 @@ class RedirectTracker {
     public function cleanup_old_redirects($days_old = 90) {
         global $wpdb;
 
-        $table_name = esc_sql($wpdb->prefix . 'ez_translate_redirects');
-
         $cutoff_date = gmdate('Y-m-d H:i:s', strtotime("-{$days_old} days"));
 
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+        // Maintenance cleanup operation on custom redirects table - no cache needed
         $result = $wpdb->query($wpdb->prepare(
-            "DELETE FROM {$table_name} WHERE created_at < %s AND change_type = %s",
+            "DELETE FROM `{$wpdb->prefix}ez_translate_redirects` WHERE created_at < %s AND change_type = %s",
             $cutoff_date,
             'changed'
         ));
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
 
         if ($result !== false) {
             Logger::info('Old redirect records cleaned up', array(

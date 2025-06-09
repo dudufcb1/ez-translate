@@ -1429,6 +1429,9 @@ class RestAPI {
 
             // Get existing post titles with IDs (excluding current post)
             global $wpdb;
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+            // REST API admin tool for title similarity - no cache needed for occasional use
             $existing_posts = $wpdb->get_results($wpdb->prepare(
                 "SELECT ID, post_title, post_type FROM {$wpdb->posts}
                  WHERE post_status = 'publish'
@@ -1437,6 +1440,8 @@ class RestAPI {
                  AND post_title != ''",
                 $post_id
             ), ARRAY_A);
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
 
             // Extract just titles for similarity check
             $existing_titles = array_column($existing_posts, 'post_title');

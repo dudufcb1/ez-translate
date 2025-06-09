@@ -915,7 +915,18 @@ class Frontend {
             return false;
         }
 
+        // Check cache first
+        $cache_key = 'ez_translate_group_membership_' . $post_id;
+        $cached_result = wp_cache_get($cache_key, 'ez_translate');
+
+        if ($cached_result !== false) {
+            return $cached_result;
+        }
+
         // Method 1: Check if any posts reference this post as their original
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+        // Complex meta query with multiple JOINs - WP_Query alternative would be less efficient
         $related_posts = $wpdb->get_results($wpdb->prepare("
             SELECT p.ID, pm1.meta_value as language, pm2.meta_value as group_id, pm3.meta_value as original_id
             FROM {$wpdb->posts} p
@@ -926,6 +937,8 @@ class Frontend {
             AND p.post_status = 'publish'
             AND p.ID != %s
         ", $post_id, $post_id, $post_id));
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
 
         if (!empty($related_posts)) {
             // Found posts that reference this post as original
@@ -935,7 +948,7 @@ class Frontend {
             // Determine the language of the original post
             $original_language = $this->detect_original_language($post);
 
-            return array(
+            $result = array(
                 'language' => $original_language,
                 'group_id' => $group_id,
                 'role' => 'original', // This is the original post
@@ -943,6 +956,10 @@ class Frontend {
                 'total_in_group' => count($all_posts_in_group),
                 'detection_method' => 'referenced_as_original'
             );
+
+            // Cache the result for 10 minutes
+            wp_cache_set($cache_key, $result, 'ez_translate', 600);
+            return $result;
         }
 
         // Method 2: Check if this post has similar titles to posts with translation metadata
@@ -956,7 +973,7 @@ class Frontend {
             // Determine language based on content or WordPress locale
             $detected_language = $this->detect_language_from_content($post);
 
-            return array(
+            $result = array(
                 'language' => $detected_language,
                 'group_id' => $group_id,
                 'role' => 'original', // Assume original if not explicitly marked as translation
@@ -964,8 +981,14 @@ class Frontend {
                 'total_in_group' => count($all_posts_in_group),
                 'detection_method' => 'similar_title'
             );
+
+            // Cache the result for 10 minutes
+            wp_cache_set($cache_key, $result, 'ez_translate', 600);
+            return $result;
         }
 
+        // Cache negative result to avoid repeated queries
+        wp_cache_set($cache_key, false, 'ez_translate', 600);
         return false;
     }
 
@@ -1010,10 +1033,20 @@ class Frontend {
     private function find_posts_with_similar_titles($post) {
         global $wpdb;
 
+        // Check cache first
+        $cache_key = 'ez_translate_similar_titles_' . md5($post->post_title . '_' . $post->post_type);
+        $cached_result = wp_cache_get($cache_key, 'ez_translate');
+
+        if ($cached_result !== false) {
+            return $cached_result;
+        }
+
         // Extract key words from title (remove common words)
         $title_words = $this->extract_key_words($post->post_title);
 
         if (empty($title_words)) {
+            // Cache empty result
+            wp_cache_set($cache_key, array(), 'ez_translate', 300);
             return array();
         }
 
@@ -1024,6 +1057,9 @@ class Frontend {
             if (strlen($word) > 3) { // Only use words longer than 3 characters
                 $like_value = '%' . $wpdb->esc_like($word) . '%';
 
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+                // Title similarity search with meta joins - WP_Query LIKE searches are limited
                 $word_results = $wpdb->get_results($wpdb->prepare("
                     SELECT p.ID, p.post_title, pm1.meta_value as language, pm2.meta_value as group_id
                     FROM {$wpdb->posts} p
@@ -1035,6 +1071,8 @@ class Frontend {
                     AND p.post_type = %s
                     LIMIT 5
                 ", $like_value, $post->ID, $post->post_type));
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
 
                 if (!empty($word_results)) {
                     // Merge results, avoiding duplicates
@@ -1059,7 +1097,12 @@ class Frontend {
             }
         }
 
-        return array_slice($results, 0, 5);
+        $final_results = array_slice($results, 0, 5);
+
+        // Cache the results for 5 minutes
+        wp_cache_set($cache_key, $final_results, 'ez_translate', 300);
+
+        return $final_results;
     }
 
     /**

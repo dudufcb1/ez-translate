@@ -511,8 +511,10 @@ class RedirectAdmin {
      */
     private function display_admin_notices() {
         // Only show messages on our admin page and if user has proper capabilities
+        // Verify nonce for GET parameters to prevent CSRF
         if (isset($_GET['message']) && current_user_can('manage_options') &&
-            isset($_GET['page']) && $_GET['page'] === 'ez-translate-redirects') {
+            isset($_GET['page']) && $_GET['page'] === 'ez-translate-redirects' &&
+            isset($_GET['_wpnonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'])), 'ez_translate_admin_notice')) {
 
             $message = sanitize_text_field(wp_unslash($_GET['message']));
             $type = isset($_GET['type']) ? sanitize_text_field(wp_unslash($_GET['type'])) : 'success';
@@ -538,10 +540,15 @@ class RedirectAdmin {
     private function get_redirects_for_display() {
         global $wpdb;
 
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+        // Admin panel query for custom redirects table - no cache needed for admin operations
         $redirects = $wpdb->get_results($wpdb->prepare(
             "SELECT * FROM `{$wpdb->prefix}ez_translate_redirects` ORDER BY created_at DESC LIMIT %d",
             50
         ));
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
 
         return $redirects ? $redirects : array();
     }
@@ -562,6 +569,9 @@ class RedirectAdmin {
         // Fallback basic stats
         global $wpdb;
 
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+        // Admin statistics for custom redirects table - no cache needed for admin dashboard
         return array(
             'total' => $wpdb->get_var(
                 "SELECT COUNT(*) FROM `{$wpdb->prefix}ez_translate_redirects`"
@@ -576,6 +586,8 @@ class RedirectAdmin {
                 "SELECT COUNT(*) FROM `{$wpdb->prefix}ez_translate_redirects` WHERE change_type = %s", 'changed'
             ))
         );
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
     }
 
     /**
@@ -641,7 +653,8 @@ class RedirectAdmin {
         $redirect_url = add_query_arg(array(
             'page' => 'ez-translate-redirects',
             'message' => urlencode($message),
-            'type' => $type
+            'type' => $type,
+            '_wpnonce' => wp_create_nonce('ez_translate_admin_notice')
         ), admin_url('admin.php'));
 
         wp_redirect($redirect_url);
@@ -662,20 +675,34 @@ class RedirectAdmin {
 
         global $wpdb;
 
-        // Sanitize IDs and create safe IN clause
+        // Sanitize IDs
         $sanitized_ids = array_map('intval', $redirect_ids);
-        $ids_placeholder = implode(',', $sanitized_ids);
 
-        $result = $wpdb->query(
-            "DELETE FROM `{$wpdb->prefix}ez_translate_redirects` WHERE id IN ({$ids_placeholder})"
-        );
+        // Delete each redirect individually to avoid IN clause interpolation
+        $deleted_count = 0;
+        foreach ($sanitized_ids as $redirect_id) {
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+            // Admin delete operation on custom redirects table - no cache needed
+            $result = $wpdb->delete(
+                $wpdb->prefix . 'ez_translate_redirects',
+                array('id' => $redirect_id),
+                array('%d')
+            );
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
+
+            if ($result !== false && $result > 0) {
+                $deleted_count++;
+            }
+        }
 
         Logger::info('Redirects deleted via admin', array(
-            'deleted_count' => $result,
+            'deleted_count' => $deleted_count,
             'redirect_ids' => $redirect_ids
         ));
 
-        return $result !== false ? $result : 0;
+        return $deleted_count;
     }
 
     /**
@@ -693,22 +720,38 @@ class RedirectAdmin {
 
         global $wpdb;
 
-        // Sanitize IDs and create safe IN clause
+        // Sanitize inputs
         $sanitized_ids = array_map('intval', $redirect_ids);
-        $ids_placeholder = implode(',', $sanitized_ids);
+        $new_type = sanitize_text_field($new_type);
 
-        $result = $wpdb->query($wpdb->prepare(
-            "UPDATE `{$wpdb->prefix}ez_translate_redirects` SET redirect_type = %s WHERE id IN ({$ids_placeholder})",
-            $new_type
-        ));
+        // Update each redirect individually to avoid IN clause interpolation
+        $updated_count = 0;
+        foreach ($sanitized_ids as $redirect_id) {
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+            // Admin update operation on custom redirects table - no cache needed
+            $result = $wpdb->update(
+                $wpdb->prefix . 'ez_translate_redirects',
+                array('redirect_type' => $new_type),
+                array('id' => $redirect_id),
+                array('%s'),
+                array('%d')
+            );
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
+
+            if ($result !== false && $result > 0) {
+                $updated_count++;
+            }
+        }
 
         Logger::info('Redirect types updated via admin', array(
-            'updated_count' => $result,
+            'updated_count' => $updated_count,
             'new_type' => $new_type,
             'redirect_ids' => $redirect_ids
         ));
 
-        return $result !== false ? $result : 0;
+        return $updated_count;
     }
 
     /**
@@ -837,6 +880,10 @@ class RedirectAdmin {
 
         global $wpdb;
 
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+        // Admin AJAX operations on custom redirects table - no cache needed for admin operations
+
         // First, check if table exists
         $table_exists = $wpdb->get_var($wpdb->prepare(
             "SHOW TABLES LIKE %s",
@@ -874,6 +921,9 @@ class RedirectAdmin {
              WHERE r.id = %d",
             $redirect_id
         ));
+
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
 
         if ($redirect_with_posts) {
             $redirect = $redirect_with_posts;
@@ -991,6 +1041,9 @@ class RedirectAdmin {
             }
         }
 
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+        // Admin update operation on custom redirects table - no cache needed
         $result = $wpdb->update(
             $wpdb->prefix . 'ez_translate_redirects',
             $update_data,
@@ -998,6 +1051,8 @@ class RedirectAdmin {
             $format,
             array('%d')
         );
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
 
         if ($result !== false) {
             wp_send_json_success('Redirect updated successfully.');
@@ -1162,11 +1217,16 @@ class RedirectAdmin {
 
                 // Check if redirect was created
                 global $wpdb;
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+                // Admin test operation on custom redirects table - no cache needed
                 $redirect = $wpdb->get_row($wpdb->prepare(
                     "SELECT * FROM `{$wpdb->prefix}ez_translate_redirects` WHERE post_id = %d AND change_type = %s ORDER BY created_at DESC LIMIT 1",
                     $post_id,
                     'changed'
                 ));
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
 
                 if ($redirect) {
                     $results['created']++;

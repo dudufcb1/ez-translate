@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Post Meta Manager class for EZ Translate
  *
@@ -18,7 +19,8 @@ if (!defined('ABSPATH')) {
  *
  * @since 1.0.0
  */
-class PostMetaManager {
+class PostMetaManager
+{
 
     /**
      * Meta key for language code
@@ -81,7 +83,8 @@ class PostMetaManager {
      *
      * @since 1.0.0
      */
-    public function __construct() {
+    public function __construct()
+    {
         $this->init_hooks();
         Logger::info('Post Meta Manager initialized');
     }
@@ -91,10 +94,11 @@ class PostMetaManager {
      *
      * @since 1.0.0
      */
-    private function init_hooks() {
+    private function init_hooks()
+    {
         // Hook into post save
         add_action('save_post', array($this, 'handle_post_save'), 10, 3);
-        
+
         // Hook into post deletion
         add_action('before_delete_post', array($this, 'handle_post_delete'));
     }
@@ -107,7 +111,8 @@ class PostMetaManager {
      * @param bool    $update  Whether this is an existing post being updated
      * @since 1.0.0
      */
-    public function handle_post_save($post_id, $post, $update) {
+    public function handle_post_save($post_id, $post, $update)
+    {
         // Skip autosaves and revisions
         if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
             return;
@@ -132,9 +137,10 @@ class PostMetaManager {
      * @param int $post_id Post ID being deleted
      * @since 1.0.0
      */
-    public function handle_post_delete($post_id) {
+    public function handle_post_delete($post_id)
+    {
         Logger::info('Processing post deletion', array('post_id' => $post_id));
-        
+
         // Log current metadata before deletion
         $metadata = self::get_post_metadata($post_id);
         if (!empty($metadata)) {
@@ -154,7 +160,8 @@ class PostMetaManager {
      * @return array Array of metadata
      * @since 1.0.0
      */
-    public static function get_post_metadata($post_id) {
+    public static function get_post_metadata($post_id)
+    {
         $metadata = array(
             'language' => get_post_meta($post_id, self::META_LANGUAGE, true),
             'group' => get_post_meta($post_id, self::META_GROUP, true),
@@ -165,7 +172,7 @@ class PostMetaManager {
         );
 
         // Filter out empty values
-        $metadata = array_filter($metadata, function($value) {
+        $metadata = array_filter($metadata, function ($value) {
             return !empty($value);
         });
 
@@ -180,7 +187,8 @@ class PostMetaManager {
      * @return bool Success status
      * @since 1.0.0
      */
-    public static function set_post_language($post_id, $language_code) {
+    public static function set_post_language($post_id, $language_code)
+    {
         // Validate language code
         $language_code = sanitize_text_field($language_code);
         if (empty($language_code)) {
@@ -197,7 +205,7 @@ class PostMetaManager {
         }
 
         $result = update_post_meta($post_id, self::META_LANGUAGE, $language_code);
-        
+
         if ($result) {
             Logger::info('Post language set', array('post_id' => $post_id, 'language' => $language_code));
             Logger::log_db_operation('update', 'post_meta', array(
@@ -220,7 +228,8 @@ class PostMetaManager {
      * @return string|false Group ID on success, false on failure
      * @since 1.0.0
      */
-    public static function set_post_group($post_id, $group_id = null) {
+    public static function set_post_group($post_id, $group_id = null)
+    {
         // Generate group ID if not provided
         if (empty($group_id)) {
             $group_id = self::generate_group_id();
@@ -233,7 +242,7 @@ class PostMetaManager {
         }
 
         $result = update_post_meta($post_id, self::META_GROUP, $group_id);
-        
+
         if ($result) {
             Logger::info('Post translation group set', array('post_id' => $post_id, 'group_id' => $group_id));
             Logger::log_db_operation('update', 'post_meta', array(
@@ -258,7 +267,8 @@ class PostMetaManager {
      * @return bool Success status
      * @since 1.0.0
      */
-    public static function set_post_seo_title($post_id, $seo_title) {
+    public static function set_post_seo_title($post_id, $seo_title)
+    {
         $seo_title = sanitize_text_field($seo_title);
 
         $result = update_post_meta($post_id, self::META_SEO_TITLE, $seo_title);
@@ -285,7 +295,8 @@ class PostMetaManager {
      * @return bool Success status
      * @since 1.0.0
      */
-    public static function set_post_seo_description($post_id, $seo_description) {
+    public static function set_post_seo_description($post_id, $seo_description)
+    {
         $seo_description = sanitize_textarea_field($seo_description);
 
         $result = update_post_meta($post_id, self::META_SEO_DESCRIPTION, $seo_description);
@@ -312,7 +323,8 @@ class PostMetaManager {
      * @return bool Success status
      * @since 1.0.0
      */
-    public static function set_post_og_title($post_id, $og_title) {
+    public static function set_post_og_title($post_id, $og_title)
+    {
         $og_title = sanitize_text_field($og_title);
 
         $result = update_post_meta($post_id, self::META_OG_TITLE, $og_title);
@@ -337,7 +349,8 @@ class PostMetaManager {
      * @return string Generated group ID
      * @since 1.0.0
      */
-    public static function generate_group_id() {
+    public static function generate_group_id()
+    {
         // Generate 16 random alphanumeric characters
         $characters = '0123456789abcdefghijklmnopqrstuvwxyz';
         $group_id = self::GROUP_PREFIX;
@@ -356,7 +369,8 @@ class PostMetaManager {
      * @return bool True if valid, false otherwise
      * @since 1.0.0
      */
-    public static function validate_group_id($group_id) {
+    public static function validate_group_id($group_id)
+    {
         // Must start with prefix and be exactly 19 characters total (tg_ + 16 chars)
         $pattern = '/^' . preg_quote(self::GROUP_PREFIX, '/') . '[a-z0-9]{16}$/';
         $is_valid = preg_match($pattern, $group_id);
@@ -374,9 +388,8 @@ class PostMetaManager {
      * @return array Array of post IDs
      * @since 1.0.0
      */
-    public static function get_posts_in_group($group_id, $post_statuses = array('publish')) {
-        global $wpdb;
-
+    public static function get_posts_in_group($group_id, $post_statuses = array('publish'))
+    {
         // Ensure post_statuses is an array
         if (!is_array($post_statuses)) {
             $post_statuses = array($post_statuses);
@@ -386,25 +399,25 @@ class PostMetaManager {
         $group_id = sanitize_text_field($group_id);
         $post_statuses = array_map('sanitize_text_field', $post_statuses);
 
-        // Build WHERE clause for post statuses using IN with escaped values
-        $status_list = "'" . implode("','", array_map('esc_sql', $post_statuses)) . "'";
-
-        // Use direct query with esc_sql for the IN clause
-        $results = $wpdb->get_col(
-            $wpdb->prepare(
-                "SELECT p.ID
-                FROM {$wpdb->posts} p
-                INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
-                WHERE p.post_status IN ({$status_list})
-                AND pm.meta_key = %s
-                AND pm.meta_value = %s
-                ORDER BY p.post_date DESC",
-                self::META_GROUP,
-                $group_id
-            )
+        // Use WP_Query approach for complex IN clauses
+        $query_args = array(
+            'post_type' => array('post', 'page'),
+            'post_status' => $post_statuses,
+            'meta_query' => array(
+                array(
+                    'key' => self::META_GROUP,
+                    'value' => $group_id,
+                    'compare' => '='
+                )
+            ),
+            'fields' => 'ids',
+            'posts_per_page' => -1,
+            'orderby' => 'date',
+            'order' => 'DESC'
         );
 
-        return array_map('intval', $results);
+        $query = new \WP_Query($query_args);
+        return array_map('intval', $query->posts);
     }
 
     /**
@@ -415,9 +428,8 @@ class PostMetaManager {
      * @return array Array of post IDs
      * @since 1.0.0
      */
-    public static function get_posts_by_language($language_code, $args = array()) {
-        global $wpdb;
-
+    public static function get_posts_by_language($language_code, $args = array())
+    {
         $defaults = array(
             'post_type' => array('post', 'page'),
             'post_status' => 'publish',
@@ -425,54 +437,40 @@ class PostMetaManager {
         );
         $args = wp_parse_args($args, $defaults);
 
-        $post_types = is_array($args['post_type']) ? $args['post_type'] : array($args['post_type']);
-
         // Sanitize inputs
         $language_code = sanitize_text_field($language_code);
         $args['post_status'] = sanitize_text_field($args['post_status']);
-        $post_types = array_map('sanitize_text_field', $post_types);
 
-        // Build WHERE clause for post types using IN with escaped values
-        $types_list = "'" . implode("','", array_map('esc_sql', $post_types)) . "'";
+        if (!is_array($args['post_type'])) {
+            $args['post_type'] = array($args['post_type']);
+        }
+        $args['post_type'] = array_map('sanitize_text_field', $args['post_type']);
 
-        // Build query with LIMIT handling
+        // Use WP_Query approach for safe querying
+        $query_args = array(
+            'post_type' => $args['post_type'],
+            'post_status' => $args['post_status'],
+            'meta_query' => array(
+                array(
+                    'key' => self::META_LANGUAGE,
+                    'value' => $language_code,
+                    'compare' => '='
+                )
+            ),
+            'fields' => 'ids',
+            'orderby' => 'date',
+            'order' => 'DESC'
+        );
+
+        // Handle limit
         if ($args['limit'] > 0) {
-            $results = $wpdb->get_col(
-                $wpdb->prepare(
-                    "SELECT p.ID
-                    FROM {$wpdb->posts} p
-                    INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
-                    WHERE p.post_status = %s
-                    AND p.post_type IN ({$types_list})
-                    AND pm.meta_key = %s
-                    AND pm.meta_value = %s
-                    ORDER BY p.post_date DESC
-                    LIMIT %d",
-                    $args['post_status'],
-                    self::META_LANGUAGE,
-                    $language_code,
-                    $args['limit']
-                )
-            );
+            $query_args['posts_per_page'] = intval($args['limit']);
         } else {
-            $results = $wpdb->get_col(
-                $wpdb->prepare(
-                    "SELECT p.ID
-                    FROM {$wpdb->posts} p
-                    INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
-                    WHERE p.post_status = %s
-                    AND p.post_type IN ({$types_list})
-                    AND pm.meta_key = %s
-                    AND pm.meta_value = %s
-                    ORDER BY p.post_date DESC",
-                    $args['post_status'],
-                    self::META_LANGUAGE,
-                    $language_code
-                )
-            );
+            $query_args['posts_per_page'] = -1;
         }
 
-        return array_map('intval', $results);
+        $query = new \WP_Query($query_args);
+        return array_map('intval', $query->posts);
     }
 
     /**
@@ -482,7 +480,8 @@ class PostMetaManager {
      * @return bool Success status
      * @since 1.0.0
      */
-    public static function remove_post_metadata($post_id) {
+    public static function remove_post_metadata($post_id)
+    {
         $meta_keys = array(
             self::META_LANGUAGE,
             self::META_GROUP,
@@ -517,7 +516,8 @@ class PostMetaManager {
      * @return string|null Language code or null if not set
      * @since 1.0.0
      */
-    public static function get_post_language($post_id) {
+    public static function get_post_language($post_id)
+    {
         $language = get_post_meta($post_id, self::META_LANGUAGE, true);
         return !empty($language) ? $language : null;
     }
@@ -529,7 +529,8 @@ class PostMetaManager {
      * @return string|null Group ID or null if not set
      * @since 1.0.0
      */
-    public static function get_post_group($post_id) {
+    public static function get_post_group($post_id)
+    {
         $group = get_post_meta($post_id, self::META_GROUP, true);
         return !empty($group) ? $group : null;
     }
@@ -546,7 +547,8 @@ class PostMetaManager {
      * @return bool Success status
      * @since 1.0.0
      */
-    public static function set_post_metadata($post_id, $metadata) {
+    public static function set_post_metadata($post_id, $metadata)
+    {
         $success = true;
 
         // Set language

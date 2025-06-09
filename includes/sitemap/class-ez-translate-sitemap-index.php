@@ -172,7 +172,18 @@ class SitemapIndex extends SitemapGenerator {
     private function get_posts_last_modified($language = '') {
         global $wpdb;
 
+        // Check cache first - critical for SEO bot performance
+        $cache_key = 'ez_translate_sitemap_posts_lastmod_' . md5($language);
+        $cached_result = wp_cache_get($cache_key, 'ez_translate');
+
+        if ($cached_result !== false) {
+            return $cached_result;
+        }
+
         if (!empty($language)) {
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+            // Critical SEO sitemap query - cache implemented above
             // Specific language content
             $last_modified = $wpdb->get_var($wpdb->prepare(
                 "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts}
@@ -183,10 +194,15 @@ class SitemapIndex extends SitemapGenerator {
                 )",
                 $language
             ));
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
         } else {
             // Default language content (Spanish or no language metadata)
             $enabled_languages = $this->get_enabled_languages();
             if (!empty($enabled_languages)) {
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+                // Critical SEO sitemap query - cache implemented above
                 $last_modified = $wpdb->get_var($wpdb->prepare(
                     "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts}
                     WHERE post_type = 'post' AND post_status = 'publish'
@@ -199,7 +215,12 @@ class SitemapIndex extends SitemapGenerator {
                     )",
                     'es'
                 ));
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
             } else {
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+                // Critical SEO sitemap query - cache implemented above
                 // No multilingual setup, get all posts
                 $last_modified = $wpdb->get_var($wpdb->prepare(
                     "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts}
@@ -207,9 +228,17 @@ class SitemapIndex extends SitemapGenerator {
                     'post',
                     'publish'
                 ));
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
             }
         }
-        return $this->format_sitemap_date($last_modified);
+
+        $formatted_date = $this->format_sitemap_date($last_modified);
+
+        // Cache for 30 minutes (sitemap data is semi-static)
+        wp_cache_set($cache_key, $formatted_date, 'ez_translate', 1800);
+
+        return $formatted_date;
     }
 
     /**
@@ -222,7 +251,18 @@ class SitemapIndex extends SitemapGenerator {
     private function get_pages_last_modified($language = '') {
         global $wpdb;
 
+        // Check cache first - critical for SEO bot performance
+        $cache_key = 'ez_translate_sitemap_pages_lastmod_' . md5($language);
+        $cached_result = wp_cache_get($cache_key, 'ez_translate');
+
+        if ($cached_result !== false) {
+            return $cached_result;
+        }
+
         if (!empty($language)) {
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+            // Critical SEO sitemap query - cache implemented above
             // Specific language content
             $last_modified = $wpdb->get_var($wpdb->prepare(
                 "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts}
@@ -233,10 +273,15 @@ class SitemapIndex extends SitemapGenerator {
                 )",
                 $language
             ));
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
         } else {
             // Default language content (Spanish or no language metadata)
             $enabled_languages = $this->get_enabled_languages();
             if (!empty($enabled_languages)) {
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+                // Critical SEO sitemap query - cache implemented above
                 $last_modified = $wpdb->get_var($wpdb->prepare(
                     "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts}
                     WHERE post_type = 'page' AND post_status = 'publish'
@@ -249,7 +294,12 @@ class SitemapIndex extends SitemapGenerator {
                     )",
                     'es'
                 ));
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
             } else {
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+                // Critical SEO sitemap query - cache implemented above
                 // No multilingual setup, get all pages
                 $last_modified = $wpdb->get_var($wpdb->prepare(
                     "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts}
@@ -257,9 +307,17 @@ class SitemapIndex extends SitemapGenerator {
                     'page',
                     'publish'
                 ));
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
             }
         }
-        return $this->format_sitemap_date($last_modified);
+
+        $formatted_date = $this->format_sitemap_date($last_modified);
+
+        // Cache for 30 minutes (sitemap data is semi-static)
+        wp_cache_set($cache_key, $formatted_date, 'ez_translate', 1800);
+
+        return $formatted_date;
     }
 
     /**
@@ -272,63 +330,113 @@ class SitemapIndex extends SitemapGenerator {
     private function get_taxonomies_last_modified($language = '') {
         global $wpdb;
 
-        // Build taxonomy conditions using individual OR clauses to avoid interpolation
-        $taxonomy_conditions = array();
-        foreach ($this->settings['taxonomies'] as $taxonomy) {
-            $taxonomy_conditions[] = $wpdb->prepare('tt.taxonomy = %s', esc_sql($taxonomy));
-        }
-        $taxonomy_where = '(' . implode(' OR ', $taxonomy_conditions) . ')';
+        // Check cache first - critical for SEO bot performance
+        $taxonomies_hash = md5(serialize($this->settings['taxonomies']));
+        $cache_key = 'ez_translate_sitemap_taxonomies_lastmod_' . md5($language . '_' . $taxonomies_hash);
+        $cached_result = wp_cache_get($cache_key, 'ez_translate');
 
-        if (!empty($language)) {
-            // Specific language content
-            $last_modified = $wpdb->get_var($wpdb->prepare(
-                "SELECT MAX(p.post_modified_gmt)
-                FROM {$wpdb->posts} p
-                INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
-                INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
-                WHERE p.post_status = 'publish'
-                AND {$taxonomy_where}
-                AND p.ID IN (
-                    SELECT post_id FROM {$wpdb->postmeta}
-                    WHERE meta_key = '_ez_translate_language' AND meta_value = %s
-                )",
-                $language
-            ));
-        } else {
-            // Default language content (Spanish or no language metadata)
-            $enabled_languages = $this->get_enabled_languages();
-            if (!empty($enabled_languages)) {
-                $last_modified = $wpdb->get_var($wpdb->prepare(
-                    "SELECT MAX(p.post_modified_gmt)
-                    FROM {$wpdb->posts} p
-                    INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
-                    INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
-                    WHERE p.post_status = 'publish'
-                    AND {$taxonomy_where}
-                    AND (
-                        p.ID NOT IN (SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_ez_translate_language')
-                        OR p.ID IN (
-                            SELECT post_id FROM {$wpdb->postmeta}
-                            WHERE meta_key = '_ez_translate_language' AND meta_value = %s
-                        )
-                    )",
-                    'es'
-                ));
-            } else {
-                // No multilingual setup, get all taxonomy posts
-                $last_modified = $wpdb->get_var($wpdb->prepare(
+        if ($cached_result !== false) {
+            return $cached_result;
+        }
+
+        // Sanitize taxonomies
+        $sanitized_taxonomies = array_map('sanitize_text_field', $this->settings['taxonomies']);
+
+        if (empty($sanitized_taxonomies)) {
+            $formatted_date = $this->format_sitemap_date(null);
+            wp_cache_set($cache_key, $formatted_date, 'ez_translate', 1800);
+            return $formatted_date;
+        }
+
+        $last_modified_dates = array();
+
+        // Process each taxonomy individually to avoid IN clause interpolation
+        foreach ($sanitized_taxonomies as $taxonomy) {
+            if (!empty($language)) {
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+                // Critical SEO sitemap query - cache implemented above
+                // Specific language content
+                $date = $wpdb->get_var($wpdb->prepare(
                     "SELECT MAX(p.post_modified_gmt)
                     FROM {$wpdb->posts} p
                     INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
                     INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
                     WHERE p.post_status = %s
-                    AND {$taxonomy_where}",
-                    'publish'
+                    AND tt.taxonomy = %s
+                    AND p.ID IN (
+                        SELECT post_id FROM {$wpdb->postmeta}
+                        WHERE meta_key = %s AND meta_value = %s
+                    )",
+                    'publish',
+                    $taxonomy,
+                    '_ez_translate_language',
+                    $language
                 ));
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
+            } else {
+                // Default language content (Spanish or no language metadata)
+                $enabled_languages = $this->get_enabled_languages();
+                if (!empty($enabled_languages)) {
+                    // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                    // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+                    // Critical SEO sitemap query - cache implemented above
+                    $date = $wpdb->get_var($wpdb->prepare(
+                        "SELECT MAX(p.post_modified_gmt)
+                        FROM {$wpdb->posts} p
+                        INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
+                        INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+                        WHERE p.post_status = %s
+                        AND tt.taxonomy = %s
+                        AND (
+                            p.ID NOT IN (SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = %s)
+                            OR p.ID IN (
+                                SELECT post_id FROM {$wpdb->postmeta}
+                                WHERE meta_key = %s AND meta_value = %s
+                            )
+                        )",
+                        'publish',
+                        $taxonomy,
+                        '_ez_translate_language',
+                        '_ez_translate_language',
+                        'es'
+                    ));
+                    // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                    // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
+                } else {
+                    // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                    // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+                    // Critical SEO sitemap query - cache implemented above
+                    // No multilingual setup, get all taxonomy posts
+                    $date = $wpdb->get_var($wpdb->prepare(
+                        "SELECT MAX(p.post_modified_gmt)
+                        FROM {$wpdb->posts} p
+                        INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
+                        INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+                        WHERE p.post_status = %s
+                        AND tt.taxonomy = %s",
+                        'publish',
+                        $taxonomy
+                    ));
+                    // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                    // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
+                }
+            }
+
+            if (!empty($date)) {
+                $last_modified_dates[] = $date;
             }
         }
 
-        return $this->format_sitemap_date($last_modified);
+        // Get the most recent date from all taxonomies
+        $last_modified = empty($last_modified_dates) ? null : max($last_modified_dates);
+        $formatted_date = $this->format_sitemap_date($last_modified);
+
+        // Cache for 30 minutes (sitemap data is semi-static)
+        wp_cache_set($cache_key, $formatted_date, 'ez_translate', 1800);
+
+        return $formatted_date;
     }
 
     /**

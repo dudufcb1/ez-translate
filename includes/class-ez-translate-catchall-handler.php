@@ -137,12 +137,26 @@ class CatchAllHandler {
     private function has_specific_redirect($url) {
         global $wpdb;
 
-        $redirect = $wpdb->get_var($wpdb->prepare(
-            "SELECT id FROM `{$wpdb->prefix}ez_translate_redirects` WHERE old_url = %s LIMIT 1",
-            $url
-        ));
+        // Check cache first
+        $cache_key = 'ez_translate_redirect_' . md5($url);
+        $redirect = wp_cache_get($cache_key, 'ez_translate');
+        
+        if ($redirect === false) {
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+            // Direct database query is necessary for custom table ez_translate_redirects
+            $redirect = $wpdb->get_var($wpdb->prepare(
+                "SELECT id FROM " . $wpdb->prefix . "ez_translate_redirects WHERE old_url = %s LIMIT 1",
+                $url
+            ));
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
 
-        return !empty($redirect);
+            // Cache for 5 minutes (300 seconds)
+            wp_cache_set($cache_key, $redirect ? $redirect : 'none', 'ez_translate', 300);
+        }
+
+        return !empty($redirect) && $redirect !== 'none';
     }
 
     /**

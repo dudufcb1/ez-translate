@@ -165,7 +165,7 @@ class SitemapManager {
         Logger::info('Sitemap request detected', array(
             'type' => $sitemap_type,
             'language' => $language,
-            'url' => $_SERVER['REQUEST_URI'] ?? 'unknown'
+            'url' => isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : 'unknown'
         ));
 
         // Verify sitemap is enabled
