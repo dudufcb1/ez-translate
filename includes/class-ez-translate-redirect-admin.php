@@ -511,10 +511,15 @@ class RedirectAdmin {
      */
     private function display_admin_notices() {
         // Only show messages on our admin page and if user has proper capabilities
+<<<<<<< HEAD
         // Verify nonce for admin notice parameters to prevent CSRF
         if (isset($_GET['message']) && current_user_can('manage_options') &&
             isset($_GET['page']) && sanitize_text_field(wp_unslash($_GET['page'])) === 'ez-translate-redirects' &&
             isset($_GET['_wpnonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'])), 'ez_translate_redirect_notice')) {
+=======
+        if (isset($_GET['message']) && current_user_can('manage_options') &&
+            isset($_GET['page']) && $_GET['page'] === 'ez-translate-redirects') {
+>>>>>>> c0bff2a89be11b946ede4ef1da141ffe67ee5435
 
             $message = sanitize_text_field(wp_unslash($_GET['message']));
             $type = isset($_GET['type']) ? sanitize_text_field(wp_unslash($_GET['type'])) : 'success';
@@ -665,6 +670,7 @@ class RedirectAdmin {
 
         global $wpdb;
 
+<<<<<<< HEAD
         // Sanitize IDs and create safe placeholders for IN clause
         $sanitized_ids = array_map('intval', $redirect_ids);
         $placeholders = implode(',', array_fill(0, count($sanitized_ids), '%d'));
@@ -674,6 +680,14 @@ class RedirectAdmin {
                 "DELETE FROM `{$wpdb->prefix}ez_translate_redirects` WHERE id IN ({$placeholders})",
                 $sanitized_ids
             )
+=======
+        // Sanitize IDs and create safe IN clause
+        $sanitized_ids = array_map('intval', $redirect_ids);
+        $ids_placeholder = implode(',', $sanitized_ids);
+
+        $result = $wpdb->query(
+            "DELETE FROM `{$wpdb->prefix}ez_translate_redirects` WHERE id IN ({$ids_placeholder})"
+>>>>>>> c0bff2a89be11b946ede4ef1da141ffe67ee5435
         );
 
         Logger::info('Redirects deleted via admin', array(
@@ -699,6 +713,7 @@ class RedirectAdmin {
 
         global $wpdb;
 
+<<<<<<< HEAD
         // Sanitize IDs and create safe placeholders for IN clause
         $sanitized_ids = array_map('intval', $redirect_ids);
         $placeholders = implode(',', array_fill(0, count($sanitized_ids), '%d'));
@@ -709,6 +724,15 @@ class RedirectAdmin {
         $result = $wpdb->query($wpdb->prepare(
             "UPDATE `{$wpdb->prefix}ez_translate_redirects` SET redirect_type = %s WHERE id IN ({$placeholders})",
             $query_params
+=======
+        // Sanitize IDs and create safe IN clause
+        $sanitized_ids = array_map('intval', $redirect_ids);
+        $ids_placeholder = implode(',', $sanitized_ids);
+
+        $result = $wpdb->query($wpdb->prepare(
+            "UPDATE `{$wpdb->prefix}ez_translate_redirects` SET redirect_type = %s WHERE id IN ({$ids_placeholder})",
+            $new_type
+>>>>>>> c0bff2a89be11b946ede4ef1da141ffe67ee5435
         ));
 
         Logger::info('Redirect types updated via admin', array(

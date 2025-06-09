@@ -386,6 +386,7 @@ class PostMetaManager {
         $group_id = sanitize_text_field($group_id);
         $post_statuses = array_map('sanitize_text_field', $post_statuses);
 
+<<<<<<< HEAD
         // Create placeholders for IN clause
         $placeholders = implode(',', array_fill(0, count($post_statuses), '%s'));
 
@@ -393,16 +394,31 @@ class PostMetaManager {
         $query_params = array_merge($post_statuses, array(self::META_GROUP, $group_id));
 
         // Use prepared statement with dynamic placeholders
+=======
+        // Build WHERE clause for post statuses using IN with escaped values
+        $status_list = "'" . implode("','", array_map('esc_sql', $post_statuses)) . "'";
+
+        // Use direct query with esc_sql for the IN clause
+>>>>>>> c0bff2a89be11b946ede4ef1da141ffe67ee5435
         $results = $wpdb->get_col(
             $wpdb->prepare(
                 "SELECT p.ID
                 FROM {$wpdb->posts} p
                 INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+<<<<<<< HEAD
                 WHERE p.post_status IN ({$placeholders})
                 AND pm.meta_key = %s
                 AND pm.meta_value = %s
                 ORDER BY p.post_date DESC",
                 $query_params
+=======
+                WHERE p.post_status IN ({$status_list})
+                AND pm.meta_key = %s
+                AND pm.meta_value = %s
+                ORDER BY p.post_date DESC",
+                self::META_GROUP,
+                $group_id
+>>>>>>> c0bff2a89be11b946ede4ef1da141ffe67ee5435
             )
         );
 
@@ -434,6 +450,7 @@ class PostMetaManager {
         $args['post_status'] = sanitize_text_field($args['post_status']);
         $post_types = array_map('sanitize_text_field', $post_types);
 
+<<<<<<< HEAD
         // Create placeholders for IN clause
         $placeholders = implode(',', array_fill(0, count($post_types), '%s'));
 
@@ -483,6 +500,48 @@ class PostMetaManager {
             );
         }
 
+=======
+        // Build WHERE clause for post types using IN with escaped values
+        $types_list = "'" . implode("','", array_map('esc_sql', $post_types)) . "'";
+
+        // Build query with LIMIT handling
+        if ($args['limit'] > 0) {
+            $results = $wpdb->get_col(
+                $wpdb->prepare(
+                    "SELECT p.ID
+                    FROM {$wpdb->posts} p
+                    INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+                    WHERE p.post_status = %s
+                    AND p.post_type IN ({$types_list})
+                    AND pm.meta_key = %s
+                    AND pm.meta_value = %s
+                    ORDER BY p.post_date DESC
+                    LIMIT %d",
+                    $args['post_status'],
+                    self::META_LANGUAGE,
+                    $language_code,
+                    $args['limit']
+                )
+            );
+        } else {
+            $results = $wpdb->get_col(
+                $wpdb->prepare(
+                    "SELECT p.ID
+                    FROM {$wpdb->posts} p
+                    INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+                    WHERE p.post_status = %s
+                    AND p.post_type IN ({$types_list})
+                    AND pm.meta_key = %s
+                    AND pm.meta_value = %s
+                    ORDER BY p.post_date DESC",
+                    $args['post_status'],
+                    self::META_LANGUAGE,
+                    $language_code
+                )
+            );
+        }
+
+>>>>>>> c0bff2a89be11b946ede4ef1da141ffe67ee5435
         return array_map('intval', $results);
     }
 
