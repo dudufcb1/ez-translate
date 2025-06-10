@@ -212,6 +212,11 @@ class Frontend {
      * @since 1.0.0
      */
     private function generate_complete_metadata($post, $language, $is_landing, $seo_title, $seo_description) {
+        // Check if SEO metadata is globally enabled
+        if (!$this->is_seo_metadata_enabled()) {
+            return;
+        }
+
         // Detect if this is the WordPress default language
         $wp_locale = get_locale();
         $wp_language_code = strstr($wp_locale, '_', true) ?: $wp_locale; // es_MX -> es
@@ -252,49 +257,78 @@ class Frontend {
         // Start EZ Translate metadata section
         echo "\n<!-- EZ Translate: SEO Metadata -->\n";
 
-        // Generate meta description
-        echo '<meta name="description" content="' . esc_attr($page_description) . '">' . "\n";
-
-        // Generate Open Graph metadata
-        echo '<!-- EZ Translate: Open Graph -->' . "\n";
-        echo '<meta property="og:title" content="' . esc_attr($page_title) . '">' . "\n";
-        echo '<meta property="og:description" content="' . esc_attr($page_description) . '">' . "\n";
-        echo '<meta property="og:type" content="' . esc_attr($og_type) . '">' . "\n";
-        echo '<meta property="og:url" content="' . esc_url($current_url) . '">' . "\n";
-        echo '<meta property="og:locale" content="' . esc_attr($locale) . '">' . "\n";
-
-        // Add site name (use language-specific name if available)
-        $site_name = !empty($language_site_metadata['site_name']) ? $language_site_metadata['site_name'] : get_bloginfo('name');
-        if (!empty($site_name)) {
-            echo '<meta property="og:site_name" content="' . esc_attr($site_name) . '">' . "\n";
+        // Generate meta description (if enabled)
+        if ($this->is_metadata_type_enabled('meta_description')) {
+            echo '<meta name="description" content="' . esc_attr($page_description) . '">' . "\n";
         }
 
-        // Include featured image if available (skip for homepage)
-        if ($post->ID !== 0 && has_post_thumbnail($post->ID)) {
-            $thumbnail_url = get_the_post_thumbnail_url($post->ID, 'large');
-            if ($thumbnail_url) {
-                echo '<meta property="og:image" content="' . esc_url($thumbnail_url) . '">' . "\n";
+        // Generate Open Graph metadata (if enabled)
+        if ($this->is_metadata_type_enabled('open_graph')) {
+            echo '<!-- EZ Translate: Open Graph -->' . "\n";
+            echo '<meta property="og:title" content="' . esc_attr($page_title) . '">' . "\n";
+            echo '<meta property="og:description" content="' . esc_attr($page_description) . '">' . "\n";
+            echo '<meta property="og:type" content="' . esc_attr($og_type) . '">' . "\n";
+            echo '<meta property="og:url" content="' . esc_url($current_url) . '">' . "\n";
+            echo '<meta property="og:locale" content="' . esc_attr($locale) . '">' . "\n";
+
+            // Add site name (use language-specific name if available)
+            $site_name = !empty($language_site_metadata['site_name']) ? $language_site_metadata['site_name'] : get_bloginfo('name');
+            if (!empty($site_name)) {
+                echo '<meta property="og:site_name" content="' . esc_attr($site_name) . '">' . "\n";
+            }
+
+            // Include featured image if available and enabled (skip for homepage)
+            if ($this->is_metadata_type_enabled('featured_images') && $post->ID !== 0 && has_post_thumbnail($post->ID)) {
+                $thumbnail_url = get_the_post_thumbnail_url($post->ID, 'large');
+                if ($thumbnail_url) {
+                    echo '<meta property="og:image" content="' . esc_url($thumbnail_url) . '">' . "\n";
+                }
             }
         }
 
-        // Generate Twitter Card metadata
-        echo '<!-- EZ Translate: Twitter Cards -->' . "\n";
-        echo '<meta name="twitter:card" content="summary_large_image">' . "\n";
-        echo '<meta name="twitter:title" content="' . esc_attr($page_title) . '">' . "\n";
-        echo '<meta name="twitter:description" content="' . esc_attr($page_description) . '">' . "\n";
+        // Generate Twitter Card metadata (if enabled)
+        if ($this->is_metadata_type_enabled('twitter_cards')) {
+            echo '<!-- EZ Translate: Twitter Cards -->' . "\n";
+            echo '<meta name="twitter:card" content="summary_large_image">' . "\n";
+            echo '<meta name="twitter:title" content="' . esc_attr($page_title) . '">' . "\n";
+            echo '<meta name="twitter:description" content="' . esc_attr($page_description) . '">' . "\n";
 
-        // Include Twitter image if available (skip for homepage)
-        if ($post->ID !== 0 && has_post_thumbnail($post->ID)) {
-            $thumbnail_url = get_the_post_thumbnail_url($post->ID, 'large');
-            if ($thumbnail_url) {
-                echo '<meta name="twitter:image" content="' . esc_url($thumbnail_url) . '">' . "\n";
+            // Include Twitter image if available and enabled (skip for homepage)
+            if ($this->is_metadata_type_enabled('featured_images') && $post->ID !== 0 && has_post_thumbnail($post->ID)) {
+                $thumbnail_url = get_the_post_thumbnail_url($post->ID, 'large');
+                if ($thumbnail_url) {
+                    echo '<meta name="twitter:image" content="' . esc_url($thumbnail_url) . '">' . "\n";
+                }
             }
         }
 
-        // Generate JSON-LD structured data for articles (skip for homepage and landing pages)
-        if (!$is_landing && $post->ID !== 0) {
+        // Generate JSON-LD structured data (if enabled)
+        if ($this->is_metadata_type_enabled('json_ld_schema')) {
             echo '<!-- EZ Translate: JSON-LD Structured Data -->' . "\n";
-            $this->generate_article_jsonld($post, $page_title, $page_description, $language, $current_url, $language_site_metadata);
+
+            // Determine the appropriate schema type
+            $schema_type = $this->determine_schema_type($post, $is_landing);
+
+            switch ($schema_type) {
+                case 'website':
+                    if ($this->is_metadata_type_enabled('json_ld_homepage')) {
+                        $this->generate_website_jsonld($post, $page_title, $page_description, $language, $current_url, $language_site_metadata);
+                    }
+                    break;
+
+                case 'webpage':
+                    if ($this->is_metadata_type_enabled('json_ld_landing_pages')) {
+                        $this->generate_webpage_jsonld($post, $page_title, $page_description, $language, $current_url, $language_site_metadata);
+                    }
+                    break;
+
+                case 'article':
+                default:
+                    if ($this->is_metadata_type_enabled('json_ld_articles')) {
+                        $this->generate_article_jsonld($post, $page_title, $page_description, $language, $current_url, $language_site_metadata);
+                    }
+                    break;
+            }
         }
 
         // End EZ Translate metadata section
@@ -364,6 +398,11 @@ class Frontend {
      * @since 1.0.0
      */
     public function filter_document_title($title_parts) {
+        // Check if document title metadata is enabled
+        if (!$this->is_metadata_type_enabled('document_title')) {
+            return $title_parts;
+        }
+
         global $post;
 
         // Handle homepage case (blog posts homepage)
@@ -503,6 +542,11 @@ class Frontend {
      * @since 1.0.0
      */
     public function inject_hreflang_tags() {
+        // Check if hreflang tags are enabled
+        if (!$this->is_metadata_type_enabled('hreflang_tags')) {
+            return;
+        }
+
         global $post;
 
         // Only process on singular pages (skip check in debug mode)
@@ -824,13 +868,56 @@ class Frontend {
             $jsonld['author']['url'] = $author_url;
         }
 
-        // Add featured image if available
-        if (has_post_thumbnail($post->ID)) {
+        // Add featured image if available and enabled
+        if ($this->is_metadata_type_enabled('featured_images') && has_post_thumbnail($post->ID)) {
             $thumbnail_url = get_the_post_thumbnail_url($post->ID, 'large');
             if ($thumbnail_url) {
-                $jsonld['image'] = $thumbnail_url;
+                $jsonld['image'] = array(
+                    '@type' => 'ImageObject',
+                    'url' => $thumbnail_url
+                );
+
+                // Add image dimensions if available
+                $attachment_id = get_post_thumbnail_id($post->ID);
+                if ($attachment_id) {
+                    $image_meta = wp_get_attachment_metadata($attachment_id);
+                    if (!empty($image_meta['width']) && !empty($image_meta['height'])) {
+                        $jsonld['image']['width'] = $image_meta['width'];
+                        $jsonld['image']['height'] = $image_meta['height'];
+                    }
+                }
             }
         }
+
+        // Add article section (categories)
+        $categories = get_the_category($post->ID);
+        if (!empty($categories)) {
+            $jsonld['articleSection'] = $categories[0]->name;
+        }
+
+        // Add keywords (tags)
+        $tags = get_the_tags($post->ID);
+        if (!empty($tags)) {
+            $keywords = array();
+            foreach ($tags as $tag) {
+                $keywords[] = $tag->name;
+            }
+            if (!empty($keywords)) {
+                $jsonld['keywords'] = implode(', ', $keywords);
+            }
+        }
+
+        // Add word count
+        $word_count = str_word_count(wp_strip_all_tags($post->post_content));
+        if ($word_count > 0) {
+            $jsonld['wordCount'] = $word_count;
+        }
+
+        // Add main entity of page
+        $jsonld['mainEntityOfPage'] = array(
+            '@type' => 'WebPage',
+            '@id' => $url
+        );
 
         // Add publisher information (use language-specific name if available)
         $site_name = !empty($language_site_metadata['site_name']) ? $language_site_metadata['site_name'] : get_bloginfo('name');
@@ -845,6 +932,200 @@ class Frontend {
         echo '<script type="application/ld+json">' . "\n";
         echo wp_json_encode($jsonld, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         echo "\n" . '</script>' . "\n";
+    }
+
+    /**
+     * Generate JSON-LD structured data for landing pages (WebPage schema)
+     *
+     * @param WP_Post|stdClass $post Post object
+     * @param string $title Page title
+     * @param string $description Page description
+     * @param string $language Language code
+     * @param string $url Page URL
+     * @param array $language_site_metadata Language-specific site metadata
+     * @since 1.0.0
+     */
+    private function generate_webpage_jsonld($post, $title, $description, $language, $url, $language_site_metadata = array()) {
+        $jsonld = array(
+            '@context' => 'https://schema.org',
+            '@type' => 'WebPage',
+            'name' => $title,
+            'description' => $description,
+            'url' => $url,
+            'inLanguage' => $language
+        );
+
+        // Add site information
+        $site_name = !empty($language_site_metadata['site_name']) ? $language_site_metadata['site_name'] : get_bloginfo('name');
+        $site_url = home_url();
+
+        if (!empty($site_name)) {
+            $jsonld['isPartOf'] = array(
+                '@type' => 'WebSite',
+                'name' => $site_name,
+                'url' => $site_url
+            );
+        }
+
+        // Add featured image if available
+        if ($this->is_metadata_type_enabled('featured_images') && is_object($post) && isset($post->ID) && $post->ID > 0 && has_post_thumbnail($post->ID)) {
+            $thumbnail_url = get_the_post_thumbnail_url($post->ID, 'large');
+            if ($thumbnail_url) {
+                $jsonld['image'] = $thumbnail_url;
+            }
+        }
+
+        // Add breadcrumb for landing pages
+        $breadcrumb = $this->generate_breadcrumb_for_landing_page($post, $language, $language_site_metadata);
+        if (!empty($breadcrumb)) {
+            $jsonld['breadcrumb'] = $breadcrumb;
+        }
+
+        // Add last modified date if available
+        if (is_object($post) && isset($post->ID) && $post->ID > 0) {
+            $modified_date = get_the_modified_date('c', $post->ID);
+            if ($modified_date) {
+                $jsonld['dateModified'] = $modified_date;
+            }
+        }
+
+        echo '<script type="application/ld+json">' . "\n";
+        echo wp_json_encode($jsonld, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        echo "\n" . '</script>' . "\n";
+    }
+
+    /**
+     * Generate JSON-LD structured data for homepage (WebSite schema)
+     *
+     * @param WP_Post|stdClass $post Post object (fake for homepage)
+     * @param string $title Site title
+     * @param string $description Site description
+     * @param string $language Language code
+     * @param string $url Site URL
+     * @param array $language_site_metadata Language-specific site metadata
+     * @since 1.0.0
+     */
+    private function generate_website_jsonld($post, $title, $description, $language, $url, $language_site_metadata = array()) {
+        $site_url = home_url();
+
+        $jsonld = array(
+            '@context' => 'https://schema.org',
+            '@type' => 'WebSite',
+            'name' => $title,
+            'description' => $description,
+            'url' => $site_url,
+            'inLanguage' => $language
+        );
+
+        // Add search action if search is available
+        if (get_option('blog_public')) { // Only if site is public
+            $search_url = home_url('/?s={search_term_string}');
+            $jsonld['potentialAction'] = array(
+                '@type' => 'SearchAction',
+                'target' => array(
+                    '@type' => 'EntryPoint',
+                    'urlTemplate' => $search_url
+                ),
+                'query-input' => 'required name=search_term_string'
+            );
+        }
+
+        // Add publisher information
+        $site_name = !empty($language_site_metadata['site_name']) ? $language_site_metadata['site_name'] : get_bloginfo('name');
+        if (!empty($site_name)) {
+            $jsonld['publisher'] = array(
+                '@type' => 'Organization',
+                'name' => $site_name,
+                'url' => $site_url
+            );
+
+            // Add logo if available
+            $custom_logo_id = get_theme_mod('custom_logo');
+            if ($custom_logo_id) {
+                $logo_url = wp_get_attachment_image_url($custom_logo_id, 'full');
+                if ($logo_url) {
+                    $jsonld['publisher']['logo'] = array(
+                        '@type' => 'ImageObject',
+                        'url' => $logo_url
+                    );
+                }
+            }
+        }
+
+        // Add alternate languages if available
+        $alternate_languages = $this->get_alternate_languages_for_homepage();
+        if (!empty($alternate_languages)) {
+            $jsonld['inLanguage'] = array_merge(array($language), $alternate_languages);
+        }
+
+        echo '<script type="application/ld+json">' . "\n";
+        echo wp_json_encode($jsonld, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        echo "\n" . '</script>' . "\n";
+    }
+
+    /**
+     * Generate breadcrumb for landing pages
+     *
+     * @param WP_Post|stdClass $post Post object
+     * @param string $language Language code
+     * @param array $language_site_metadata Language-specific site metadata
+     * @return array|null Breadcrumb data or null
+     * @since 1.0.0
+     */
+    private function generate_breadcrumb_for_landing_page($post, $language, $language_site_metadata = array()) {
+        $breadcrumb_items = array();
+
+        // Home item
+        $site_name = !empty($language_site_metadata['site_name']) ? $language_site_metadata['site_name'] : get_bloginfo('name');
+        $breadcrumb_items[] = array(
+            '@type' => 'ListItem',
+            'position' => 1,
+            'name' => $site_name,
+            'item' => home_url()
+        );
+
+        // Landing page item (if it has a title and is not the homepage)
+        if (is_object($post) && isset($post->post_title) && !empty($post->post_title) && isset($post->ID) && $post->ID > 0) {
+            $breadcrumb_items[] = array(
+                '@type' => 'ListItem',
+                'position' => 2,
+                'name' => $post->post_title,
+                'item' => get_permalink($post->ID)
+            );
+        }
+
+        // Only return breadcrumb if we have more than just the home item
+        if (count($breadcrumb_items) > 1) {
+            return array(
+                '@type' => 'BreadcrumbList',
+                'itemListElement' => $breadcrumb_items
+            );
+        }
+
+        return null;
+    }
+
+    /**
+     * Get alternate languages available for homepage
+     *
+     * @return array Array of language codes
+     * @since 1.0.0
+     */
+    private function get_alternate_languages_for_homepage() {
+        // Load language manager to get all configured languages
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-manager.php';
+        $languages = \EZTranslate\LanguageManager::get_languages();
+
+        $alternate_languages = array();
+
+        foreach ($languages as $language_data) {
+            if (!empty($language_data['code'])) {
+                $alternate_languages[] = $language_data['code'];
+            }
+        }
+
+        // Remove duplicates and return
+        return array_unique($alternate_languages);
     }
 
     /**
@@ -1605,5 +1886,91 @@ class Frontend {
         }
 
         return $classes;
+    }
+
+    /**
+     * Check if SEO metadata is globally enabled
+     *
+     * @return bool Whether SEO metadata is enabled
+     * @since 1.0.0
+     */
+    private function is_seo_metadata_enabled() {
+        // Load SEO metadata admin class if not already loaded
+        if (!class_exists('EZTranslate\Admin\SeoMetadataAdmin')) {
+            require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-seo-metadata-admin.php';
+        }
+
+        return \EZTranslate\Admin\SeoMetadataAdmin::is_metadata_enabled('enabled');
+    }
+
+    /**
+     * Check if a specific metadata type is enabled
+     *
+     * @param string $metadata_type The metadata type to check
+     * @return bool Whether the metadata type is enabled
+     * @since 1.0.0
+     */
+    private function is_metadata_type_enabled($metadata_type) {
+        // Load SEO metadata admin class if not already loaded
+        if (!class_exists('EZTranslate\Admin\SeoMetadataAdmin')) {
+            require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-seo-metadata-admin.php';
+        }
+
+        return \EZTranslate\Admin\SeoMetadataAdmin::is_metadata_enabled($metadata_type);
+    }
+
+    /**
+     * Determine the appropriate schema type for a page
+     *
+     * @param WP_Post|stdClass $post Post object
+     * @param bool $is_landing Whether this is a landing page
+     * @return string Schema type (article, webpage, website)
+     * @since 1.0.0
+     */
+    private function determine_schema_type($post, $is_landing) {
+        // Load SEO metadata admin class if not already loaded
+        if (!class_exists('EZTranslate\Admin\SeoMetadataAdmin')) {
+            require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-seo-metadata-admin.php';
+        }
+
+        $settings = \EZTranslate\Admin\SeoMetadataAdmin::get_settings();
+
+        // Check for manual override first (future feature)
+        $manual_override = '';
+        if (is_object($post) && isset($post->ID) && $post->ID > 0) {
+            $manual_override = get_post_meta($post->ID, '_ez_translate_schema_type', true);
+        }
+
+        if (!empty($manual_override) && in_array($manual_override, array('article', 'webpage', 'website'))) {
+            return $manual_override;
+        }
+
+        // Homepage detection
+        if (!is_object($post) || $post->ID === 0 || $this->is_homepage($post->ID)) {
+            return $settings['homepage_schema_type'];
+        }
+
+        // Landing page detection
+        if ($is_landing) {
+            return $settings['landing_page_schema_type'];
+        }
+
+        // Post type based detection
+        if (is_object($post) && isset($post->post_type)) {
+            switch ($post->post_type) {
+                case 'post':
+                    return $settings['post_schema_type'];
+
+                case 'page':
+                    return $settings['page_schema_type'];
+
+                default:
+                    // For custom post types, use default
+                    return $settings['default_schema_type'] === 'auto' ? 'article' : $settings['default_schema_type'];
+            }
+        }
+
+        // Fallback to default
+        return $settings['default_schema_type'] === 'auto' ? 'article' : $settings['default_schema_type'];
     }
 }

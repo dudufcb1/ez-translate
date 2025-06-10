@@ -48,6 +48,7 @@ EZ Translate es un plugin WordPress que implementa un sistema multilingüe robus
 - Verificación de capabilities y seguridad de acceso
 - Enqueue de assets específicos para páginas del plugin
 - Logging de actividad administrativa y accesos
+- Inicialización de submódulos administrativos (Sitemap, Robots, SEO Metadata)
 
 **Características Técnicas**:
 - Namespace `EZTranslate\Admin` para organización modular
@@ -60,6 +61,24 @@ EZ Translate es un plugin WordPress que implementa un sistema multilingüe robus
 - Modal de edición con JavaScript para experiencia de usuario mejorada
 - Validación de formularios en tiempo real
 - Generación automática de slugs URL-amigables
+
+### Sistema de Metadatos SEO: `includes/admin/class-ez-translate-seo-metadata-admin.php`
+**Propósito**: Control granular de la generación de metadatos SEO
+**Responsabilidades**:
+- Interfaz administrativa para configuración de metadatos
+- Gestión de habilitación/deshabilitación selectiva por tipo de metadato
+- Compatibilidad con otros plugins SEO (Yoast, RankMath, etc.)
+- Configuración de prioridades y comportamientos de override
+
+**Características Técnicas**:
+- Submenu "Metadatos & SEO" en el panel principal
+- Toggle switches para control visual intuitivo
+- Categorización de metadatos: básicos, redes sociales, multiidioma, datos estructurados
+- Validación y sanitización de configuraciones
+- Sistema de configuración por defecto con todos los metadatos habilitados
+- Interfaz responsive con ejemplos de compatibilidad
+- JavaScript para interactividad (habilitar/deshabilitar todo, reset)
+- Integración con el sistema de logging del plugin
 
 ### Sistema de Gestión de Idiomas: `includes/class-ez-translate-language-manager.php`
 **Propósito**: Gestión completa de operaciones CRUD para idiomas
@@ -278,6 +297,32 @@ EZ Translate es un plugin WordPress que implementa un sistema multilingüe robus
 - **Metadatos específicos**: og:url con URLs completas, og:type correcto (article/website)
 - **Hreflang bidireccional**: Autodeclaración + versiones alternativas + x-default configurable
 - **Detección automática**: Funciona con páginas sin metadatos explícitos de EZ Translate
+
+**Sistema de Control Selectivo de Metadatos** (MEJORA 4):
+- **Panel "SEO Metadata"**: Interfaz administrativa para control granular de metadatos
+- **Habilitación/Deshabilitación Selectiva**: Control individual de cada tipo de metadato
+- **Compatibilidad con otros plugins SEO**: Permite usar EZ Translate junto con Yoast, RankMath, etc.
+- **Configuración por categorías**: Basic Metadata, Social Media, Multilingual, Structured Data
+- **Control global**: Switch maestro para habilitar/deshabilitar todo el sistema SEO
+- **Prioridad configurable**: Opción para tomar precedencia sobre otros plugins SEO
+- **Interfaz en inglés**: Consistente con el resto del plugin para mantener uniformidad
+
+**JSON-LD Schema Completo** (MEJORA 5):
+- **Schema específico por tipo de página**: Article, WebPage, WebSite según contexto
+- **Article Schema**: Para posts con autor, fechas, categorías, tags, wordCount, mainEntityOfPage
+- **WebPage Schema**: Para landing pages con breadcrumbs, isPartOf, imagen destacada
+- **WebSite Schema**: Para homepage con SearchAction, publisher, logo, idiomas alternativos
+- **Control granular**: Configuración independiente para cada tipo de JSON-LD
+- **Metadatos enriquecidos**: Dimensiones de imagen, conteo de palabras, estructura de breadcrumbs
+- **Compatibilidad total**: Respeta configuraciones de featured images y otros metadatos
+
+**Sistema de Selección de Schema Types** (MEJORA 6):
+- **Selectores configurables**: Permite elegir qué schema usar para cada tipo de página
+- **Detección automática mejorada**: Basada en post_type y configuración de landing pages
+- **Override manual**: Posibilidad de configurar schema específico por página (futuro)
+- **Configuración por tipo**: Homepage, Landing Pages, Posts, Pages con opciones específicas
+- **Fallback inteligente**: Sistema de detección automática cuando no se puede determinar
+- **Flexibilidad total**: Desde configuración automática hasta control manual completo
 
 ### Sistema de Sitemap Dinámico: `includes/sitemap/`
 **Propósito**: Sistema completo de generación de sitemaps XML multiidioma para optimización SEO

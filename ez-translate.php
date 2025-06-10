@@ -201,6 +201,15 @@ final class EZTranslate {
             $this->log_message('Default robots settings initialized', 'info');
         }
 
+        // Initialize SEO metadata settings if they don't exist
+        if (false === get_option('ez_translate_seo_metadata_settings')) {
+            // Load SEO metadata admin class to get defaults
+            require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-seo-metadata-admin.php';
+            $default_seo_settings = \EZTranslate\Admin\SeoMetadataAdmin::get_default_settings();
+            add_option('ez_translate_seo_metadata_settings', $default_seo_settings);
+            $this->log_message('Default SEO metadata settings initialized', 'info');
+        }
+
         // Flush rewrite rules to ensure robots.txt works
         flush_rewrite_rules();
 

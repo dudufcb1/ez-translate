@@ -39,6 +39,7 @@ class Admin {
         $this->init_hooks();
         $this->init_sitemap_admin();
         $this->init_robots_admin();
+        $this->init_seo_metadata_admin();
         Logger::info('Admin class initialized');
     }
 
@@ -2063,6 +2064,22 @@ class Admin {
 
         // Initialize robots admin
         new \EZTranslate\Admin\RobotsAdmin();
+    }
+
+    /**
+     * Initialize SEO metadata admin
+     *
+     * @since 1.0.0
+     */
+    private function init_seo_metadata_admin() {
+        // Load SEO metadata admin class
+        if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-seo-metadata-admin.php')) {
+            require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-seo-metadata-admin.php';
+            new \EZTranslate\Admin\SeoMetadataAdmin();
+            Logger::info('SEO metadata admin initialized');
+        } else {
+            Logger::warning('SEO metadata admin file not found');
+        }
     }
 
     /**
