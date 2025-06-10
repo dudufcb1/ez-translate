@@ -1,18 +1,21 @@
 <?php
 /**
- * Plugin Name: EZ Translate
- * Plugin URI: https://github.com/your-username/ez-translate
- * Description: A comprehensive multilingual system for WordPress that simplifies managing content in multiple languages with advanced SEO optimization.
- * Version: 1.0.1
- * Author: Your Name
- * Author URI: https://yourwebsite.com
+ * Plugin Name: EZ Translate - Multilingual WP Made Easy
+ * Plugin URI: https://especialistaenwp.com/plugins/ez-translate
+ * Description: 🌍 Transform your WP site into a multilingual powerhouse! Advanced translation system with SEO optimization, automatic redirects, and Gutenberg integration. Perfect for global businesses and content creators.
+ * Version: 1.0.3
+ * Author: EspecialistaEnWP - WordPress Expert
+ * Author URI: https://especialistaenwp.com
  * Text Domain: ez-translate
  * Domain Path: /languages
  * Requires at least: 5.8
- * Tested up to: 6.4
+ * Tested up to: 6.8
  * Requires PHP: 7.4
  * License: GPL v2 or later
- * License URI: https://www.gnu.org/licenses/gpl-2.0.html 
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ *
+ * 🚀 Need custom development? Visit https://especialistaenwp.com
+ * ✨ WP Themes & Plugins | ⚡ Laravel | ⚛️ React/Vue | 🐍 Python | 🤖 AI Integration
  *
  * @package EZTranslate
  */
@@ -23,7 +26,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('EZ_TRANSLATE_VERSION', '1.0.1');
+define('EZ_TRANSLATE_VERSION', '1.0.3');
 define('EZ_TRANSLATE_PLUGIN_FILE', __FILE__);
 define('EZ_TRANSLATE_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('EZ_TRANSLATE_PLUGIN_URL', plugin_dir_url(__FILE__));

@@ -40,6 +40,8 @@ class Admin {
         $this->init_sitemap_admin();
         $this->init_robots_admin();
         $this->init_seo_metadata_admin();
+        $this->init_welcome_page();
+        $this->init_dashboard_widget();
         Logger::info('Admin class initialized');
     }
 
@@ -2532,5 +2534,37 @@ class Admin {
             </div>
         </div>
         <?php
+    }
+
+    /**
+     * Initialize welcome page admin
+     *
+     * @since 1.0.0
+     */
+    private function init_welcome_page() {
+        // Load welcome page admin class
+        if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-welcome-page.php')) {
+            require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-welcome-page.php';
+            new \EZTranslate\Admin\WelcomePage();
+            Logger::info('Welcome page admin initialized');
+        } else {
+            Logger::warning('Welcome page admin file not found');
+        }
+    }
+
+    /**
+     * Initialize dashboard widget
+     *
+     * @since 1.0.0
+     */
+    private function init_dashboard_widget() {
+        // Load dashboard widget class
+        if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-dashboard-widget.php')) {
+            require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-dashboard-widget.php';
+            new \EZTranslate\Admin\DashboardWidget();
+            Logger::info('Dashboard widget initialized');
+        } else {
+            Logger::warning('Dashboard widget file not found');
+        }
     }
 }

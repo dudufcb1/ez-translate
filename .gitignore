@@ -48,3 +48,4 @@ node_modules/
 *.md
 !memory_bank/architecture.md
 ez-translate.zip
+ez-translate_code.txt

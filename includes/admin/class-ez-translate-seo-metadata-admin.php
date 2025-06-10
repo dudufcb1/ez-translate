@@ -312,21 +312,41 @@ class SeoMetadataAdmin {
         $settings = self::get_settings();
 
         // Handle admin notices
-        if (isset($_GET['updated']) && $_GET['updated'] === 'true') {
+        // phpcs:disable WordPress.Security.NonceVerification.Recommended -- Only displaying status messages, no data processing
+        if (isset($_GET['updated']) && sanitize_text_field(wp_unslash($_GET['updated'])) === 'true') {
             echo '<div class="notice notice-success is-dismissible"><p>' .
                  esc_html__('SEO metadata settings updated successfully.', 'ez-translate') .
                  '</p></div>';
         }
 
-        if (isset($_GET['error']) && $_GET['error'] === 'save_failed') {
+        if (isset($_GET['error']) && sanitize_text_field(wp_unslash($_GET['error'])) === 'save_failed') {
             echo '<div class="notice notice-error is-dismissible"><p>' .
                  esc_html__('Failed to save SEO metadata settings.', 'ez-translate') .
                  '</p></div>';
         }
+        // phpcs:enable WordPress.Security.NonceVerification.Recommended
 
         ?>
         <div class="wrap">
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+
+            <!-- Professional Services Banner -->
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 20px; border-radius: 8px; margin: 20px 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 300px;">
+                    <h3 style="margin: 0 0 5px 0; color: white;">🚀 <?php esc_html_e('Need Professional Development?', 'ez-translate'); ?></h3>
+                    <p style="margin: 0; opacity: 0.9; font-size: 14px;">
+                        <?php esc_html_e('WP themes & plugins (FSE + Classic), Laravel, React, Vue.js, Python, AI integration by the creator of EZ Translate', 'ez-translate'); ?>
+                    </p>
+                </div>
+                <div style="margin-left: 20px;">
+                    <a href="https://especialistaenwp.com" target="_blank" style="background: white; color: #667eea; padding: 10px 20px; text-decoration: none; border-radius: 25px; font-weight: bold; margin-right: 10px;">
+                        🌐 <?php esc_html_e('Visit EspecialistaEnWP.com', 'ez-translate'); ?>
+                    </a>
+                    <a href="https://especialistaenwp.com/contact" target="_blank" style="background: rgba(255,255,255,0.2); color: white; padding: 10px 20px; text-decoration: none; border-radius: 25px; font-weight: bold; border: 2px solid white;">
+                        💬 <?php esc_html_e('Free Consultation', 'ez-translate'); ?>
+                    </a>
+                </div>
+            </div>
             
             <div class="ez-translate-seo-metadata-admin">
                 <div class="card" style="max-width: 1200px; width: 100%;">
@@ -729,10 +749,12 @@ class SeoMetadataAdmin {
                             <div class="status-item">
                                 <span class="status-icon">📊</span>
                                 <span class="status-text">
-                                    <?php printf(
-                                        esc_html__('Active features: %d of %d', 'ez-translate'),
-                                        $enabled_count,
-                                        $total_count
+                                    <?php
+                                    printf(
+                                        /* translators: %1$d: number of active features, %2$d: total number of features */
+                                        esc_html__('Active features: %1$d of %2$d', 'ez-translate'),
+                                        (int) $enabled_count,
+                                        (int) $total_count
                                     ); ?>
                                 </span>
                             </div>
