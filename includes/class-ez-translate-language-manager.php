@@ -714,26 +714,47 @@ class LanguageManager {
             }
         }
 
-        // Fallback: Query for pages with this language (legacy support)
-        $posts = get_posts(array(
-            'post_type' => 'page',
-            'post_status' => array('draft', 'publish', 'private'),
-            'meta_query' => array(
-                array(
-                    'key' => '_ez_translate_language',
-                    'value' => $language_code,
-                    'compare' => '='
-                )
-            ),
-            'numberposts' => -1
-        ));
+        // Check cache first for legacy fallback query
+        $cache_key = 'ez_translate_landing_page_fallback_' . md5($language_code);
+        $cached_post = wp_cache_get($cache_key, 'ez_translate');
 
-        if (empty($posts)) {
-            return null;
+        if ($cached_post !== false) {
+            if ($cached_post === 'not_found') {
+                return null;
+            }
+            $post = $cached_post;
+        } else {
+            // Fallback: Query for pages with this language (legacy support)
+            // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+            // Meta query is necessary for legacy landing page fallback when no specific landing page is configured
+            $posts = get_posts(array(
+                'post_type' => 'page',
+                'post_status' => array('draft', 'publish', 'private'),
+                'meta_query' => array(
+                    array(
+                        'key' => '_ez_translate_language',
+                        'value' => $language_code,
+                        'compare' => '='
+                    )
+                ),
+                'numberposts' => 1, // Only need the first match for fallback
+                'orderby' => 'date',
+                'order' => 'DESC'
+            ));
+            // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+
+            if (empty($posts)) {
+                // Cache the "not found" result to avoid repeated queries
+                wp_cache_set($cache_key, 'not_found', 'ez_translate', 300); // 5 minutes cache
+                return null;
+            }
+
+            // Return the first page found
+            $post = $posts[0];
+
+            // Cache the result for 5 minutes (landing pages don't change frequently)
+            wp_cache_set($cache_key, $post, 'ez_translate', 300);
         }
-
-        // Return the first page found
-        $post = $posts[0];
 
         $landing_page_data = array(
             'post_id' => $post->ID,

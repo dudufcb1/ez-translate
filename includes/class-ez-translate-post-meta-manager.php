@@ -208,11 +208,16 @@ class PostMetaManager
 
         if ($result) {
             Logger::info('Post language set', array('post_id' => $post_id, 'language' => $language_code));
+            // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+            // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+            // These are logging parameters, not database queries
             Logger::log_db_operation('update', 'post_meta', array(
                 'post_id' => $post_id,
                 'meta_key' => self::META_LANGUAGE,
                 'meta_value' => $language_code
             ));
+            // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+            // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_value
         } else {
             Logger::error('Failed to set post language', array('post_id' => $post_id, 'language' => $language_code));
         }
@@ -245,11 +250,16 @@ class PostMetaManager
 
         if ($result) {
             Logger::info('Post translation group set', array('post_id' => $post_id, 'group_id' => $group_id));
+            // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+            // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+            // These are logging parameters, not database queries
             Logger::log_db_operation('update', 'post_meta', array(
                 'post_id' => $post_id,
                 'meta_key' => self::META_GROUP,
                 'meta_value' => $group_id
             ));
+            // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+            // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_value
             return $group_id;
         } else {
             Logger::error('Failed to set post translation group', array('post_id' => $post_id, 'group_id' => $group_id));
@@ -275,11 +285,16 @@ class PostMetaManager
 
         if ($result) {
             Logger::info('Post SEO title set', array('post_id' => $post_id, 'seo_title' => $seo_title));
+            // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+            // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+            // These are logging parameters, not database queries
             Logger::log_db_operation('update', 'post_meta', array(
                 'post_id' => $post_id,
                 'meta_key' => self::META_SEO_TITLE,
                 'meta_value' => $seo_title
             ));
+            // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+            // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_value
         } else {
             Logger::error('Failed to set post SEO title', array('post_id' => $post_id, 'seo_title' => $seo_title));
         }
@@ -303,11 +318,16 @@ class PostMetaManager
 
         if ($result) {
             Logger::info('Post SEO description set', array('post_id' => $post_id, 'seo_description' => $seo_description));
+            // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+            // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+            // These are logging parameters, not database queries
             Logger::log_db_operation('update', 'post_meta', array(
                 'post_id' => $post_id,
                 'meta_key' => self::META_SEO_DESCRIPTION,
                 'meta_value' => $seo_description
             ));
+            // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+            // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_value
         } else {
             Logger::error('Failed to set post SEO description', array('post_id' => $post_id, 'seo_description' => $seo_description));
         }
@@ -331,11 +351,16 @@ class PostMetaManager
 
         if ($result) {
             Logger::info('Post OG title set', array('post_id' => $post_id, 'og_title' => $og_title));
+            // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+            // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+            // These are logging parameters, not database queries
             Logger::log_db_operation('update', 'post_meta', array(
                 'post_id' => $post_id,
                 'meta_key' => self::META_OG_TITLE,
                 'meta_value' => $og_title
             ));
+            // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+            // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_value
         } else {
             Logger::error('Failed to set post OG title', array('post_id' => $post_id, 'og_title' => $og_title));
         }
@@ -399,6 +424,16 @@ class PostMetaManager
         $group_id = sanitize_text_field($group_id);
         $post_statuses = array_map('sanitize_text_field', $post_statuses);
 
+        // Check cache first
+        $cache_key = 'ez_translate_posts_in_group_' . md5($group_id . serialize($post_statuses));
+        $cached_result = wp_cache_get($cache_key, 'ez_translate');
+
+        if ($cached_result !== false) {
+            return $cached_result;
+        }
+
+        // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+        // Meta query is necessary for translation group functionality
         // Use WP_Query approach for complex IN clauses
         $query_args = array(
             'post_type' => array('post', 'page'),
@@ -417,7 +452,14 @@ class PostMetaManager
         );
 
         $query = new \WP_Query($query_args);
-        return array_map('intval', $query->posts);
+        // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+
+        $result = array_map('intval', $query->posts);
+
+        // Cache for 10 minutes (translation groups don't change frequently)
+        wp_cache_set($cache_key, $result, 'ez_translate', 600);
+
+        return $result;
     }
 
     /**
@@ -446,6 +488,16 @@ class PostMetaManager
         }
         $args['post_type'] = array_map('sanitize_text_field', $args['post_type']);
 
+        // Check cache first
+        $cache_key = 'ez_translate_posts_by_language_' . md5($language_code . serialize($args));
+        $cached_result = wp_cache_get($cache_key, 'ez_translate');
+
+        if ($cached_result !== false) {
+            return $cached_result;
+        }
+
+        // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+        // Meta query is necessary for language-based post filtering
         // Use WP_Query approach for safe querying
         $query_args = array(
             'post_type' => $args['post_type'],
@@ -470,7 +522,14 @@ class PostMetaManager
         }
 
         $query = new \WP_Query($query_args);
-        return array_map('intval', $query->posts);
+        // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+
+        $result = array_map('intval', $query->posts);
+
+        // Cache for 10 minutes (language-based posts don't change frequently)
+        wp_cache_set($cache_key, $result, 'ez_translate', 600);
+
+        return $result;
     }
 
     /**
@@ -496,7 +555,10 @@ class PostMetaManager
             $result = delete_post_meta($post_id, $meta_key);
             if (!$result) {
                 $success = false;
+                // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+                // This is a logging parameter, not a database query
                 Logger::warning('Failed to remove post meta', array('post_id' => $post_id, 'meta_key' => $meta_key));
+                // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
             }
         }
 

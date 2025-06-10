@@ -14,7 +14,6 @@ if (!defined('ABSPATH')) {
 }
 
 use EZTranslate\Logger;
-use EZTranslate\PostMetaManager;
 
 /**
  * Posts Sitemap Generator class
@@ -74,6 +73,14 @@ class SitemapPosts extends SitemapGenerator {
      * @since 1.0.0
      */
     private function get_posts($language = '') {
+        // Check cache first
+        $cache_key = 'ez_translate_sitemap_posts_' . md5($language);
+        $cached_result = wp_cache_get($cache_key, 'ez_translate');
+
+        if ($cached_result !== false) {
+            return $cached_result;
+        }
+
         $args = array(
             'post_type' => 'post',
             'post_status' => 'publish',
@@ -84,9 +91,11 @@ class SitemapPosts extends SitemapGenerator {
             'update_post_meta_cache' => false,
             'update_post_term_cache' => false
         );
-        
+
         // Filter by language if specified
         if (!empty($language)) {
+            // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+            // Meta query is necessary for multilingual sitemap functionality
             $args['meta_query'] = array(
                 array(
                     'key' => '_ez_translate_language',
@@ -94,11 +103,14 @@ class SitemapPosts extends SitemapGenerator {
                     'compare' => '='
                 )
             );
+            // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
         } else {
             // If no language specified and multilingual is enabled,
             // get posts for default language (Spanish/es or posts without metadata)
             $enabled_languages = $this->get_enabled_languages();
             if (!empty($enabled_languages)) {
+                // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+                // Meta query is necessary for multilingual sitemap functionality
                 $args['meta_query'] = array(
                     'relation' => 'OR',
                     array(
@@ -111,11 +123,17 @@ class SitemapPosts extends SitemapGenerator {
                         'compare' => '='
                     )
                 );
+                // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
             }
         }
-        
+
         $query = new \WP_Query($args);
-        return $query->posts;
+        $result = $query->posts;
+
+        // Cache for 15 minutes (sitemap posts don't change frequently)
+        wp_cache_set($cache_key, $result, 'ez_translate', 900);
+
+        return $result;
     }
 
     /**
@@ -128,7 +146,18 @@ class SitemapPosts extends SitemapGenerator {
     public function get_last_modified($language = '') {
         global $wpdb;
 
+        // Check cache first - critical for SEO bot performance
+        $cache_key = 'ez_translate_sitemap_posts_lastmod_' . md5($language);
+        $cached_result = wp_cache_get($cache_key, 'ez_translate');
+
+        if ($cached_result !== false) {
+            return $cached_result;
+        }
+
         if (!empty($language)) {
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+            // Critical SEO sitemap query - cache implemented above
             // Specific language posts
             $last_modified = $wpdb->get_var($wpdb->prepare(
                 "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts}
@@ -139,10 +168,15 @@ class SitemapPosts extends SitemapGenerator {
                 )",
                 $language
             ));
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
         } else {
             // Default language posts (Spanish or posts without metadata)
             $enabled_languages = $this->get_enabled_languages();
             if (!empty($enabled_languages)) {
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+                // Critical SEO sitemap query - cache implemented above
                 $last_modified = $wpdb->get_var($wpdb->prepare(
                     "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts}
                     WHERE post_type = 'post' AND post_status = 'publish'
@@ -155,7 +189,12 @@ class SitemapPosts extends SitemapGenerator {
                     )",
                     'es'
                 ));
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
             } else {
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+                // Critical SEO sitemap query - cache implemented above
                 // No multilingual setup, get all posts
                 $last_modified = $wpdb->get_var($wpdb->prepare(
                     "SELECT MAX(post_modified_gmt) FROM {$wpdb->posts}
@@ -163,9 +202,17 @@ class SitemapPosts extends SitemapGenerator {
                     'post',
                     'publish'
                 ));
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
             }
         }
-        return $this->format_sitemap_date($last_modified);
+
+        $formatted_date = $this->format_sitemap_date($last_modified);
+
+        // Cache for 30 minutes (sitemap data is semi-static)
+        wp_cache_set($cache_key, $formatted_date, 'ez_translate', 1800);
+
+        return $formatted_date;
     }
 
     /**
@@ -178,9 +225,20 @@ class SitemapPosts extends SitemapGenerator {
     public function get_posts_count($language = '') {
         global $wpdb;
 
+        // Check cache first - critical for SEO bot performance
+        $cache_key = 'ez_translate_sitemap_posts_count_' . md5($language);
+        $cached_result = wp_cache_get($cache_key, 'ez_translate');
+
+        if ($cached_result !== false) {
+            return (int) $cached_result;
+        }
+
         if (!empty($language)) {
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+            // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+            // Critical SEO sitemap query - cache implemented above
             // Specific language posts
-            return (int) $wpdb->get_var($wpdb->prepare(
+            $count = $wpdb->get_var($wpdb->prepare(
                 "SELECT COUNT(*) FROM {$wpdb->posts}
                 WHERE post_type = 'post' AND post_status = 'publish'
                 AND ID IN (
@@ -189,11 +247,16 @@ class SitemapPosts extends SitemapGenerator {
                 )",
                 $language
             ));
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+            // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
         } else {
             // Default language posts (Spanish or posts without metadata)
             $enabled_languages = $this->get_enabled_languages();
             if (!empty($enabled_languages)) {
-                return (int) $wpdb->get_var($wpdb->prepare(
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+                // Critical SEO sitemap query - cache implemented above
+                $count = $wpdb->get_var($wpdb->prepare(
                     "SELECT COUNT(*) FROM {$wpdb->posts}
                     WHERE post_type = 'post' AND post_status = 'publish'
                     AND (
@@ -205,16 +268,30 @@ class SitemapPosts extends SitemapGenerator {
                     )",
                     'es'
                 ));
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
             } else {
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+                // Critical SEO sitemap query - cache implemented above
                 // No multilingual setup, get all posts
-                return (int) $wpdb->get_var($wpdb->prepare(
+                $count = $wpdb->get_var($wpdb->prepare(
                     "SELECT COUNT(*) FROM {$wpdb->posts}
                     WHERE post_type = %s AND post_status = %s",
                     'post',
                     'publish'
                 ));
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+                // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
             }
         }
+
+        $result = (int) $count;
+
+        // Cache for 30 minutes (sitemap data is semi-static)
+        wp_cache_set($cache_key, $result, 'ez_translate', 1800);
+
+        return $result;
     }
 
     /**
@@ -243,6 +320,14 @@ class SitemapPosts extends SitemapGenerator {
      * @since 1.0.0
      */
     public function get_sample_urls($language = '', $limit = 5) {
+        // Check cache first
+        $cache_key = 'ez_translate_sitemap_posts_sample_urls_' . md5($language . '_' . $limit);
+        $cached_result = wp_cache_get($cache_key, 'ez_translate');
+
+        if ($cached_result !== false) {
+            return $cached_result;
+        }
+
         $args = array(
             'post_type' => 'post',
             'post_status' => 'publish',
@@ -250,8 +335,10 @@ class SitemapPosts extends SitemapGenerator {
             'orderby' => 'modified',
             'order' => 'DESC'
         );
-        
+
         if (!empty($language)) {
+            // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+            // Meta query is necessary for language-specific sample URLs
             $args['meta_query'] = array(
                 array(
                     'key' => '_ez_translate_language',
@@ -259,11 +346,12 @@ class SitemapPosts extends SitemapGenerator {
                     'compare' => '='
                 )
             );
+            // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
         }
-        
+
         $query = new \WP_Query($args);
         $urls = array();
-        
+
         foreach ($query->posts as $post) {
             $urls[] = array(
                 'url' => get_permalink($post->ID),
@@ -271,7 +359,10 @@ class SitemapPosts extends SitemapGenerator {
                 'modified' => $post->post_modified_gmt
             );
         }
-        
+
+        // Cache for 5 minutes (sample URLs are for testing/preview)
+        wp_cache_set($cache_key, $urls, 'ez_translate', 300);
+
         return $urls;
     }
 }

@@ -47,30 +47,54 @@ function ez_translate_uninstall_cleanup() {
     global $wpdb;
 
     foreach ($meta_keys as $meta_key) {
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+        // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+        // Direct database query is necessary for plugin uninstall cleanup
         $wpdb->delete(
             $wpdb->postmeta,
             array('meta_key' => $meta_key),
             array('%s')
         );
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
+        // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
     }
 
     // Clean up any remaining transients with our prefix
+    // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+    // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+    // Direct database query is necessary for plugin uninstall cleanup
     $wpdb->query(
         $wpdb->prepare(
             "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
             '_transient_ez_translate_%'
         )
     );
+    // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+    // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
 
+    // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+    // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+    // Direct database query is necessary for plugin uninstall cleanup
     $wpdb->query(
         $wpdb->prepare(
             "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
             '_transient_timeout_ez_translate_%'
         )
     );
+    // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+    // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
 
     // Drop custom tables
+    // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+    // phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching
+    // phpcs:disable WordPress.DB.DirectDatabaseQuery.SchemaChange
+    // Direct database query is necessary for custom table cleanup during uninstall
     $wpdb->query("DROP TABLE IF EXISTS " . $wpdb->prefix . "ez_translate_redirects");
+    // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+    // phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching
+    // phpcs:enable WordPress.DB.DirectDatabaseQuery.SchemaChange
 
     // Clear any scheduled cron jobs
     wp_clear_scheduled_hook('ez_translate_check_redirects');
