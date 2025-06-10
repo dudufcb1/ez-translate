@@ -1091,13 +1091,19 @@
                 return;
             }
 
-            // Si el usuario elige un idioma diferente al actual, activar navegación libre
-            // para que el traductor siga visible y pueda cambiar de opinión fácilmente
-            this.setUserChoice('free'); // Esto permite que el traductor siga activo
+            // Si el usuario elige un idioma diferente al actual, guardar la preferencia
+            // pero NO redirigir inmediatamente para mantener al usuario en el contenido actual
+            console.log('[EZ Translate] Saving language preference without redirecting:', language);
+            this.setUserChoice(language);
 
-            // No quitamos el traductor, permitimos seguir navegando
-            // Redirigir a la página en el idioma seleccionado
-            await this.redirectToLanguage(language);
+            // Quitar traductor ya que el usuario eligió un idioma específico
+            this.removeTranslator();
+
+            // Mostrar detector minimizado
+            this.showDetector('minimized');
+
+            // Configurar interceptación de navegación para futuras navegaciones
+            this.setupNavigationInterception();
         }
 
         /**
