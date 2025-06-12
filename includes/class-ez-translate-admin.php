@@ -679,7 +679,17 @@ class Admin {
                                 ?>
                                 <select id="language_code_select" class="regular-text" style="margin-bottom: 10px;">
                                     <option value=""><?php esc_html_e('Select a common language...', 'ez-translate'); ?></option>
-                                    <?php echo wp_kses_post($this->get_language_options($wp_language_code)); ?>
+                                    <?php
+                                    $allowed_html = array(
+                                        'option' => array(
+                                            'value' => array(),
+                                            'data-name' => array(),
+                                            'data-native' => array(),
+                                            'data-flag' => array(),
+                                        )
+                                    );
+                                    echo wp_kses($this->get_language_options($wp_language_code), $allowed_html);
+                                    ?>
                                 </select>
                                 <br>
                                 <input type="text" id="language_code" name="code" class="regular-text"
@@ -1257,7 +1267,17 @@ class Admin {
                             <td>
                                 <select id="edit_language_code_select" class="regular-text" style="margin-bottom: 10px;">
                                     <option value=""><?php esc_html_e('Select a common language...', 'ez-translate'); ?></option>
-                                    <?php echo wp_kses_post($this->get_language_options()); ?>
+                                    <?php
+                                    $allowed_html = array(
+                                        'option' => array(
+                                            'value' => array(),
+                                            'data-name' => array(),
+                                            'data-native' => array(),
+                                            'data-flag' => array(),
+                                        )
+                                    );
+                                    echo wp_kses($this->get_language_options(), $allowed_html);
+                                    ?>
                                 </select>
                                 <br>
                                 <input type="text" id="edit_language_code" name="code" class="regular-text"
