@@ -77,29 +77,104 @@ function incrementVersion(version, type = 'patch') {
   return parts.join('.');
 }
 
-// Función para actualizar la versión en el archivo del plugin
-function updatePluginVersion(newVersion) {
+// Función para generar slug del plugin basado en el Plugin Name
+function generatePluginSlug() {
+  const pluginFile = path.join(__dirname, 'ez-translate.php');
+  if (!fs.existsSync(pluginFile)) {
+    return 'ez-translate'; // fallback
+  }
+
+  const content = fs.readFileSync(pluginFile, 'utf8');
+  const nameMatch = content.match(/Plugin Name:\s*(.+)/);
+
+  if (!nameMatch) {
+    return 'ez-translate'; // fallback
+  }
+
+  // Convertir nombre a slug: minúsculas, espacios y caracteres especiales a guiones
+  return nameMatch[1]
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '') // Remover caracteres especiales excepto espacios y guiones
+    .replace(/\s+/g, '-') // Espacios a guiones
+    .replace(/-+/g, '-') // Múltiples guiones a uno solo
+    .replace(/^-|-$/g, ''); // Remover guiones al inicio y final
+}
+
+// Función para verificar y corregir Text Domain
+function verifyTextDomain() {
+  const expectedSlug = generatePluginSlug();
   const pluginFile = path.join(__dirname, 'ez-translate.php');
   let content = fs.readFileSync(pluginFile, 'utf8');
 
+  const textDomainMatch = content.match(/Text Domain:\s*(.+)/);
+  const currentTextDomain = textDomainMatch ? textDomainMatch[1].trim() : '';
+
+  if (currentTextDomain !== expectedSlug) {
+    console.log(`⚠ Text Domain mismatch detectado:`);
+    console.log(`   Actual: "${currentTextDomain}"`);
+    console.log(`   Esperado: "${expectedSlug}"`);
+    console.log(`✓ Corrigiendo Text Domain...`);
+
+    // Actualizar Text Domain
+    content = content.replace(
+      /Text Domain:\s*.+/,
+      `Text Domain: ${expectedSlug}`
+    );
+
+    // Actualizar constante PHP si existe
+    content = content.replace(
+      /define\('EZ_TRANSLATE_TEXT_DOMAIN',\s*'[^']+'\);/,
+      `define('EZ_TRANSLATE_TEXT_DOMAIN', '${expectedSlug}');`
+    );
+
+    fs.writeFileSync(pluginFile, content, 'utf8');
+    console.log(`✓ Text Domain actualizado a "${expectedSlug}"`);
+  } else {
+    console.log(`✓ Text Domain correcto: "${currentTextDomain}"`);
+  }
+}
+
+// Función para actualizar la versión en el archivo del plugin
+function updatePluginVersion(newVersion) {
+  // Actualizar ez-translate.php
+  const pluginFile = path.join(__dirname, 'ez-translate.php');
+  let pluginContent = fs.readFileSync(pluginFile, 'utf8');
+
   // Actualizar header del plugin
-  content = content.replace(
+  pluginContent = pluginContent.replace(
     /Version:\s*[0-9]+\.[0-9]+\.[0-9]+/,
     `Version: ${newVersion}`
   );
 
   // Actualizar constante PHP
-  content = content.replace(
+  pluginContent = pluginContent.replace(
     /define\('EZ_TRANSLATE_VERSION',\s*'[0-9]+\.[0-9]+\.[0-9]+'\);/,
     `define('EZ_TRANSLATE_VERSION', '${newVersion}');`
   );
 
-  fs.writeFileSync(pluginFile, content, 'utf8');
+  fs.writeFileSync(pluginFile, pluginContent, 'utf8');
   console.log(`✓ Versión actualizada a ${newVersion} en ez-translate.php`);
+
+  // Actualizar readme.txt
+  const readmeFile = path.join(__dirname, 'readme.txt');
+  if (fs.existsSync(readmeFile)) {
+    let readmeContent = fs.readFileSync(readmeFile, 'utf8');
+
+    // Actualizar Stable tag
+    readmeContent = readmeContent.replace(
+      /Stable tag:\s*[0-9]+\.[0-9]+\.[0-9]+/,
+      `Stable tag: ${newVersion}`
+    );
+
+    fs.writeFileSync(readmeFile, readmeContent, 'utf8');
+    console.log(`✓ Stable tag actualizado a ${newVersion} en readme.txt`);
+  } else {
+    console.log(`⚠ No se encontró readme.txt`);
+  }
 }
 
-// Función para minificar un archivo con esbuild
-async function minifyFile(inputPath, outputPath) {
+// Función para procesar un archivo con esbuild (minificado o no)
+async function processFile(inputPath, outputPath, shouldMinify = true) {
   const ext = path.extname(inputPath);
 
   // Crear directorio de salida si no existe
@@ -112,7 +187,7 @@ async function minifyFile(inputPath, outputPath) {
     const buildOptions = {
       entryPoints: [inputPath],
       outfile: outputPath,
-      minify: true,
+      minify: shouldMinify,
       bundle: false,
       sourcemap: false,
       logLevel: 'silent',
@@ -129,19 +204,23 @@ async function minifyFile(inputPath, outputPath) {
 
     await esbuild.build(buildOptions);
 
-    // Mostrar estadísticas de compresión
+    // Mostrar estadísticas
     const originalSize = fs.statSync(inputPath).size;
-    const minifiedSize = fs.statSync(outputPath).size;
-    const savings = ((originalSize - minifiedSize) / originalSize * 100).toFixed(1);
+    const processedSize = fs.statSync(outputPath).size;
 
-    console.log(`✓ Minificado: ${path.relative(__dirname, inputPath)} -> ${path.relative(__dirname, outputPath)} (${savings}% reducción)`);
+    if (shouldMinify) {
+      const savings = ((originalSize - processedSize) / originalSize * 100).toFixed(1);
+      console.log(`✓ Minificado: ${path.relative(__dirname, inputPath)} -> ${path.relative(__dirname, outputPath)} (${savings}% reducción)`);
+    } else {
+      console.log(`✓ Procesado: ${path.relative(__dirname, inputPath)} -> ${path.relative(__dirname, outputPath)} (sin minificar)`);
+    }
   } catch (err) {
-    console.error(`✗ Error minificando ${inputPath}:`, err.message);
+    console.error(`✗ Error procesando ${inputPath}:`, err.message);
   }
 }
 
-// Minificar todos los archivos CSS/JS dentro de un directorio
-async function minifyDir(inputDir, outputDir) {
+// Procesar todos los archivos CSS/JS dentro de un directorio
+async function processDir(inputDir, outputDir, shouldMinify = true) {
   if (!fs.existsSync(inputDir)) {
     console.log(`⚠ Directorio no encontrado: ${inputDir}`);
     return;
@@ -158,12 +237,13 @@ async function minifyDir(inputDir, outputDir) {
     return;
   }
 
-  console.log(`📁 Procesando directorio: ${path.relative(__dirname, inputDir)}`);
+  const action = shouldMinify ? 'Minificando' : 'Procesando';
+  console.log(`📁 ${action} directorio: ${path.relative(__dirname, inputDir)}`);
 
   for (const file of files) {
     const inputPath = path.join(inputDir, file);
     const outputPath = path.join(outputDir, file);
-    await minifyFile(inputPath, outputPath);
+    await processFile(inputPath, outputPath, shouldMinify);
   }
 }
 
@@ -236,6 +316,11 @@ async function build() {
   try {
     console.log('🚀 Iniciando build del plugin ez-translate...\n');
 
+    // Verificar Text Domain
+    console.log('🔍 Verificando Text Domain...');
+    verifyTextDomain();
+    console.log('');
+
     // Preguntar sobre incremento de versión
     const currentVersion = getCurrentVersion();
     console.log(`📋 Versión actual: ${currentVersion}`);
@@ -269,6 +354,17 @@ async function build() {
       console.log('');
     }
 
+    // Preguntar sobre minificación
+    console.log('📦 Opciones de build:');
+    console.log('  1. Producción (minificado) - Para distribución');
+    console.log('  2. Desarrollo (sin minificar) - Para debugging/WordPress.org\n');
+
+    const buildType = await askQuestion('Selecciona el tipo de build (1/2) [1]: ');
+    const shouldMinify = buildType !== '2';
+
+    const buildTypeText = shouldMinify ? 'producción (minificado)' : 'desarrollo (sin minificar)';
+    console.log(`\n🎯 Tipo de build: ${buildTypeText}\n`);
+
     // Limpiar directorio de build anterior
     if (fs.existsSync(buildDir)) {
       fs.rmSync(buildDir, { recursive: true, force: true });
@@ -294,15 +390,16 @@ async function build() {
 
     copyDir(__dirname, buildDir, excludePatterns);
 
-    // 2. Minificar archivos CSS y JS de assets/
-    console.log('\n🎨 Minificando archivos CSS y JS...');
+    // 2. Procesar archivos CSS y JS de assets/
+    const processAction = shouldMinify ? 'Minificando' : 'Procesando';
+    console.log(`\n🎨 ${processAction} archivos CSS y JS...`);
     const buildAssetsDir = path.join(buildDir, 'assets');
 
-    // Minificar CSS
-    await minifyDir(cssDir, path.join(buildAssetsDir, 'css'));
+    // Procesar CSS
+    await processDir(cssDir, path.join(buildAssetsDir, 'css'), shouldMinify);
 
-    // Minificar JS
-    await minifyDir(jsDir, path.join(buildAssetsDir, 'js'));
+    // Procesar JS
+    await processDir(jsDir, path.join(buildAssetsDir, 'js'), shouldMinify);
 
     // 3. Procesar archivos de src/ si existen
     if (fs.existsSync(srcDir)) {
@@ -312,24 +409,26 @@ async function build() {
       // Procesar archivos JS en src/gutenberg/
       const srcGutenbergDir = path.join(srcDir, 'gutenberg');
       if (fs.existsSync(srcGutenbergDir)) {
-        await minifyDir(srcGutenbergDir, path.join(buildSrcDir, 'gutenberg'));
+        await processDir(srcGutenbergDir, path.join(buildSrcDir, 'gutenberg'), shouldMinify);
       }
 
       // Procesar otros directorios de src/ si los hay
       const srcAdminDir = path.join(srcDir, 'admin');
       if (fs.existsSync(srcAdminDir)) {
-        await minifyDir(srcAdminDir, path.join(buildSrcDir, 'admin'));
+        await processDir(srcAdminDir, path.join(buildSrcDir, 'admin'), shouldMinify);
       }
     }
 
     // 4. Crear ZIP final
     console.log('\n📦 Creando archivo ZIP...');
-    const zipPath = path.join(outDir, 'ez-translate.zip');
+    const zipSuffix = shouldMinify ? '' : '-dev';
+    const zipPath = path.join(outDir, `ez-translate${zipSuffix}.zip`);
     await createZip(buildDir, zipPath);
 
     console.log('\n✅ Build completado exitosamente!');
     console.log(`📁 Archivos de build: ${path.relative(__dirname, buildDir)}`);
     console.log(`📦 Archivo ZIP: ${path.relative(__dirname, zipPath)}`);
+    console.log(`🎯 Tipo: ${buildTypeText}`);
 
   } catch (err) {
     console.error('\n❌ Error en build:', err.message);

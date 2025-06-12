@@ -49,3 +49,6 @@ node_modules/
 !memory_bank/architecture.md
 ez-translate.zip
 ez-translate_code.txt
+user.ps1
+build.js
+package.json

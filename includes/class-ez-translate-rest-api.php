@@ -118,6 +118,17 @@ class RestAPI {
                     },
                     'sanitize_callback' => 'sanitize_text_field',
                 ),
+                'force_retranslate' => array(
+                    'required' => false,
+                    'type' => 'boolean',
+                    'default' => false,
+                    'validate_callback' => function($param, $request, $key) {
+                        return is_bool($param) || is_numeric($param) || in_array($param, array('true', 'false', '1', '0'), true);
+                    },
+                    'sanitize_callback' => function($param) {
+                        return (bool) $param;
+                    },
+                ),
             ),
         ));
 
@@ -622,6 +633,7 @@ class RestAPI {
         try {
             $source_post_id = (int) $request->get_param('id');
             $target_language = sanitize_text_field($request->get_param('target_language'));
+            $force_retranslate = (bool) $request->get_param('force_retranslate');
 
             // Get the source post
             $source_post = get_post($source_post_id);
@@ -639,18 +651,25 @@ class RestAPI {
             $source_metadata = PostMetaManager::get_post_metadata($source_post_id);
             $source_language = $source_metadata['language'] ?? '';
 
-            // Check if translation already exists (include drafts to prevent duplicates)
+            // Check if translation already exists
+            $existing_translation_id = null;
             if (!empty($source_metadata['group'])) {
                 $existing_translations = PostMetaManager::get_posts_in_group($source_metadata['group'], array('publish', 'draft', 'pending', 'private'));
                 foreach ($existing_translations as $translation_id) {
                     $translation_meta = PostMetaManager::get_post_metadata($translation_id);
                     if (isset($translation_meta['language']) && $translation_meta['language'] === $target_language) {
-                        return new \WP_Error('translation_exists', 'Translation already exists for this language', array(
-                            'status' => 409,
-                            'existing_post_id' => $translation_id
-                        ));
+                        $existing_translation_id = $translation_id;
+                        break;
                     }
                 }
+            }
+
+            // If translation exists and force_retranslate is not set, return error
+            if ($existing_translation_id && !$force_retranslate) {
+                return new \WP_Error('translation_exists', 'Translation already exists for this language', array(
+                    'status' => 409,
+                    'existing_post_id' => $existing_translation_id
+                ));
             }
 
             // Get landing page for target language to set as parent
@@ -728,78 +747,123 @@ class RestAPI {
                 ));
             }
 
-            // Create the translation post
-            $translation_data = array(
-                'post_title' => $translated_title,
-                'post_content' => $translated_content,
-                'post_excerpt' => $source_post->post_excerpt,
-                'post_status' => 'draft', // Always create as draft
-                'post_type' => $source_post->post_type,
-                'post_author' => get_current_user_id(),
-                'post_parent' => $parent_id, // Set landing page as parent for hierarchical URLs
-                'menu_order' => $source_post->menu_order,
-            );
+            // Create or update the translation post
+            if ($existing_translation_id) {
+                // Re-translate existing post
+                $translation_data = array(
+                    'ID' => $existing_translation_id,
+                    'post_title' => $translated_title,
+                    'post_content' => $translated_content,
+                    'post_excerpt' => $source_post->post_excerpt,
+                );
 
-            $translation_id = wp_insert_post($translation_data);
+                $translation_id = wp_update_post($translation_data);
 
-            if (is_wp_error($translation_id)) {
-                Logger::error('REST API: Failed to create translation post', array(
-                    'error' => $translation_id->get_error_message(),
-                    'source_post_id' => $source_post_id,
-                    'target_language' => $target_language
-                ));
-                return $translation_id;
-            }
-
-            // Set up translation group
-            $group_id = $source_metadata['group'] ?? '';
-            if (!$group_id) {
-                // Create new group and assign to source post
-                $group_id = PostMetaManager::generate_group_id();
-                PostMetaManager::set_post_group($source_post_id, $group_id);
-
-                // IMPORTANT: Set the source language for the original post
-                // If no source language is set, detect it from WordPress default or assume 'es'
-                // MODIFICACIÓN: Asignar siempre el idioma si está vacío o no existe
-                if (empty($source_language)) {
-                    $wp_language = substr(get_locale(), 0, 2); // Convert en_US to en
-                    $source_language = ($wp_language === 'en') ? 'es' : $wp_language; // Default to Spanish if WordPress is English
+                if (is_wp_error($translation_id)) {
+                    Logger::error('REST API: Failed to update existing translation post', array(
+                        'error' => $translation_id->get_error_message(),
+                        'existing_translation_id' => $existing_translation_id,
+                        'source_post_id' => $source_post_id,
+                        'target_language' => $target_language
+                    ));
+                    return $translation_id;
                 }
-                // Forzar asignación aunque el meta exista pero esté vacío
-                PostMetaManager::set_post_language($source_post_id, $source_language);
 
-                Logger::info('REST API: Original post added to translation group', array(
+                $translation_id = $existing_translation_id; // Ensure we use the existing ID
+                $is_retranslation = true;
+
+                Logger::info('REST API: Existing translation updated successfully', array(
                     'source_post_id' => $source_post_id,
-                    'source_language' => $source_language,
-                    'group_id' => $group_id
+                    'translation_id' => $translation_id,
+                    'target_language' => $target_language,
+                    'translation_method' => $translation_method
                 ));
+            } else {
+                // Create new translation post
+                $translation_data = array(
+                    'post_title' => $translated_title,
+                    'post_content' => $translated_content,
+                    'post_excerpt' => $source_post->post_excerpt,
+                    'post_status' => 'draft', // Always create as draft
+                    'post_type' => $source_post->post_type,
+                    'post_author' => get_current_user_id(),
+                    'post_parent' => $parent_id, // Set landing page as parent for hierarchical URLs
+                    'menu_order' => $source_post->menu_order,
+                );
+
+                $translation_id = wp_insert_post($translation_data);
+
+                if (is_wp_error($translation_id)) {
+                    Logger::error('REST API: Failed to create translation post', array(
+                        'error' => $translation_id->get_error_message(),
+                        'source_post_id' => $source_post_id,
+                        'target_language' => $target_language
+                    ));
+                    return $translation_id;
+                }
+
+                $is_retranslation = false;
             }
 
-            // Set metadata for translation
-            PostMetaManager::set_post_language($translation_id, $target_language);
-            PostMetaManager::set_post_group($translation_id, $group_id);
+            // Set up translation group (only for new translations)
+            if (!$existing_translation_id) {
+                $group_id = $source_metadata['group'] ?? '';
+                if (!$group_id) {
+                    // Create new group and assign to source post
+                    $group_id = PostMetaManager::generate_group_id();
+                    PostMetaManager::set_post_group($source_post_id, $group_id);
 
-            // Copy featured image if exists
-            $featured_image_id = get_post_thumbnail_id($source_post_id);
-            if ($featured_image_id) {
-                set_post_thumbnail($translation_id, $featured_image_id);
+                    // IMPORTANT: Set the source language for the original post
+                    // If no source language is set, detect it from WordPress default or assume 'es'
+                    // MODIFICACIÓN: Asignar siempre el idioma si está vacío o no existe
+                    if (empty($source_language)) {
+                        $wp_language = substr(get_locale(), 0, 2); // Convert en_US to en
+                        $source_language = ($wp_language === 'en') ? 'es' : $wp_language; // Default to Spanish if WordPress is English
+                    }
+                    // Forzar asignación aunque el meta exista pero esté vacío
+                    PostMetaManager::set_post_language($source_post_id, $source_language);
+
+                    Logger::info('REST API: Original post added to translation group', array(
+                        'source_post_id' => $source_post_id,
+                        'source_language' => $source_language,
+                        'group_id' => $group_id
+                    ));
+                }
+
+                // Set metadata for new translation
+                PostMetaManager::set_post_language($translation_id, $target_language);
+                PostMetaManager::set_post_group($translation_id, $group_id);
+            } else {
+                // For re-translations, get the existing group_id
+                $existing_metadata = PostMetaManager::get_post_metadata($existing_translation_id);
+                $group_id = $existing_metadata['group'] ?? '';
             }
 
-            // Copy custom fields (excluding our own meta fields)
-            $custom_fields = get_post_meta($source_post_id);
-            foreach ($custom_fields as $key => $values) {
-                if (strpos($key, '_ez_translate_') !== 0) {
-                    foreach ($values as $value) {
-                        add_post_meta($translation_id, $key, maybe_unserialize($value));
+            // Copy featured image if exists (only for new translations)
+            if (!$existing_translation_id) {
+                $featured_image_id = get_post_thumbnail_id($source_post_id);
+                if ($featured_image_id) {
+                    set_post_thumbnail($translation_id, $featured_image_id);
+                }
+
+                // Copy custom fields (excluding our own meta fields)
+                $custom_fields = get_post_meta($source_post_id);
+                foreach ($custom_fields as $key => $values) {
+                    if (strpos($key, '_ez_translate_') !== 0) {
+                        foreach ($values as $value) {
+                            add_post_meta($translation_id, $key, maybe_unserialize($value));
+                        }
                     }
                 }
             }
 
-            Logger::info('REST API: Translation created successfully', array(
+            $action_performed = $existing_translation_id ? 'retranslated' : 'created';
+            Logger::info('REST API: Translation ' . $action_performed . ' successfully', array(
                 'source_post_id' => $source_post_id,
                 'translation_id' => $translation_id,
                 'target_language' => $target_language,
-                'group_id' => $group_id
+                'group_id' => $group_id,
+                'is_retranslation' => (bool) $existing_translation_id
             ));
 
             // Prepare response data
@@ -811,7 +875,8 @@ class RestAPI {
                 'group_id' => $group_id,
                 'parent_page_id' => $parent_id,
                 'translation_method' => $translation_method,
-                'translated_title' => $translated_title
+                'translated_title' => $translated_title,
+                'is_retranslation' => (bool) $existing_translation_id
             );
 
             // Add landing page info if available
@@ -824,9 +889,11 @@ class RestAPI {
                 );
             }
 
+            $success_message = $existing_translation_id ? 'Translation updated successfully' : 'Translation created successfully';
+
             return rest_ensure_response(array(
                 'success' => true,
-                'message' => 'Translation created successfully',
+                'message' => $success_message,
                 'data' => $response_data
             ));
 

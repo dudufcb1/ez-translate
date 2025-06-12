@@ -365,6 +365,103 @@
         };
 
         /**
+         * Re-translate existing translation
+         */
+        const retranslateExisting = async (targetLanguage) => {
+            // Confirm with user before re-translating
+            const confirmMessage = __('Are you sure you want to re-translate this content?', 'ez-translate') + '\n\n' +
+                __('This will update the existing translation with new content. The current translation will be overwritten.', 'ez-translate') + '\n\n' +
+                __('Target language:', 'ez-translate') + ' ' + targetLanguage.toUpperCase();
+
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+
+            setCreating(true);
+            setError(null);
+
+            // Check API status and show appropriate message
+            let translationMethod = 'copy';
+            let warningMessage = '';
+
+            if (apiStatus) {
+                if (!apiStatus.api_enabled || !apiStatus.has_api_key) {
+                    translationMethod = 'copy';
+                    warningMessage = __('AI translation is not available. The content will be copied and you can translate it manually.', 'ez-translate');
+                } else {
+                    translationMethod = 'ai';
+                }
+            }
+
+            // Show warning if using fallback method
+            if (warningMessage) {
+                const shouldContinue = confirm(
+                    warningMessage + '\n\n' +
+                    __('Do you want to continue with re-translation?', 'ez-translate')
+                );
+
+                if (!shouldContinue) {
+                    setCreating(false);
+                    return;
+                }
+            }
+
+            try {
+                // Call the REST API to re-translate (force_retranslate = true)
+                const response = await wp.apiFetch({
+                    path: `/ez-translate/v1/create-translation/${postId}`,
+                    method: 'POST',
+                    data: {
+                        target_language: targetLanguage,
+                        force_retranslate: true
+                    }
+                });
+
+                if (response.success) {
+                    // Reload translations to update the UI
+                    await loadExistingTranslations();
+
+                    // Determine the actual method used
+                    const actualMethod = response.data.translation_method || 'copy';
+                    let successMessage = __('Translation updated successfully!', 'ez-translate');
+
+                    // Add method-specific message
+                    if (actualMethod === 'copy') {
+                        successMessage += '\n\n' + __('Content was copied. You can now edit and translate it manually.', 'ez-translate');
+                    } else if (actualMethod === 'ai') {
+                        successMessage += '\n\n' + __('Content was translated using AI. Please review and edit as needed.', 'ez-translate');
+                    }
+
+                    // Show fallback message if AI was expected but copy was used
+                    if (translationMethod === 'ai' && actualMethod === 'copy') {
+                        successMessage += '\n\n' + __('Note: AI translation failed, so content was copied instead.', 'ez-translate');
+                    }
+
+                    successMessage += '\n\n' + __('Click OK to open the updated translation in a new window.', 'ez-translate');
+
+                    if (confirm(successMessage)) {
+                        // Open in new window instead of redirecting
+                        window.open(response.data.edit_url, '_blank');
+                    }
+                } else {
+                    setError(__('Failed to re-translate. Please try again.', 'ez-translate'));
+                }
+
+            } catch (err) {
+                console.error('Failed to re-translate:', err);
+
+                // Handle specific error cases
+                if (err.code === 'invalid_target_language') {
+                    setError(__('Invalid target language selected.', 'ez-translate'));
+                } else {
+                    setError(__('Failed to re-translate. Please try again.', 'ez-translate'));
+                }
+            } finally {
+                setCreating(false);
+            }
+        };
+
+        /**
          * Handle multi-language selection
          */
         const handleMultiLanguageChange = (languageCode, isChecked) => {
@@ -1042,6 +1139,14 @@
                                 target: '_blank',
                                 style: { textDecoration: 'none', fontSize: '12px' }
                             }, __('View', 'ez-translate')),
+
+                            // Re-translate button for existing translations
+                            !translation.is_current && el('button', {
+                                className: 'components-button is-primary is-small',
+                                onClick: () => retranslateExisting(translation.language),
+                                disabled: creating,
+                                style: { fontSize: '12px' }
+                            }, creating ? __('...', 'ez-translate') : __('Re-translate', 'ez-translate')),
 
                             // Landing page badge removed - legacy functionality
                         )

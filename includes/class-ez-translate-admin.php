@@ -140,6 +140,7 @@ class Admin {
      */
     private function handle_form_submissions() {
         // Check if this is a form submission
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verification happens below
         if (!isset($_POST['ez_translate_action'])) {
             return;
         }
@@ -188,6 +189,7 @@ class Admin {
         // Load the language manager
         require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-manager.php';
 
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified above
         $action = sanitize_text_field(wp_unslash($_POST['ez_translate_action']));
         Logger::info('Processing form submission', array('action' => $action));
 

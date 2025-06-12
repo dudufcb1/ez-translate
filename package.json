@@ -7,9 +7,10 @@
   },
   "scripts": {
     "build": "node build.js",
+    "build:prod": "echo 'Ejecutando build de producción (minificado)...' && node build.js",
+    "build:dev": "echo 'Ejecutando build de desarrollo (sin minificar)...' && node build.js",
     "build:clean": "npm run clean && npm run build",
     "clean": "node -e \"const fs = require('fs'); if (fs.existsSync('dist')) fs.rmSync('dist', { recursive: true, force: true }); console.log('✓ Directorio dist limpiado');\"",
-    "watch": "node build.js --watch",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
