@@ -210,16 +210,58 @@ class Admin {
             case 'update_api_settings':
                 $this->handle_update_api_settings();
                 break;
+
+            case 'repair_landing_pages':
+                $this->handle_repair_landing_pages();
+                break;
             case 'update_detector_settings':
                 $this->handle_update_detector_settings();
                 break;
             case 'update_detector_messages':
                 $this->handle_update_detector_messages();
                 break;
+            case 'sync_all_languages_seo':
+                $this->handle_sync_all_languages_seo();
+                break;
             default:
                 Logger::warning('Unknown form action', array('action' => $action));
                 break;
         }
+    }
+
+    /**
+     * Handle synchronization of all languages with landing page SEO
+     *
+     * @since 1.0.0
+     */
+    private function handle_sync_all_languages_seo() {
+        Logger::info('Starting manual synchronization of all languages with landing page SEO');
+
+        $sync_results = \EZTranslate\LanguageManager::sync_all_languages_with_landing_seo();
+
+        if ($sync_results['errors'] > 0) {
+            $this->add_admin_notice(
+                sprintf(
+                    /* translators: %1$d: synchronized count, %2$d: error count */
+                    __('Synchronization completed with some issues. %1$d languages synchronized, %2$d errors occurred.', 'ez-translate'),
+                    $sync_results['synchronized'],
+                    $sync_results['errors']
+                ),
+                'warning'
+            );
+        } else {
+            $this->add_admin_notice(
+                sprintf(
+                    /* translators: %1$d: synchronized count, %2$d: total count */
+                    __('Synchronization completed successfully! %1$d of %2$d languages synchronized with their landing page SEO data.', 'ez-translate'),
+                    $sync_results['synchronized'],
+                    $sync_results['total_languages']
+                ),
+                'success'
+            );
+        }
+
+        Logger::info('Manual synchronization completed', $sync_results);
     }
 
     /**
@@ -300,32 +342,10 @@ class Admin {
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
         $original_code = sanitize_text_field(wp_unslash($_POST['original_code']));
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
-        $language_data = \EZTranslate\LanguageManager::sanitize_language_data($_POST);
+        $language_data = \EZTranslate\LanguageManager::sanitize_language_data_for_update($_POST);
 
-        // Check if landing page creation is requested
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
-        $create_landing_page = isset($_POST['create_landing_page']) && $_POST['create_landing_page'] === '1';
-        $landing_page_data = null;
-
-        if ($create_landing_page) {
-            // Sanitize landing page data
-            $landing_page_data = array(
-                // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
-                'title' => sanitize_text_field(wp_unslash($_POST['landing_page_title'] ?? '')),
-                // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
-                'description' => sanitize_textarea_field(wp_unslash($_POST['landing_page_description'] ?? '')),
-                // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
-                'slug' => sanitize_title(wp_unslash($_POST['landing_page_slug'] ?? '')),
-                // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
-                'status' => isset($_POST['landing_page_status']) && in_array(sanitize_text_field(wp_unslash($_POST['landing_page_status'])), array('draft', 'publish')) ? sanitize_text_field(wp_unslash($_POST['landing_page_status'])) : 'draft'
-            );
-
-            // Validate required fields for landing page
-            if (empty($landing_page_data['title']) || empty($landing_page_data['description'])) {
-                $this->add_admin_notice(__('Landing page title and description are required when creating a landing page.', 'ez-translate'), 'error');
-                return;
-            }
-        }
+        // Note: Landing page creation is not allowed during updates for data integrity
+        // To create or change landing pages, delete and recreate the language
 
         // Update the language first
         $result = \EZTranslate\LanguageManager::update_language($original_code, $language_data);
@@ -335,33 +355,8 @@ class Admin {
             return;
         }
 
-        // Create landing page if requested
-        if ($create_landing_page && $landing_page_data) {
-            $landing_page_result = \EZTranslate\LanguageManager::create_landing_page_for_language($language_data['code'], $landing_page_data);
-
-            if (is_wp_error($landing_page_result)) {
-                $this->add_admin_notice(
-                    sprintf(
-                        /* translators: %s: error message */
-                        __('Language updated successfully, but landing page creation failed: %s', 'ez-translate'),
-                        $landing_page_result->get_error_message()
-                    ),
-                    'warning'
-                );
-            } else {
-                $edit_url = admin_url('post.php?post=' . $landing_page_result . '&action=edit');
-                $this->add_admin_notice(
-                    sprintf(
-                        /* translators: %s: URL to edit the landing page */
-                        __('Language updated successfully! Landing page created: <a href="%s" target="_blank">Edit Landing Page</a>', 'ez-translate'),
-                        esc_url($edit_url)
-                    ),
-                    'success'
-                );
-            }
-        } else {
-            $this->add_admin_notice(__('Language updated successfully!', 'ez-translate'), 'success');
-        }
+        // Language update completed successfully
+        $this->add_admin_notice(__('Language updated successfully!', 'ez-translate'), 'success');
     }
 
     /**
@@ -442,11 +437,26 @@ class Admin {
                 'error' => $result->get_error_message()
             ));
         } else {
-            $this->add_admin_notice(__('Landing page SEO updated successfully!', 'ez-translate'), 'success');
+            $this->add_admin_notice(__('Landing page SEO updated successfully! Language metadata has been synchronized.', 'ez-translate'), 'success');
             Logger::info('Landing page SEO updated successfully', array(
                 'post_id' => $post_id,
                 'language_code' => $language_code
             ));
+
+            // Add JavaScript to reload the page after successful update
+            add_action('admin_footer', function() {
+                echo '<script type="text/javascript">
+                    jQuery(document).ready(function($) {
+                        // Close the SEO modal if it exists
+                        $("#ez-translate-seo-modal").hide();
+
+                        // Reload the page to show updated data
+                        setTimeout(function() {
+                            window.location.reload();
+                        }, 1000);
+                    });
+                </script>';
+            });
         }
     }
 
@@ -490,6 +500,73 @@ class Admin {
                 'enabled' => $enabled
             ));
         }
+    }
+
+    /**
+     * Handle landing pages repair
+     *
+     * @since 1.0.0
+     */
+    private function handle_repair_landing_pages() {
+        Logger::info('Processing landing pages repair');
+
+        $result = \EZTranslate\LanguageManager::repair_missing_landing_pages();
+
+        if ($result['successfully_repaired'] > 0) {
+            $message = sprintf(
+                /* translators: %1$d: number of repaired languages, %2$d: total checked */
+                __('Landing page repair completed! Successfully repaired %1$d out of %2$d languages checked.', 'ez-translate'),
+                $result['successfully_repaired'],
+                $result['total_checked']
+            );
+
+            // Add details about repaired languages
+            $details = array();
+            foreach ($result['details'] as $detail) {
+                if ($detail['status'] === 'repaired' || $detail['status'] === 'repaired_fallback') {
+                    $details[] = sprintf(
+                        /* translators: %1$s: language name, %2$s: page title */
+                        __('%1$s → "%2$s"', 'ez-translate'),
+                        esc_html($detail['language_name']),
+                        esc_html($detail['post_title'])
+                    );
+                }
+            }
+
+            if (!empty($details)) {
+                $message .= '<br><strong>' . __('Repaired languages:', 'ez-translate') . '</strong><br>' . implode('<br>', $details);
+            }
+
+            $this->add_admin_notice($message, 'success');
+        } elseif ($result['found_missing'] > 0) {
+            $message = sprintf(
+                /* translators: %d: number of languages that couldn't be repaired */
+                __('No landing pages could be repaired. %d languages still need manual attention.', 'ez-translate'),
+                $result['failed_repairs']
+            );
+
+            // Add details about failed repairs
+            $details = array();
+            foreach ($result['details'] as $detail) {
+                if ($detail['status'] === 'not_found') {
+                    $details[] = sprintf(
+                        /* translators: %s: language name */
+                        __('%s (no landing page found)', 'ez-translate'),
+                        esc_html($detail['language_name'])
+                    );
+                }
+            }
+
+            if (!empty($details)) {
+                $message .= '<br><strong>' . __('Languages needing manual attention:', 'ez-translate') . '</strong><br>' . implode('<br>', $details);
+            }
+
+            $this->add_admin_notice($message, 'warning');
+        } else {
+            $this->add_admin_notice(__('All languages already have valid landing pages. No repair needed.', 'ez-translate'), 'info');
+        }
+
+        Logger::info('Landing pages repair completed', $result);
     }
 
     /**
@@ -846,6 +923,9 @@ class Admin {
                                 <?php
                                 // Get landing page info for this language
                                 $landing_page = \EZTranslate\LanguageManager::get_landing_page_for_language($language['code']);
+
+                                // Get language data with automatically synchronized SEO data (this updates the database if needed)
+                                $language_with_current_seo = \EZTranslate\LanguageManager::get_language_with_current_seo($language['code']);
                                 ?>
                                 <tr>
                                     <td><strong><?php echo esc_html($language['code']); ?></strong></td>
@@ -885,7 +965,7 @@ class Admin {
                                     </td>
                                     <td>
                                         <button type="button" class="button button-small ez-translate-edit-btn"
-                                                data-language='<?php echo esc_attr(json_encode($language)); ?>'>
+                                                data-language='<?php echo esc_attr(json_encode($language_with_current_seo)); ?>'>
                                             <?php esc_html_e('Edit', 'ez-translate'); ?>
                                         </button>
                                         <form method="post" style="display: inline-block;"
@@ -904,6 +984,86 @@ class Admin {
                     </table>
                 <?php endif; ?>
             </div>
+
+            <!-- Landing Pages Repair Section -->
+            <?php
+            $languages_needing_repair = \EZTranslate\LanguageManager::get_languages_needing_repair();
+            if (!empty($languages_needing_repair)):
+            ?>
+            <div class="card" style="max-width: 1200px; width: 100%; border-left: 4px solid #dc3232;">
+                <h2 style="color: #dc3232;">
+                    <span class="dashicons dashicons-warning" style="margin-right: 8px;"></span>
+                    <?php esc_html_e('Landing Pages Need Repair', 'ez-translate'); ?>
+                </h2>
+                <p><?php esc_html_e('Some languages have missing or invalid landing page references. This can happen when pages are deleted or when editing language settings incorrectly.', 'ez-translate'); ?></p>
+
+                <div style="background: #fff2cd; border: 1px solid #dba617; border-radius: 4px; padding: 15px; margin: 15px 0;">
+                    <h4 style="margin-top: 0; color: #8a6914;">
+                        <span class="dashicons dashicons-info" style="margin-right: 5px;"></span>
+                        <?php esc_html_e('Languages needing repair:', 'ez-translate'); ?>
+                    </h4>
+                    <ul style="margin: 10px 0;">
+                        <?php foreach ($languages_needing_repair as $language): ?>
+                            <li>
+                                <strong><?php echo esc_html($language['name']); ?></strong>
+                                (<?php echo esc_html($language['code']); ?>) -
+                                <span style="color: #666;">
+                                    <?php if ($language['current_landing_id'] > 0): ?>
+                                        <?php
+                                        /* translators: %d: page ID */
+                                        printf(esc_html__('Invalid page ID: %d', 'ez-translate'), esc_html($language['current_landing_id']));
+                                        ?>
+                                    <?php else: ?>
+                                        <?php esc_html_e('No landing page assigned', 'ez-translate'); ?>
+                                    <?php endif; ?>
+                                </span>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+
+                <div style="background: #e7f3ff; border: 1px solid #0073aa; border-radius: 4px; padding: 15px; margin: 15px 0;">
+                    <h4 style="margin-top: 0; color: #0073aa;">
+                        <span class="dashicons dashicons-admin-tools" style="margin-right: 5px;"></span>
+                        <?php esc_html_e('Automatic Repair', 'ez-translate'); ?>
+                    </h4>
+                    <p><?php esc_html_e('The repair process will attempt to:', 'ez-translate'); ?></p>
+                    <ul style="margin: 10px 0 15px 20px;">
+                        <li><?php esc_html_e('Search for existing landing pages in the database using bidirectional metadata', 'ez-translate'); ?></li>
+                        <li><?php esc_html_e('Look for pages marked as landing pages for each language', 'ez-translate'); ?></li>
+                        <li><?php esc_html_e('Re-associate found pages with their corresponding languages', 'ez-translate'); ?></li>
+                        <li><?php esc_html_e('Update the language configuration automatically', 'ez-translate'); ?></li>
+                    </ul>
+
+                    <form method="post" action="" style="margin-top: 15px;"
+                          onsubmit="return confirm('<?php esc_attr_e('This operation will attempt to find and re-associate landing pages for languages with missing references. This is generally safe, but make sure you have a backup. Continue?', 'ez-translate'); ?>');">
+                        <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce_repair'); ?>
+                        <input type="hidden" name="ez_translate_action" value="repair_landing_pages">
+                        <button type="submit" class="button button-primary" style="background: #0073aa;">
+                            <span class="dashicons dashicons-admin-tools" style="margin-right: 5px; vertical-align: middle;"></span>
+                            <?php
+                            /* translators: %d: number of languages to repair */
+                            printf(esc_html__('Repair %d Language(s)', 'ez-translate'), count($languages_needing_repair));
+                            ?>
+                        </button>
+                    </form>
+                </div>
+
+                <details style="margin-top: 15px;">
+                    <summary style="cursor: pointer; font-weight: 600; color: #0073aa;">
+                        <?php esc_html_e('Advanced: Manual Repair Options', 'ez-translate'); ?>
+                    </summary>
+                    <div style="margin-top: 10px; padding: 10px; background: #f9f9f9; border-radius: 4px;">
+                        <p style="margin-top: 0;"><?php esc_html_e('If automatic repair doesn\'t work, you can:', 'ez-translate'); ?></p>
+                        <ol style="margin: 10px 0 10px 20px;">
+                            <li><?php esc_html_e('Delete the problematic language and recreate it (this will create a new landing page)', 'ez-translate'); ?></li>
+                            <li><?php esc_html_e('Manually create a new page and assign it as the landing page for the language', 'ez-translate'); ?></li>
+                            <li><?php esc_html_e('Check the Pages section for orphaned landing pages that might belong to these languages', 'ez-translate'); ?></li>
+                        </ol>
+                    </div>
+                </details>
+            </div>
+            <?php endif; ?>
 
             <!-- Default Language Configuration -->
             <div class="card">
@@ -1023,11 +1183,22 @@ class Admin {
                     $selected_page_id = isset($_POST['main_landing_page_id']) ? intval($_POST['main_landing_page_id']) : 0;
                     $current_main_landing = get_option('ez_translate_main_landing_page_id', 0);
 
-                    if ($selected_page_id > 0 && $selected_page_id !== $current_main_landing) {
-                        // Transfer metadata to selected page
-                        $this->transfer_metadata_to_main_landing_page($selected_page_id, $default_metadata, $wp_language_code);
-                        update_option('ez_translate_main_landing_page_id', $selected_page_id);
-                        echo '<div class="notice notice-success"><p>' . esc_html__('Main landing page updated and metadata transferred successfully!', 'ez-translate') . '</p></div>';
+                    if ($selected_page_id !== $current_main_landing) {
+                        // Remove landing page status from previous main landing page
+                        if ($current_main_landing > 0) {
+                            \EZTranslate\PostMetaManager::remove_landing_page_status($current_main_landing);
+                        }
+
+                        if ($selected_page_id > 0) {
+                            // Transfer metadata to selected page
+                            $this->transfer_metadata_to_main_landing_page($selected_page_id, $default_metadata, $wp_language_code);
+                            update_option('ez_translate_main_landing_page_id', $selected_page_id);
+                            echo '<div class="notice notice-success"><p>' . esc_html__('Main landing page updated and metadata transferred successfully!', 'ez-translate') . '</p></div>';
+                        } else {
+                            // No page selected, just remove the option
+                            delete_option('ez_translate_main_landing_page_id');
+                            echo '<div class="notice notice-success"><p>' . esc_html__('Main landing page removed successfully!', 'ez-translate') . '</p></div>';
+                        }
                     } else {
                         echo '<div class="notice notice-success"><p>' . esc_html__('Default language metadata saved successfully!', 'ez-translate') . '</p></div>';
                     }
@@ -1141,6 +1312,38 @@ class Admin {
                         <td><?php echo esc_html(EZ_TRANSLATE_VERSION); ?></td>
                     </tr>
                 </table>
+            </div>
+
+            <!-- SEO Synchronization Section -->
+            <div class="card">
+                <h2><?php esc_html_e('SEO Synchronization', 'ez-translate'); ?></h2>
+                <p><?php esc_html_e('Synchronize language metadata with landing page SEO data to ensure consistency.', 'ez-translate'); ?></p>
+
+                <div style="background: #e7f3ff; border: 1px solid #0073aa; border-radius: 4px; padding: 15px; margin: 15px 0;">
+                    <h4 style="margin-top: 0; color: #0073aa;">
+                        <span class="dashicons dashicons-update" style="margin-right: 5px;"></span>
+                        <?php esc_html_e('Automatic Synchronization', 'ez-translate'); ?>
+                    </h4>
+                    <p><?php esc_html_e('When you edit the SEO data of a landing page, it automatically synchronizes with the language metadata. However, you can manually trigger a full synchronization if needed.', 'ez-translate'); ?></p>
+
+                    <p><strong><?php esc_html_e('This synchronization will:', 'ez-translate'); ?></strong></p>
+                    <ul style="margin: 10px 0 15px 20px;">
+                        <li><?php esc_html_e('Read current SEO title and description from each landing page', 'ez-translate'); ?></li>
+                        <li><?php esc_html_e('Compare with stored language metadata', 'ez-translate'); ?></li>
+                        <li><?php esc_html_e('Update language site_title and site_description if different', 'ez-translate'); ?></li>
+                        <li><?php esc_html_e('Ensure consistency between landing page SEO and language settings', 'ez-translate'); ?></li>
+                    </ul>
+
+                    <form method="post" action="" style="margin-top: 15px;"
+                          onsubmit="return confirm('<?php esc_attr_e('This will synchronize all language metadata with their corresponding landing page SEO data. This operation is safe but will update language settings. Continue?', 'ez-translate'); ?>');">
+                        <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce_sync_seo'); ?>
+                        <input type="hidden" name="ez_translate_action" value="sync_all_languages_seo">
+                        <button type="submit" class="button button-primary" style="background: #0073aa;">
+                            <span class="dashicons dashicons-update" style="margin-right: 5px; vertical-align: middle;"></span>
+                            <?php esc_html_e('Synchronize All Languages', 'ez-translate'); ?>
+                        </button>
+                    </form>
+                </div>
             </div>
 
             <!-- AI Integration Section -->
@@ -1262,44 +1465,32 @@ class Admin {
                     <table class="form-table">
                         <tr>
                             <th scope="row">
-                                <label for="edit_language_code"><?php esc_html_e('Language Code', 'ez-translate'); ?> *</label>
+                                <label for="edit_language_code"><?php esc_html_e('Language Code', 'ez-translate'); ?></label>
                             </th>
                             <td>
-                                <select id="edit_language_code_select" class="regular-text" style="margin-bottom: 10px;">
-                                    <option value=""><?php esc_html_e('Select a common language...', 'ez-translate'); ?></option>
-                                    <?php
-                                    $allowed_html = array(
-                                        'option' => array(
-                                            'value' => array(),
-                                            'data-name' => array(),
-                                            'data-native' => array(),
-                                            'data-flag' => array(),
-                                        )
-                                    );
-                                    echo wp_kses($this->get_language_options(), $allowed_html);
-                                    ?>
-                                </select>
-                                <br>
-                                <input type="text" id="edit_language_code" name="code" class="regular-text"
-                                       pattern="[a-zA-Z0-9]{2,5}" maxlength="5" required>
-                                <p class="description"><?php esc_html_e('Select from common languages above or enter a custom ISO 639-1 code', 'ez-translate'); ?></p>
+                                <input type="text" id="edit_language_code" name="code" class="regular-text" readonly
+                                       style="background-color: #f1f1f1; color: #666;">
+                                <p class="description"><?php esc_html_e('Language code cannot be changed for data integrity. Delete and recreate the language to change this.', 'ez-translate'); ?></p>
                             </td>
                         </tr>
                         <tr>
                             <th scope="row">
-                                <label for="edit_language_name"><?php esc_html_e('Language Name', 'ez-translate'); ?> *</label>
+                                <label for="edit_language_name"><?php esc_html_e('Language Name', 'ez-translate'); ?></label>
                             </th>
                             <td>
-                                <input type="text" id="edit_language_name" name="name" class="regular-text" required>
+                                <input type="text" id="edit_language_name" name="name" class="regular-text" readonly
+                                       style="background-color: #f1f1f1; color: #666;">
+                                <p class="description"><?php esc_html_e('Language name cannot be changed for data integrity. Delete and recreate the language to change this.', 'ez-translate'); ?></p>
                             </td>
                         </tr>
                         <tr>
                             <th scope="row">
-                                <label for="edit_language_slug"><?php esc_html_e('Language Slug', 'ez-translate'); ?> *</label>
+                                <label for="edit_language_slug"><?php esc_html_e('Language Slug', 'ez-translate'); ?></label>
                             </th>
                             <td>
-                                <input type="text" id="edit_language_slug" name="slug" class="regular-text"
-                                       pattern="[a-z0-9\-_]+" required>
+                                <input type="text" id="edit_language_slug" name="slug" class="regular-text" readonly
+                                       style="background-color: #f1f1f1; color: #666;">
+                                <p class="description"><?php esc_html_e('Language slug cannot be changed for data integrity. Delete and recreate the language to change this.', 'ez-translate'); ?></p>
                             </td>
                         </tr>
                         <tr>
@@ -1368,72 +1559,8 @@ class Admin {
                         </tr>
                     </table>
 
-                    <!-- Landing Page Creation Section for Edit -->
-                    <div class="card" style="margin-top: 20px;">
-                        <h3><?php esc_html_e('Landing Page Creation', 'ez-translate'); ?></h3>
-                        <table class="form-table">
-                            <tr>
-                                <th scope="row"><?php esc_html_e('Create Landing Page', 'ez-translate'); ?></th>
-                                <td>
-                                    <label>
-                                        <input type="checkbox" id="edit_create_landing_page" name="create_landing_page" value="1">
-                                        <?php esc_html_e('Create a landing page for this language', 'ez-translate'); ?>
-                                    </label>
-                                    <p class="description"><?php esc_html_e('Create a new WordPress page configured as the landing page for this language.', 'ez-translate'); ?></p>
-                                </td>
-                            </tr>
-                        </table>
-
-                        <div id="edit_landing_page_fields" style="display: none;">
-                            <table class="form-table">
-                                <tr>
-                                    <th scope="row">
-                                        <label for="edit_landing_page_title"><?php esc_html_e('Landing Page Title', 'ez-translate'); ?> *</label>
-                                    </th>
-                                    <td>
-                                        <input type="text" id="edit_landing_page_title" name="landing_page_title" class="regular-text"
-                                               placeholder="<?php esc_attr_e('e.g., Welcome to Our Site', 'ez-translate'); ?>">
-                                        <p class="description"><?php esc_html_e('Title for the landing page (will also be used as SEO title)', 'ez-translate'); ?></p>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row">
-                                        <label for="edit_landing_page_description"><?php esc_html_e('Landing Page Description', 'ez-translate'); ?> *</label>
-                                    </th>
-                                    <td>
-                                        <textarea id="edit_landing_page_description" name="landing_page_description" class="large-text" rows="3"
-                                                  placeholder="<?php esc_attr_e('Brief description of your site for this language...', 'ez-translate'); ?>"></textarea>
-                                        <p class="description"><?php esc_html_e('SEO description for the landing page (used in meta description and social media)', 'ez-translate'); ?></p>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row">
-                                        <label for="edit_landing_page_slug"><?php esc_html_e('Landing Page Slug', 'ez-translate'); ?></label>
-                                    </th>
-                                    <td>
-                                        <input type="text" id="edit_landing_page_slug" name="landing_page_slug" class="regular-text"
-                                               placeholder="<?php esc_attr_e('e.g., home, inicio, accueil', 'ez-translate'); ?>"
-                                               pattern="[a-z0-9\-_]+">
-                                        <p class="description"><?php esc_html_e('URL slug for the landing page (optional - will be auto-generated if empty)', 'ez-translate'); ?></p>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row"><?php esc_html_e('Page Status', 'ez-translate'); ?></th>
-                                    <td>
-                                        <label>
-                                            <input type="radio" name="landing_page_status" value="draft" checked>
-                                            <?php esc_html_e('Draft', 'ez-translate'); ?>
-                                        </label>
-                                        <label style="margin-left: 15px;">
-                                            <input type="radio" name="landing_page_status" value="publish">
-                                            <?php esc_html_e('Published', 'ez-translate'); ?>
-                                        </label>
-                                        <p class="description"><?php esc_html_e('Create as draft to edit content first, or publish immediately', 'ez-translate'); ?></p>
-                                    </td>
-                                </tr>
-                            </table>
-                        </div>
-                    </div>
+                    <!-- Note: Landing page creation removed from edit mode for data integrity -->
+                    <!-- To create or modify landing pages, delete and recreate the language -->
 
                     <p class="submit">
                         <button type="submit" class="button button-primary"><?php esc_html_e('Update Language', 'ez-translate'); ?></button>
@@ -1565,43 +1692,15 @@ class Admin {
                 }
             });
 
-            // Language selector change handler for edit form
-            $('#edit_language_code_select').on('change', function() {
-                var selectedOption = $(this).find('option:selected');
-                if (selectedOption.val()) {
-                    var code = selectedOption.val();
-                    var name = selectedOption.data('name');
-                    var nativeName = selectedOption.data('native');
-                    var flag = selectedOption.data('flag');
-
-                    // Auto-populate fields
-                    $('#edit_language_code').val(code);
-                    $('#edit_language_name').val(name);
-                    $('#edit_language_native_name').val(nativeName);
-                    $('#edit_language_flag').val(flag);
-
-                    // Generate slug from name
-                    var slug = name.toLowerCase()
-                        .replace(/[^a-z0-9\s\-_]/g, '')
-                        .replace(/\s+/g, '-')
-                        .replace(/\-+/g, '-')
-                        .replace(/^-|-$/g, '');
-                    $('#edit_language_slug').val(slug);
-
-                    // Set RTL for known RTL languages
-                    var rtlLanguages = ['ar', 'he', 'fa', 'ur'];
-                    $('#edit_language_rtl').prop('checked', rtlLanguages.includes(code));
-                }
-            });
+            // Note: Language selector removed from edit form - fields are now read-only
 
             // Edit button click handler
             $('.ez-translate-edit-btn').on('click', function() {
                 var languageData = $(this).data('language');
 
-                // Reset the select dropdown
-                $('#edit_language_code_select').val('');
+                // Note: No dropdown to reset in edit mode
 
-                // Populate the edit form
+                // Populate the edit form with real synchronized data
                 $('#edit_original_code').val(languageData.code);
                 $('#edit_language_code').val(languageData.code);
                 $('#edit_language_name').val(languageData.name);
@@ -1614,11 +1713,7 @@ class Admin {
                 $('#edit_language_site_title').val(languageData.site_title || '');
                 $('#edit_language_site_description').val(languageData.site_description || '');
 
-                // Reset landing page creation fields
-                $('#edit_create_landing_page').prop('checked', false);
-                $('#edit_landing_page_fields').hide();
-                $('#edit_landing_page_title, #edit_landing_page_description, #edit_landing_page_slug').val('');
-                $('input[name="landing_page_status"][value="draft"]').prop('checked', true);
+                // Note: Landing page creation removed from edit mode
 
                 // Show the modal
                 $('#ez-translate-edit-modal').show();
@@ -1650,18 +1745,7 @@ class Admin {
                 }
             });
 
-            $('#edit_language_name').on('input', function() {
-                // Only auto-generate if no language was selected from dropdown
-                if (!$('#edit_language_code_select').val()) {
-                    var name = $(this).val();
-                    var slug = name.toLowerCase()
-                        .replace(/[^a-z0-9\s\-_]/g, '')
-                        .replace(/\s+/g, '-')
-                        .replace(/\-+/g, '-')
-                        .replace(/^-|-$/g, '');
-                    $('#edit_language_slug').val(slug);
-                }
-            });
+            // Note: Auto-generation removed from edit mode - fields are read-only
 
             // Clear form when language selector is reset
             $('#language_code_select').on('change', function() {
@@ -1712,51 +1796,9 @@ class Admin {
                 }
             });
 
-            // Landing page creation toggle for EDIT modal
-            $('#edit_create_landing_page').on('change', function() {
-                if ($(this).is(':checked')) {
-                    $('#edit_landing_page_fields').show();
-                    // Auto-populate landing page title from language name
-                    var languageName = $('#edit_language_name').val();
-                    if (languageName && !$('#edit_landing_page_title').val()) {
-                        $('#edit_landing_page_title').val('Welcome to Our Site - ' + languageName);
-                    }
-                } else {
-                    $('#edit_landing_page_fields').hide();
-                    // Clear landing page fields
-                    $('#edit_landing_page_title, #edit_landing_page_description, #edit_landing_page_slug').val('');
-                    $('input[name="landing_page_status"][value="draft"]').prop('checked', true);
-                }
-            });
+            // Note: Landing page creation JavaScript removed from edit mode for data integrity
 
-            // Auto-populate landing page title when language name changes in EDIT modal
-            $('#edit_language_name').on('input', function() {
-                if ($('#edit_create_landing_page').is(':checked') && !$('#edit_landing_page_title').val()) {
-                    var languageName = $(this).val();
-                    if (languageName) {
-                        $('#edit_landing_page_title').val('Welcome to Our Site - ' + languageName);
-                    }
-                }
-            });
-
-            // Auto-generate landing page slug from title in EDIT modal
-            $('#edit_landing_page_title').on('input', function() {
-                if (!$('#edit_landing_page_slug').val()) {
-                    var title = $(this).val();
-                    var slug = title.toLowerCase()
-                        .replace(/[^a-z0-9\s\-_]/g, '')
-                        .replace(/\s+/g, '-')
-                        .replace(/\-+/g, '-')
-                        .replace(/^-|-$/g, '');
-                    $('#edit_landing_page_slug').val(slug);
-                }
-            });
-
-            $('#edit_language_code_select').on('change', function() {
-                if (!$(this).val()) {
-                    // Don't clear when editing, just reset the dropdown
-                }
-            });
+            // Note: Edit language dropdown handlers removed - fields are now read-only
 
             // SEO Edit button click handler
             $('.ez-translate-edit-seo-btn').on('click', function() {
@@ -2131,15 +2173,11 @@ class Admin {
             update_post_meta($page_id, '_ez_translate_seo_description', $metadata['site_description']);
         }
 
-        // Mark as landing page
-        update_post_meta($page_id, '_ez_translate_is_landing', true);
-
-        // Create or get translation group for landing pages
-        $existing_group = get_post_meta($page_id, '_ez_translate_group', true);
-        if (empty($existing_group)) {
-            $group_id = \EZTranslate\PostMetaManager::generate_group_id();
-            update_post_meta($page_id, '_ez_translate_group', $group_id);
-        }
+        // Set as landing page with proper group assignment and bidirectional relationship
+        // For main landing page, use 'es' (default language) or get from WordPress locale
+        $wp_locale = get_locale();
+        $default_language_code = strstr($wp_locale, '_', true) ?: $wp_locale; // es_MX -> es
+        \EZTranslate\PostMetaManager::set_as_landing_page($page_id, $default_language_code);
 
         // Update language configuration to include this page as landing page
         $languages = \EZTranslate\LanguageManager::get_languages();

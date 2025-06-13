@@ -47,6 +47,14 @@ class PostMetaManager
     const META_IS_LANDING = '_ez_translate_is_landing';
 
     /**
+     * Meta key for landing page language assignment
+     *
+     * @var string
+     * @since 1.0.0
+     */
+    const META_LANDING_FOR_LANGUAGE = '_ez_translate_landing_for_language';
+
+    /**
      * Meta key for SEO title
      *
      * @var string
@@ -77,6 +85,14 @@ class PostMetaManager
      * @since 1.0.0
      */
     const GROUP_PREFIX = 'tg_';
+
+    /**
+     * Landing pages group ID
+     *
+     * @var string
+     * @since 1.0.0
+     */
+    const LANDING_PAGES_GROUP = 'landing_pages';
 
     /**
      * Constructor
@@ -166,6 +182,7 @@ class PostMetaManager
             'language' => get_post_meta($post_id, self::META_LANGUAGE, true),
             'group' => get_post_meta($post_id, self::META_GROUP, true),
             'is_landing' => get_post_meta($post_id, self::META_IS_LANDING, true),
+            'landing_for_language' => get_post_meta($post_id, self::META_LANDING_FOR_LANGUAGE, true),
             'seo_title' => get_post_meta($post_id, self::META_SEO_TITLE, true),
             'seo_description' => get_post_meta($post_id, self::META_SEO_DESCRIPTION, true),
             'og_title' => get_post_meta($post_id, self::META_OG_TITLE, true),
@@ -371,11 +388,17 @@ class PostMetaManager
     /**
      * Generate a unique translation group ID
      *
+     * @param bool $is_landing Whether this is for a landing page
      * @return string Generated group ID
      * @since 1.0.0
      */
-    public static function generate_group_id()
+    public static function generate_group_id($is_landing = false)
     {
+        // For landing pages, use the hardcoded group ID
+        if ($is_landing) {
+            return self::LANDING_PAGES_GROUP;
+        }
+
         // Generate 16 random alphanumeric characters
         $characters = '0123456789abcdefghijklmnopqrstuvwxyz';
         $group_id = self::GROUP_PREFIX;
@@ -396,6 +419,11 @@ class PostMetaManager
      */
     public static function validate_group_id($group_id)
     {
+        // Special case for landing pages group
+        if ($group_id === self::LANDING_PAGES_GROUP) {
+            return true;
+        }
+
         // Must start with prefix and be exactly 19 characters total (tg_ + 16 chars)
         $pattern = '/^' . preg_quote(self::GROUP_PREFIX, '/') . '[a-z0-9]{16}$/';
         $is_valid = preg_match($pattern, $group_id);
@@ -545,6 +573,7 @@ class PostMetaManager
             self::META_LANGUAGE,
             self::META_GROUP,
             self::META_IS_LANDING,
+            self::META_LANDING_FOR_LANGUAGE,
             self::META_SEO_TITLE,
             self::META_SEO_DESCRIPTION,
             self::META_OG_TITLE
@@ -652,5 +681,199 @@ class PostMetaManager
         ));
 
         return $success;
+    }
+
+    /**
+     * Set a post as landing page with the landing pages group
+     *
+     * @param int    $post_id       Post ID
+     * @param string $language_code Language code this page is landing for
+     * @return bool Success status
+     * @since 1.0.0
+     */
+    public static function set_as_landing_page($post_id, $language_code = '')
+    {
+        // Mark as landing page
+        $result1 = update_post_meta($post_id, self::META_IS_LANDING, true);
+
+        // Assign to landing pages group
+        $result2 = self::set_post_group($post_id, self::LANDING_PAGES_GROUP);
+
+        // Set bidirectional relationship if language code provided
+        $result3 = true;
+        if (!empty($language_code)) {
+            $result3 = update_post_meta($post_id, self::META_LANDING_FOR_LANGUAGE, sanitize_text_field($language_code));
+        }
+
+        $success = $result1 && $result2 && $result3;
+
+        if ($success) {
+            Logger::info('Post set as landing page', array(
+                'post_id' => $post_id,
+                'group_id' => self::LANDING_PAGES_GROUP,
+                'language_code' => $language_code
+            ));
+        } else {
+            Logger::error('Failed to set post as landing page', array('post_id' => $post_id));
+        }
+
+        return $success;
+    }
+
+    /**
+     * Remove landing page status and group from a post
+     *
+     * @param int $post_id Post ID
+     * @return bool Success status
+     * @since 1.0.0
+     */
+    public static function remove_landing_page_status($post_id)
+    {
+        // Remove landing page status
+        $result1 = delete_post_meta($post_id, self::META_IS_LANDING);
+
+        // Remove bidirectional language relationship
+        $result2 = delete_post_meta($post_id, self::META_LANDING_FOR_LANGUAGE);
+
+        // Remove from landing pages group (only if it's currently in that group)
+        $current_group = get_post_meta($post_id, self::META_GROUP, true);
+        $result3 = true;
+
+        if ($current_group === self::LANDING_PAGES_GROUP) {
+            $result3 = delete_post_meta($post_id, self::META_GROUP);
+        }
+
+        $success = $result1 && $result2 && $result3;
+
+        if ($success) {
+            Logger::info('Landing page status removed', array(
+                'post_id' => $post_id,
+                'previous_group' => $current_group
+            ));
+        } else {
+            Logger::error('Failed to remove landing page status', array('post_id' => $post_id));
+        }
+
+        return $success;
+    }
+
+    /**
+     * Check if a post is in the landing pages group
+     *
+     * @param int $post_id Post ID
+     * @return bool True if in landing pages group, false otherwise
+     * @since 1.0.0
+     */
+    public static function is_in_landing_pages_group($post_id)
+    {
+        $group_id = get_post_meta($post_id, self::META_GROUP, true);
+        return $group_id === self::LANDING_PAGES_GROUP;
+    }
+
+    /**
+     * Find landing page for a specific language
+     *
+     * @param string $language_code Language code
+     * @return int|null Post ID of landing page or null if not found
+     * @since 1.0.0
+     */
+    public static function find_landing_page_for_language($language_code)
+    {
+        $language_code = sanitize_text_field($language_code);
+
+        // Check cache first
+        $cache_key = 'ez_translate_landing_for_' . $language_code;
+        $cached_result = wp_cache_get($cache_key, 'ez_translate');
+
+        if ($cached_result !== false) {
+            return $cached_result;
+        }
+
+        // Query for pages with the bidirectional metadata
+        $query_args = array(
+            'post_type' => 'page',
+            'post_status' => array('publish', 'draft'),
+            //phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+            'meta_query' => array(
+                array(
+                    'key' => self::META_LANDING_FOR_LANGUAGE,
+                    'value' => $language_code,
+                    'compare' => '='
+                )
+            ),
+            //phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+            'fields' => 'ids',
+            'posts_per_page' => 1
+        );
+
+        $query = new \WP_Query($query_args);
+        $result = !empty($query->posts) ? intval($query->posts[0]) : null;
+
+        // Cache for 10 minutes
+        wp_cache_set($cache_key, $result, 'ez_translate', 600);
+
+        if ($result) {
+            Logger::info('Landing page found for language', array(
+                'language_code' => $language_code,
+                'post_id' => $result
+            ));
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get all orphaned landing pages (pages marked as landing but not in language config)
+     *
+     * @return array Array of post IDs
+     * @since 1.0.0
+     */
+    public static function get_orphaned_landing_pages()
+    {
+        // Get all pages marked as landing pages
+        $query_args = array(
+            'post_type' => 'page',
+            'post_status' => array('publish', 'draft'),
+            //phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+            'meta_query' => array(
+                array(
+                    'key' => self::META_IS_LANDING,
+                    'value' => true,
+                    'compare' => '='
+                )
+            ),
+            //phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+            'fields' => 'ids',
+            'posts_per_page' => -1
+        );
+
+        $query = new \WP_Query($query_args);
+        $landing_pages = $query->posts;
+
+        if (empty($landing_pages)) {
+            return array();
+        }
+
+        // Get all language configurations
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-manager.php';
+        $languages = \EZTranslate\LanguageManager::get_languages();
+        $configured_landing_ids = array();
+
+        foreach ($languages as $language) {
+            if (!empty($language['landing_page_id']) && $language['landing_page_id'] > 0) {
+                $configured_landing_ids[] = intval($language['landing_page_id']);
+            }
+        }
+
+        // Also check main landing page
+        $main_landing_id = get_option('ez_translate_main_landing_page_id', 0);
+        if ($main_landing_id > 0) {
+            $configured_landing_ids[] = intval($main_landing_id);
+        }
+
+        // Find orphaned pages (marked as landing but not in any language config)
+        $orphaned = array_diff(array_map('intval', $landing_pages), $configured_landing_ids);
+
+        return array_values($orphaned);
     }
 }

@@ -209,12 +209,8 @@ class LanguageManager {
             return $error;
         }
 
-        // Validate language data
-        $validation_result = self::validate_language_data($language_data);
-        if (is_wp_error($validation_result)) {
-            Logger::error('Language validation failed for update', array('errors' => $validation_result->get_error_messages()));
-            return $validation_result;
-        }
+        // Sanitize only the allowed fields for updates
+        $sanitized_data = self::sanitize_language_data_for_update($language_data);
 
         // Get current languages
         $languages = self::get_languages(false);
@@ -223,21 +219,18 @@ class LanguageManager {
         // Find and update the language
         foreach ($languages as $index => $language) {
             if (isset($language['code']) && $language['code'] === $code) {
-                // If code is being changed, check for duplicates
-                if ($language_data['code'] !== $code && self::language_code_exists($language_data['code'])) {
-                    $error = new \WP_Error('duplicate_code', __('New language code already exists.', 'ez-translate'));
-                    Logger::error('Duplicate language code on update', array('new_code' => $language_data['code']));
-                    return $error;
+                // For updates, preserve critical fields and only allow safe changes
+                // Preserve: code, slug, landing_page_id (immutable for data integrity)
+                // Allow: enabled, site_name, site_title, site_description, native_name, flag, rtl
+
+                $updated_language = $language; // Start with existing data
+
+                // Apply only the sanitized allowed fields
+                foreach ($sanitized_data as $key => $value) {
+                    $updated_language[$key] = $value;
                 }
 
-                // If slug is being changed, check for duplicates
-                if ($language_data['slug'] !== $language['slug'] && self::language_slug_exists($language_data['slug'])) {
-                    $error = new \WP_Error('duplicate_slug', __('New language slug already exists.', 'ez-translate'));
-                    Logger::error('Duplicate language slug on update', array('new_slug' => $language_data['slug']));
-                    return $error;
-                }
-
-                $languages[$index] = $language_data;
+                $languages[$index] = $updated_language;
                 $language_found = true;
                 break;
             }
@@ -462,6 +455,42 @@ class LanguageManager {
     }
 
     /**
+     * Sanitize language data for updates (only allowed fields)
+     *
+     * @param array $language_data Raw language data
+     * @return array Sanitized language data with only updatable fields
+     * @since 1.0.0
+     */
+    public static function sanitize_language_data_for_update($language_data) {
+        $sanitized = array();
+
+        // Only allow updating these fields for data integrity
+        if (isset($language_data['enabled'])) {
+            $sanitized['enabled'] = self::sanitize_boolean($language_data['enabled']);
+        }
+        if (isset($language_data['site_name'])) {
+            $sanitized['site_name'] = sanitize_text_field($language_data['site_name']);
+        }
+        if (isset($language_data['site_title'])) {
+            $sanitized['site_title'] = sanitize_text_field($language_data['site_title']);
+        }
+        if (isset($language_data['site_description'])) {
+            $sanitized['site_description'] = sanitize_textarea_field($language_data['site_description']);
+        }
+        if (isset($language_data['native_name'])) {
+            $sanitized['native_name'] = sanitize_text_field($language_data['native_name']);
+        }
+        if (isset($language_data['flag'])) {
+            $sanitized['flag'] = sanitize_text_field($language_data['flag']);
+        }
+        if (isset($language_data['rtl'])) {
+            $sanitized['rtl'] = self::sanitize_boolean($language_data['rtl']);
+        }
+
+        return $sanitized;
+    }
+
+    /**
      * Sanitize boolean values from various input types
      *
      * @param mixed $value Value to convert to boolean
@@ -538,6 +567,122 @@ class LanguageManager {
         );
 
         return $metadata;
+    }
+
+    /**
+     * Get language with automatically synchronized landing page SEO data
+     * This function ensures persistent synchronization by updating the language metadata in the database
+     *
+     * @param string $language_code Language code
+     * @return array|null Language data with synchronized SEO data, or null if not found
+     * @since 1.0.0
+     */
+    public static function get_language_with_current_seo($language_code) {
+        $language = self::get_language($language_code);
+
+        if (!$language) {
+            return null;
+        }
+
+        // If language has a landing page, get current SEO data from it
+        if (!empty($language['landing_page_id'])) {
+            $landing_page_id = $language['landing_page_id'];
+            $post = get_post($landing_page_id);
+
+            if ($post && $post->post_type === 'page') {
+                // Get current SEO data from landing page
+                $current_seo_title = get_post_meta($landing_page_id, '_ez_translate_seo_title', true);
+                $current_seo_description = get_post_meta($landing_page_id, '_ez_translate_seo_description', true);
+
+                // Check if we need to sync data persistently
+                $needs_sync = false;
+                $sync_data = array();
+
+                if (!empty($current_seo_title) && $current_seo_title !== ($language['site_title'] ?? '')) {
+                    $language['site_title'] = $current_seo_title;
+                    $sync_data['site_title'] = $current_seo_title;
+                    $needs_sync = true;
+                }
+
+                if (!empty($current_seo_description) && $current_seo_description !== ($language['site_description'] ?? '')) {
+                    $language['site_description'] = $current_seo_description;
+                    $sync_data['site_description'] = $current_seo_description;
+                    $needs_sync = true;
+                }
+
+                // Perform persistent synchronization if needed
+                if ($needs_sync) {
+                    $sync_result = self::update_language($language_code, $sync_data);
+
+                    if (!is_wp_error($sync_result)) {
+                        Logger::info('Language metadata synchronized persistently with landing page SEO', array(
+                            'language_code' => $language_code,
+                            'landing_page_id' => $landing_page_id,
+                            'synced_fields' => array_keys($sync_data),
+                            'seo_title' => $current_seo_title,
+                            'seo_description' => $current_seo_description
+                        ));
+                    } else {
+                        Logger::error('Failed to sync language metadata persistently', array(
+                            'language_code' => $language_code,
+                            'error' => $sync_result->get_error_message()
+                        ));
+                    }
+                } else {
+                    Logger::debug('Language data already synchronized with landing page SEO', array(
+                        'language_code' => $language_code,
+                        'landing_page_id' => $landing_page_id
+                    ));
+                }
+            }
+        }
+
+        return $language;
+    }
+
+    /**
+     * Synchronize all languages with their landing page SEO data
+     * This function ensures all language metadata is up-to-date with landing page SEO
+     *
+     * @return array Results of synchronization process
+     * @since 1.0.0
+     */
+    public static function sync_all_languages_with_landing_seo() {
+        $languages = self::get_languages(false);
+        $results = array(
+            'total_languages' => count($languages),
+            'synchronized' => 0,
+            'skipped' => 0,
+            'errors' => 0,
+            'details' => array()
+        );
+
+        foreach ($languages as $language) {
+            $language_code = $language['code'];
+
+            try {
+                // Use the sync function which will update persistently if needed
+                $synced_language = self::get_language_with_current_seo($language_code);
+
+                if ($synced_language) {
+                    $results['synchronized']++;
+                    $results['details'][$language_code] = 'synchronized';
+                } else {
+                    $results['skipped']++;
+                    $results['details'][$language_code] = 'skipped - no language found';
+                }
+            } catch (\Exception $e) {
+                $results['errors']++;
+                $results['details'][$language_code] = 'error: ' . $e->getMessage();
+                Logger::error('Error syncing language with landing SEO', array(
+                    'language_code' => $language_code,
+                    'error' => $e->getMessage()
+                ));
+            }
+        }
+
+        Logger::info('Bulk synchronization completed', $results);
+        return $results;
     }
 
     /**
@@ -632,16 +777,14 @@ class LanguageManager {
             return $post_id;
         }
 
-        // Generate and assign translation group ID
+        // Set as landing page with proper metadata and bidirectional relationship
         require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-post-meta-manager.php';
-        $group_id = \EZTranslate\PostMetaManager::generate_group_id();
-        update_post_meta($post_id, '_ez_translate_group', $group_id);
+        \EZTranslate\PostMetaManager::set_as_landing_page($post_id, $language_code);
 
         Logger::info('Landing page created successfully', array(
             'language_code' => $language_code,
             'post_id' => $post_id,
-            'slug' => $slug,
-            'group_id' => $group_id
+            'slug' => $slug,            
         ));
 
         return $post_id;
@@ -806,13 +949,50 @@ class LanguageManager {
             return $error;
         }
 
-        // Update SEO metadata
+        // Update SEO metadata on the post
         if (isset($seo_data['title'])) {
             update_post_meta($post_id, '_ez_translate_seo_title', sanitize_text_field($seo_data['title']));
         }
 
         if (isset($seo_data['description'])) {
             update_post_meta($post_id, '_ez_translate_seo_description', sanitize_textarea_field($seo_data['description']));
+        }
+
+        // Check if this is a landing page and sync with language metadata
+        $is_landing_page = get_post_meta($post_id, '_ez_translate_is_landing_page', true);
+        if ($is_landing_page) {
+            Logger::info('Syncing landing page SEO with language metadata', array(
+                'post_id' => $post_id,
+                'language' => $language
+            ));
+
+            // Prepare language metadata update
+            $language_metadata_update = array();
+
+            if (isset($seo_data['title'])) {
+                $language_metadata_update['site_title'] = sanitize_text_field($seo_data['title']);
+            }
+
+            if (isset($seo_data['description'])) {
+                $language_metadata_update['site_description'] = sanitize_textarea_field($seo_data['description']);
+            }
+
+            // Update language metadata if we have data to update
+            if (!empty($language_metadata_update)) {
+                $update_result = self::update_language($language, $language_metadata_update);
+
+                if (is_wp_error($update_result)) {
+                    Logger::warning('Failed to sync language metadata', array(
+                        'language' => $language,
+                        'error' => $update_result->get_error_message()
+                    ));
+                } else {
+                    Logger::info('Language metadata synced successfully', array(
+                        'language' => $language,
+                        'updated_fields' => array_keys($language_metadata_update)
+                    ));
+                }
+            }
         }
 
         Logger::info('Landing page SEO updated successfully', array(
@@ -1033,5 +1213,183 @@ class LanguageManager {
     public static function get_api_key() {
         $settings = self::get_api_settings();
         return $settings['api_key'];
+    }
+
+    /**
+     * Repair languages with missing landing page IDs
+     *
+     * @return array Repair results with details
+     * @since 1.0.0
+     */
+    public static function repair_missing_landing_pages()
+    {
+        Logger::info('Starting landing page repair process');
+
+        $languages = self::get_languages(false);
+        $repair_results = array(
+            'total_checked' => 0,
+            'found_missing' => 0,
+            'successfully_repaired' => 0,
+            'failed_repairs' => 0,
+            'details' => array()
+        );
+
+        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-post-meta-manager.php';
+
+        foreach ($languages as $index => $language) {
+            $repair_results['total_checked']++;
+
+            // Skip if landing page ID is already set and valid
+            if (!empty($language['landing_page_id']) && $language['landing_page_id'] > 0) {
+                // Verify the page still exists
+                $post = get_post($language['landing_page_id']);
+                if ($post && $post->post_type === 'page') {
+                    continue; // This language is fine
+                }
+            }
+
+            // This language has missing or invalid landing page ID
+            $repair_results['found_missing']++;
+            $language_code = $language['code'];
+
+            Logger::info('Attempting to repair language', array('code' => $language_code));
+
+            // Try to find landing page using bidirectional metadata
+            $found_post_id = \EZTranslate\PostMetaManager::find_landing_page_for_language($language_code);
+
+            if ($found_post_id) {
+                // Found a page with the bidirectional metadata
+                $languages[$index]['landing_page_id'] = $found_post_id;
+                $repair_results['successfully_repaired']++;
+
+                $repair_results['details'][] = array(
+                    'language_code' => $language_code,
+                    'language_name' => $language['name'],
+                    'status' => 'repaired',
+                    'found_post_id' => $found_post_id,
+                    'post_title' => get_the_title($found_post_id)
+                );
+
+                Logger::info('Language repaired successfully', array(
+                    'code' => $language_code,
+                    'post_id' => $found_post_id
+                ));
+            } else {
+                // Try fallback: search for pages with this language code
+                $fallback_posts = get_posts(array(
+                    'post_type' => 'page',
+                    'post_status' => array('publish', 'draft'),
+                    //phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+                    'meta_query' => array(
+                        array(
+                            'key' => '_ez_translate_language',
+                            'value' => $language_code,
+                            'compare' => '='
+                        ),
+                        array(
+                            'key' => '_ez_translate_is_landing',
+                            'value' => true,
+                            'compare' => '='
+                        )
+                    ),
+                    //phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+                    'numberposts' => 1
+                ));
+
+                if (!empty($fallback_posts)) {
+                    $found_post_id = $fallback_posts[0]->ID;
+
+                    // Update the page with bidirectional metadata
+                    \EZTranslate\PostMetaManager::set_as_landing_page($found_post_id, $language_code);
+
+                    // Update language configuration
+                    $languages[$index]['landing_page_id'] = $found_post_id;
+                    $repair_results['successfully_repaired']++;
+
+                    $repair_results['details'][] = array(
+                        'language_code' => $language_code,
+                        'language_name' => $language['name'],
+                        'status' => 'repaired_fallback',
+                        'found_post_id' => $found_post_id,
+                        'post_title' => get_the_title($found_post_id)
+                    );
+
+                    Logger::info('Language repaired using fallback method', array(
+                        'code' => $language_code,
+                        'post_id' => $found_post_id
+                    ));
+                } else {
+                    // No landing page found for this language
+                    $repair_results['failed_repairs']++;
+
+                    $repair_results['details'][] = array(
+                        'language_code' => $language_code,
+                        'language_name' => $language['name'],
+                        'status' => 'not_found',
+                        'found_post_id' => null,
+                        'post_title' => null
+                    );
+
+                    Logger::warning('No landing page found for language', array('code' => $language_code));
+                }
+            }
+        }
+
+        // Save updated language configuration if any repairs were made
+        if ($repair_results['successfully_repaired'] > 0) {
+            $save_result = update_option(self::OPTION_NAME, $languages);
+            if (!$save_result) {
+                Logger::error('Failed to save repaired language configuration');
+                // Mark all repairs as failed
+                foreach ($repair_results['details'] as &$detail) {
+                    if ($detail['status'] === 'repaired' || $detail['status'] === 'repaired_fallback') {
+                        $detail['status'] = 'save_failed';
+                        $repair_results['successfully_repaired']--;
+                        $repair_results['failed_repairs']++;
+                    }
+                }
+            }
+        }
+
+        Logger::info('Landing page repair process completed', $repair_results);
+
+        return $repair_results;
+    }
+
+    /**
+     * Get languages that need landing page repair
+     *
+     * @return array Array of languages with missing landing pages
+     * @since 1.0.0
+     */
+    public static function get_languages_needing_repair()
+    {
+        $languages = self::get_languages(false);
+        $needing_repair = array();
+
+        foreach ($languages as $language) {
+            $needs_repair = false;
+
+            // Check if landing page ID is missing or invalid
+            if (empty($language['landing_page_id']) || $language['landing_page_id'] <= 0) {
+                $needs_repair = true;
+            } else {
+                // Check if the page still exists
+                $post = get_post($language['landing_page_id']);
+                if (!$post || $post->post_type !== 'page') {
+                    $needs_repair = true;
+                }
+            }
+
+            if ($needs_repair) {
+                $needing_repair[] = array(
+                    'code' => $language['code'],
+                    'name' => $language['name'],
+                    'current_landing_id' => $language['landing_page_id'] ?? 0
+                );
+            }
+        }
+
+        return $needing_repair;
     }
 }
