@@ -63,7 +63,7 @@ class Admin
         $this->init_seo_metadata_admin();
         $this->init_welcome_page();
         $this->init_dashboard_widget();
-//         Logger::info('Admin class initialized');
+        //         Logger::info('Admin class initialized');
     }
 
     private function ez_translate_recursive_sanitize($data)
@@ -253,7 +253,7 @@ class Admin
 
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified above
         $action = sanitize_text_field(wp_unslash($_POST['ez_translate_action']));
-//         Logger::info('Processing form submission', array('action' => $action));
+        //         Logger::info('Processing form submission', array('action' => $action));
 
         switch ($action) {
             case 'add_language':
@@ -304,7 +304,7 @@ class Admin
      */
     private function handle_sync_all_languages_seo()
     {
-//         Logger::info('Starting manual synchronization of all languages with landing page SEO');
+        //         Logger::info('Starting manual synchronization of all languages with landing page SEO');
 
         $sync_results = \EZTranslate\LanguageManager::sync_all_languages_with_landing_seo();
 
@@ -330,7 +330,7 @@ class Admin
             );
         }
 
-//         Logger::info('Manual synchronization completed', $sync_results);
+        //         Logger::info('Manual synchronization completed', $sync_results);
     }
 
     /**
@@ -340,7 +340,7 @@ class Admin
      */
     private function handle_export_backup()
     {
-//         Logger::info('Processing backup export request');
+        //         Logger::info('Processing backup export request');
 
         $backup_result = \EZTranslate\BackupManager::generate_backup_file();
 
@@ -387,7 +387,7 @@ class Admin
      */
     private function handle_import_backup()
     {
-//         Logger::info('Processing backup import request');
+        //         Logger::info('Processing backup import request');
 
         // Ensure session is started for storing backup data
         if (!session_id()) {
@@ -466,7 +466,7 @@ class Admin
             $notice_type = $import_result['summary']['failed_operations'] > 0 ? 'warning' : 'success';
             $this->add_admin_notice($message, $notice_type);
 
-//             Logger::info('Backup import completed', $import_result['summary']);
+            //             Logger::info('Backup import completed', $import_result['summary']);
         }
 
         // Clear the session data
@@ -480,20 +480,24 @@ class Admin
      */
     private function handle_import_preview()
     {
-//         Logger::info('Starting backup preview generation');
+        //         Logger::info('Starting backup preview generation');
 
         // Validate file upload
         if (
+            // phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Nonce verified in handle_form_submissions()
             !isset($_FILES['backup_file']) ||
             !isset($_FILES['backup_file']['error']) ||
             $_FILES['backup_file']['error'] !== UPLOAD_ERR_OK
         ) {
             $this->add_admin_notice(__('Please select a valid backup file.', 'ez-translate'), 'error');
+            // phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Nonce verified in handle_form_submissions()
             return;
         }
 
         // Parse backup file
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Nonce verified in handle_form_submissions()
         $backup_data = BackupManager::parse_backup_file($_FILES['backup_file']);
+        // phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Nonce verified in handle_form_submissions()
 
         if (is_wp_error($backup_data)) {
             $this->add_admin_notice(
@@ -523,15 +527,17 @@ class Admin
         Logger::info('Backup preview generated', array(
             'backup_languages' => count($backup_data['data']['languages']),
             'comparison_summary' => $comparison['summary'],
-            'has_changes' => !empty($comparison['languages']['new']) || 
-                           !empty($comparison['languages']['existing']) || 
-                           !empty($comparison['default_metadata']['changes'])
+            'has_changes' => !empty($comparison['languages']['new']) ||
+                !empty($comparison['languages']['existing']) ||
+                !empty($comparison['default_metadata']['changes'])
         ));
 
         // Add notice about changes
-        if (!empty($comparison['languages']['new']) || 
-            !empty($comparison['languages']['existing']) || 
-            !empty($comparison['default_metadata']['changes'])) {
+        if (
+            !empty($comparison['languages']['new']) ||
+            !empty($comparison['languages']['existing']) ||
+            !empty($comparison['default_metadata']['changes'])
+        ) {
             $this->add_admin_notice(
                 __('Changes detected in the backup. Please review them below.', 'ez-translate'),
                 'info'
@@ -810,7 +816,7 @@ class Admin
      */
     private function handle_update_api_settings()
     {
-//         Logger::info('Processing API settings update');
+        //         Logger::info('Processing API settings update');
 
         // Sanitize input data
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
@@ -853,7 +859,7 @@ class Admin
      */
     private function handle_repair_landing_pages()
     {
-//         Logger::info('Processing landing pages repair');
+        //         Logger::info('Processing landing pages repair');
 
         $result = \EZTranslate\LanguageManager::repair_missing_landing_pages();
 
@@ -911,7 +917,7 @@ class Admin
             $this->add_admin_notice(__('All languages already have valid landing pages. No repair needed.', 'ez-translate'), 'info');
         }
 
-//         Logger::info('Landing pages repair completed', $result);
+        //         Logger::info('Landing pages repair completed', $result);
     }
 
     /**
@@ -931,17 +937,17 @@ class Admin
         }
 
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
-        $raw_settings = isset($_POST['detector_settings']) ? wp_unslash($_POST['detector_settings']) : array();
+        $raw_settings = isset($_POST['detector_settings']) ? map_deep(wp_unslash($_POST['detector_settings']), 'sanitize_text_field') : array();
         $settings = array();
-        
+
         // Asegúrate de que $raw_settings es un array
         $raw_settings = is_array($raw_settings) ? $raw_settings : array();
-        
+
         // Sanitiza los datos
         foreach ($raw_settings as $key => $value) {
             // Sanitiza la clave
             $sanitized_key = sanitize_key($key);
-            
+
             // Sanitiza el valor dependiendo del tipo de dato
             if (is_array($value)) {
                 $settings[$sanitized_key] = array_map('sanitize_text_field', $value);
@@ -964,12 +970,12 @@ class Admin
 
         if (update_option('ez_translate_detector_settings', $settings)) {
             $this->add_admin_notice(__('Detector settings updated successfully.', 'ez-translate'), 'success');
-//             Logger::info('Detector settings updated successfully.', array('settings' => $settings));
+            //             Logger::info('Detector settings updated successfully.', array('settings' => $settings));
 
             // Clear cache if LanguageDetector class exists
             if (class_exists('\EZTranslate\LanguageDetector')) {
                 \EZTranslate\LanguageDetector::clear_cache();
-//                 Logger::info('Language detector cache cleared.');
+                //                 Logger::info('Language detector cache cleared.');
             }
         } else {
             $this->add_admin_notice(__('Failed to update detector settings or settings unchanged.', 'ez-translate'), 'warning');
@@ -988,12 +994,13 @@ class Admin
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
         if (!isset($_POST['detector_messages']) || !is_array($_POST['detector_messages'])) {
             $this->add_admin_notice(__('Invalid detector messages data.', 'ez-translate'), 'error');
+            // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
             Logger::warning('Invalid detector messages data received.', array('post_data' => $_POST));
             return;
         }
 
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
-        $raw_messages = wp_unslash($_POST['detector_messages']);
+        $raw_messages = isset($_POST['detector_messages']) ? map_deep(wp_unslash($_POST['detector_messages']), 'sanitize_text_field') : array();
         $messages = array();
 
         // Sanitize each message, allowing HTML for some fields
@@ -1017,7 +1024,7 @@ class Admin
 
         if (update_option('ez_translate_detector_messages', $messages)) {
             $this->add_admin_notice(__('Detector messages updated successfully.', 'ez-translate'), 'success');
-//             Logger::info('Detector messages updated successfully.');
+            //             Logger::info('Detector messages updated successfully.');
         } else {
             $this->add_admin_notice(__('Failed to update detector messages or messages unchanged.', 'ez-translate'), 'warning');
             Logger::warning('Failed to update detector messages or messages unchanged.');
@@ -2470,7 +2477,7 @@ class Admin
         if (!class_exists('\EZTranslate\LanguageManager')) {
             require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-manager.php';
         }
-?>
+    ?>
         <?php if (empty($_languages)) : ?>
             <p><?php esc_html_e('No languages configured yet. Add your first language above.', 'ez-translate'); ?></p>
         <?php else : ?>
@@ -2872,7 +2879,7 @@ class Admin
         // Initialize sitemap admin
         new \EZTranslate\Admin\SitemapAdmin();
 
-//         Logger::debug('Sitemap admin initialized');
+        //         Logger::debug('Sitemap admin initialized');
     }
 
     /**
@@ -2900,7 +2907,7 @@ class Admin
         if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-seo-metadata-admin.php')) {
             require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-seo-metadata-admin.php';
             new \EZTranslate\Admin\SeoMetadataAdmin();
-//             Logger::info('SEO metadata admin initialized');
+            //             Logger::info('SEO metadata admin initialized');
         } else {
             Logger::warning('SEO metadata admin file not found');
         }
@@ -2917,7 +2924,7 @@ class Admin
         if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-welcome-page.php')) {
             require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-welcome-page.php';
             new \EZTranslate\Admin\WelcomePage();
-//             Logger::info('Welcome page admin initialized');
+            //             Logger::info('Welcome page admin initialized');
         } else {
             Logger::warning('Welcome page admin file not found');
         }
@@ -2934,7 +2941,7 @@ class Admin
         if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-dashboard-widget.php')) {
             require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-dashboard-widget.php';
             new \EZTranslate\Admin\DashboardWidget();
-//             Logger::info('Dashboard widget initialized');
+            //             Logger::info('Dashboard widget initialized');
         } else {
             Logger::warning('Dashboard widget file not found');
         }
@@ -2962,23 +2969,23 @@ class Admin
             // Sanitización completa de los campos individuales del $_FILES['backup_file']
             // Sanitizar primero el campo tmp_name antes de usarlo en cualquier función
             $upload_tmp_name = isset($_FILES['backup_file']['tmp_name']) ? sanitize_text_field($_FILES['backup_file']['tmp_name']) : '';
-            
+
             if (empty($upload_tmp_name) || !is_uploaded_file($upload_tmp_name)) {
                 wp_send_json_error('Archivo inválido o vacío');
                 return;
             }
-            
+
             // Sanitizar cada campo individual - requerido por WPCS
             $tmp_name = $upload_tmp_name; // Ya sanitizado arriba
             $file_type = isset($_FILES['backup_file']['type']) ? sanitize_text_field($_FILES['backup_file']['type']) : '';
             $file_name = isset($_FILES['backup_file']['name']) ? sanitize_file_name($_FILES['backup_file']['name']) : '';
             $file_size = isset($_FILES['backup_file']['size']) ? absint($_FILES['backup_file']['size']) : 0;
-            
+
             if ($file_type !== 'application/json') {
                 wp_send_json_error('El archivo debe ser de tipo JSON');
                 return;
             }
-            
+
             // Construir un array sanitizado para pasar a parse_backup_file
             $sanitized_file = array(
                 'tmp_name' => $tmp_name,
@@ -2986,7 +2993,7 @@ class Admin
                 'name' => $file_name,
                 'size' => $file_size
             );
-            
+
             $backup_data = BackupManager::parse_backup_file($sanitized_file);
             if (is_wp_error($backup_data)) {
                 wp_send_json_error($backup_data->get_error_message());
@@ -3026,20 +3033,20 @@ class Admin
             wp_send_json_error('Datos de backup no proporcionados');
             return;
         }
-        
+
         // Sanitización explícita usando sanitize_text_field para que el linter esté satisfecho
         $raw_backup_json = sanitize_text_field(wp_unslash($_POST['backup_data']));
-        
+
         // Decodificar para obtener el array
         $decoded_backup_data = json_decode($raw_backup_json, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
             wp_send_json_error('JSON inválido: ' . json_last_error_msg());
             return;
         }
-        
+
         // Aplicar sanitización recursiva al array
         $backup_data = $this->ez_translate_recursive_sanitize($decoded_backup_data);
-        
+
         $selected_languages = isset($_POST['selected_languages']) ? array_map('sanitize_text_field', wp_unslash($_POST['selected_languages'])) : array();
         $import_default_metadata = isset($_POST['import_default_metadata']) ? (bool) sanitize_text_field(wp_unslash($_POST['import_default_metadata'])) : false;
 

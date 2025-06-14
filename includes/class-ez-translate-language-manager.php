@@ -204,7 +204,7 @@ class LanguageManager {
         Logger::info('Updating language', array(
             'code' => $code, 
             'data' => $language_data,
-            'debug_backtrace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3)
+            // 'debug_backtrace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3) // TODO: Uncomment this when we have a way to test it
         ));
 
         if (empty($code)) {
