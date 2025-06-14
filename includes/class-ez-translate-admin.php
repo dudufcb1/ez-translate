@@ -480,27 +480,21 @@ class Admin
      */
     private function handle_import_preview()
     {
-        // Ensure backup manager is loaded
-        require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-backup-manager.php';
+        Logger::info('Starting backup preview generation');
 
         // Validate file upload
         if (
-            // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
             !isset($_FILES['backup_file']) ||
-            // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
             !isset($_FILES['backup_file']['error']) ||
-            // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
             $_FILES['backup_file']['error'] !== UPLOAD_ERR_OK
         ) {
             $this->add_admin_notice(__('Please select a valid backup file.', 'ez-translate'), 'error');
             return;
         }
-        // Parse the backup file
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
-        if (isset($_FILES['backup_file']['name'])) {
-            // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
-            $file_name = sanitize_file_name($_FILES['backup_file']['name']);
-        }
+
+        // Parse backup file
+        $backup_data = BackupManager::parse_backup_file($_FILES['backup_file']);
+
         if (is_wp_error($backup_data)) {
             $this->add_admin_notice(
                 sprintf(
@@ -520,16 +514,34 @@ class Admin
         $_SESSION['ez_translate_backup_data'] = $backup_data;
 
         // Compare with current data
-        $comparison = \EZTranslate\BackupManager::compare_with_current($backup_data);
+        $comparison = BackupManager::compare_with_current($backup_data);
 
         // Store comparison data for display
         $this->backup_comparison = $comparison;
 
-        Logger::info('Backup preview generated successfully', array(
-            'backup_languages' => $comparison['summary']['total_backup_languages'],
-            'new_languages' => $comparison['summary']['new_languages_count'],
-            'updated_languages' => $comparison['summary']['updated_languages_count']
+        // Log detailed information about the comparison
+        Logger::info('Backup preview generated', array(
+            'backup_languages' => count($backup_data['data']['languages']),
+            'comparison_summary' => $comparison['summary'],
+            'has_changes' => !empty($comparison['languages']['new']) || 
+                           !empty($comparison['languages']['existing']) || 
+                           !empty($comparison['default_metadata']['changes'])
         ));
+
+        // Add notice about changes
+        if (!empty($comparison['languages']['new']) || 
+            !empty($comparison['languages']['existing']) || 
+            !empty($comparison['default_metadata']['changes'])) {
+            $this->add_admin_notice(
+                __('Changes detected in the backup. Please review them below.', 'ez-translate'),
+                'info'
+            );
+        } else {
+            $this->add_admin_notice(
+                __('No changes detected in the backup.', 'ez-translate'),
+                'warning'
+            );
+        }
     }
 
     /**
@@ -3138,9 +3150,9 @@ class Admin
                                 <?php foreach ($language['differences'] as $field => $values) : ?>
                                     <div class="field-change">
                                         <strong><?php echo esc_html($field); ?>:</strong>
-                                        <span class="current"><?php echo esc_html(is_array($values['current']) ? wp_json_encode($values['current']) : $values['current']); ?></span>
+                                        <span class="current"><?php echo esc_html($values['current']); ?></span>
                                         →
-                                        <span class="new"><?php echo esc_html(is_array($values['backup']) ? wp_json_encode($values['backup']) : $values['backup']); ?></span>
+                                        <span class="new"><?php echo esc_html($values['backup']); ?></span>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
@@ -3162,8 +3174,8 @@ class Admin
                         <?php foreach ($comparison['default_metadata']['changes'] as $field => $change): ?>
                             <li>
                                 <strong><?php echo esc_html(ucfirst(str_replace('_', ' ', $field))); ?>:</strong>
-                                <br><span style="color: #d63638;"><?php esc_html_e('Current:', 'ez-translate'); ?> "<?php echo esc_html(is_array($change['current']) ? wp_json_encode($change['current']) : $change['current']); ?>"</span>
-                                <br><span style="color: #00a32a;"><?php esc_html_e('Backup:', 'ez-translate'); ?> "<?php echo esc_html(is_array($change['backup']) ? wp_json_encode($change['backup']) : $change['backup']); ?>"</span>
+                                <br><span style="color: #d63638;"><?php esc_html_e('Current:', 'ez-translate'); ?> "<?php echo esc_html($change['current']); ?>"</span>
+                                <br><span style="color: #00a32a;"><?php esc_html_e('Backup:', 'ez-translate'); ?> "<?php echo esc_html($change['backup']); ?>"</span>
                             </li>
                         <?php endforeach; ?>
                     </ul>

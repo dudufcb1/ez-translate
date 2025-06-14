@@ -36,16 +36,59 @@
 
 .field-change {
     margin: 5px 0;
+    padding: 5px;
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+}
+
+.field-change.seo-change {
+    background-color: #f0f7ff;
+    border: 1px solid #c5e1ff;
+    margin: 10px 0;
+    padding: 10px;
+    position: relative;
+}
+
+.field-change.seo-change:hover {
+    background-color: #e5f1ff;
+}
+
+.field-change.seo-change strong {
+    color: #0073aa;
 }
 
 .field-change .current {
     color: #82878c;
     text-decoration: line-through;
+    display: block;
+    margin: 5px 0;
 }
 
 .field-change .new {
     color: #007cba;
     font-weight: 500;
+    display: block;
+    margin: 5px 0;
+}
+
+.field-change .arrow {
+    color: #82878c;
+    display: block;
+    margin: 5px 0;
+    text-align: center;
+}
+
+.change-details {
+    display: none;
+    background: #fff;
+    padding: 10px;
+    border-radius: 3px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-top: 5px;
+}
+
+.seo-change:hover .change-details {
+    display: block;
 }
 
 .import-spinner {
@@ -57,4 +100,78 @@
     margin-top: 20px;
     padding-top: 20px;
     border-top: 1px solid #ddd;
+}
+
+/* Botones y acciones */
+.import-actions {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+.import-actions button {
+    margin-right: 10px;
+}
+
+/* Resumen y estadísticas */
+.summary-section {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.summary-section ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.summary-section li {
+    margin: 5px 0;
+}
+
+/* Mensajes y notificaciones */
+.notice {
+    margin: 15px 0;
+}
+
+.notice p {
+    margin: 0.5em 0;
+}
+
+/* Estilos específicos para cambios SEO */
+.seo-metadata-section {
+    background-color: #f0f7ff;
+    border: 1px solid #c5e1ff;
+    padding: 15px;
+    margin: 15px 0;
+    border-radius: 4px;
+}
+
+.seo-metadata-section h4 {
+    color: #0073aa;
+    margin-top: 0;
+}
+
+.seo-preview {
+    background: #fff;
+    padding: 15px;
+    border: 1px solid #e5e5e5;
+    border-radius: 3px;
+    margin-top: 10px;
+}
+
+.seo-preview-title {
+    color: #1a0dab;
+    font-size: 18px;
+    margin-bottom: 5px;
+    word-wrap: break-word;
+}
+
+.seo-preview-description {
+    color: #4d5156;
+    font-size: 14px;
+    line-height: 1.4;
+    word-wrap: break-word;
 }

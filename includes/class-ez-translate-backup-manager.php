@@ -16,6 +16,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+use WP_Error;
+
 /**
  * Backup Manager Class
  *
@@ -54,9 +56,9 @@ class BackupManager
             // Prepare backup structure
             $backup_data = array(
                 'version' => self::BACKUP_VERSION,
-                'timestamp' => current_time('mysql'),
-                'site_url' => get_site_url(),
-                'wp_version' => get_bloginfo('version'),
+                'timestamp' => \current_time('mysql'),
+                'site_url' => \get_site_url(),
+                'wp_version' => \get_bloginfo('version'),
                 'plugin_version' => defined('EZ_TRANSLATE_VERSION') ? EZ_TRANSLATE_VERSION : '1.0.0',
                 'data' => array(
                     'languages' => $languages,
@@ -71,11 +73,10 @@ class BackupManager
 
             return $backup_data;
         } catch (\Exception $e) {
-            Logger::error('Failed to export language data', array(
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+            Logger::error('Language data export failed', array(
+                'error' => $e->getMessage()
             ));
-            return new \WP_Error('export_failed', __('Failed to export language data: ', 'ez-translate') . $e->getMessage());
+            return new WP_Error('export_failed', \__('Export failed: ', 'ez-translate') . $e->getMessage());
         }
     }
 
@@ -179,9 +180,68 @@ class BackupManager
     {
         Logger::info('Starting backup comparison with current data');
 
+        // Define a default empty comparison structure
+        $default_comparison = array(
+            'languages' => array(
+                'new' => array(),
+                'existing' => array(),
+                'unchanged' => array()
+            ),
+            'default_metadata' => array(
+                'changes' => array(),
+                'unchanged' => true // Assuming true means no changes detected or applicable
+            ),
+            'summary' => array(
+                'total_backup_languages' => 0,
+                'total_current_languages' => 0, // Will be updated if possible
+                'new_languages_count' => 0,
+                'updated_languages_count' => 0,
+                'unchanged_languages_count' => 0
+            )
+        );
+
+        // Initial validation of $backup_data
+        if (null === $backup_data || !is_array($backup_data)) {
+            Logger::error('Invalid backup_data provided to compare_with_current: data is null or not an array.');
+            // Try to get current languages count if LanguageManager is available
+            if (class_exists('\EZTranslate\LanguageManager')) {
+                $current_languages_for_summary = LanguageManager::get_languages(false);
+                $default_comparison['summary']['total_current_languages'] = count($current_languages_for_summary);
+            }
+            return $default_comparison;
+        }
+
         // Ensure LanguageManager is loaded
         if (!class_exists('\EZTranslate\LanguageManager')) {
             require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-manager.php';
+        }
+
+        // Nested data validation
+        if (!isset($backup_data['data']) || !is_array($backup_data['data'])) {
+            Logger::error("Backup data is missing 'data' array or it's not an array.");
+            if (class_exists('\EZTranslate\LanguageManager')) {
+                $current_languages_for_summary = LanguageManager::get_languages(false);
+                $default_comparison['summary']['total_current_languages'] = count($current_languages_for_summary);
+            }
+            return $default_comparison;
+        }
+
+        if (!isset($backup_data['data']['languages']) || !is_array($backup_data['data']['languages'])) {
+            Logger::error("Backup data is missing 'data[languages]' array or it's not an array.");
+            if (class_exists('\EZTranslate\LanguageManager')) {
+                $current_languages_for_summary = LanguageManager::get_languages(false);
+                $default_comparison['summary']['total_current_languages'] = count($current_languages_for_summary);
+            }
+            return $default_comparison;
+        }
+
+        if (!isset($backup_data['data']['default_metadata']) || !is_array($backup_data['data']['default_metadata'])) {
+            Logger::error("Backup data is missing 'data[default_metadata]' array or it's not an array.");
+            if (class_exists('\EZTranslate\LanguageManager')) {
+                $current_languages_for_summary = LanguageManager::get_languages(false);
+                $default_comparison['summary']['total_current_languages'] = count($current_languages_for_summary);
+            }
+            return $default_comparison;
         }
 
         // Get current data
@@ -191,24 +251,22 @@ class BackupManager
         $backup_languages = $backup_data['data']['languages'];
         $backup_default_metadata = $backup_data['data']['default_metadata'];
 
-        $comparison = array(
-            'languages' => array(
-                'new' => array(),      // Languages in backup but not in current
-                'existing' => array(), // Languages in both with differences
-                'unchanged' => array() // Languages that are identical
-            ),
-            'default_metadata' => array(
-                'changes' => array(),
-                'unchanged' => array()
-            ),
-            'summary' => array(
-                'total_backup_languages' => count($backup_languages),
-                'total_current_languages' => count($current_languages),
-                'new_languages_count' => 0,
-                'updated_languages_count' => 0,
-                'unchanged_languages_count' => 0
-            )
-        );
+        // Initialize comparison array (can reuse parts of default_comparison for structure)
+        $comparison = $default_comparison;
+        // Update total_current_languages as it's now available
+        $comparison['summary']['total_current_languages'] = count($current_languages);
+        // Update total_backup_languages as it's now validated and available
+        $comparison['summary']['total_backup_languages'] = count($backup_languages);
+
+
+        // Reset counts as we are proceeding with actual comparison
+        $comparison['summary']['new_languages_count'] = 0;
+        $comparison['summary']['updated_languages_count'] = 0;
+        $comparison['summary']['unchanged_languages_count'] = 0;
+        // $comparison['languages'] is already initialized from $default_comparison.
+        // $comparison['default_metadata'] is already initialized from $default_comparison.
+        // $comparison['summary'] is already initialized and partially populated.
+        // The individual counts above are correctly reset.
 
         // Compare languages
         foreach ($backup_languages as $backup_lang) {
@@ -305,12 +363,55 @@ class BackupManager
             $current_value = isset($current[$field]) ? $current[$field] : '';
             $backup_value = isset($backup[$field]) ? $backup[$field] : '';
 
-            if ($current_value !== $backup_value) {
+            // Ensure we detect changes in SEO fields even if they're empty strings
+            if ($field === 'site_title' || $field === 'site_description' || $current_value !== $backup_value) {
                 $differences[$field] = array(
                     'current' => $current_value,
                     'backup' => $backup_value
                 );
+                
+                // Log the difference for debugging
+                Logger::debug('Found difference in language field', array(
+                    'field' => $field,
+                    'current' => $current_value,
+                    'backup' => $backup_value
+                ));
             }
+        }
+
+        // Force check SEO metadata differences
+        if (!empty($current['landing_page_id'])) {
+            $landing_page_id = $current['landing_page_id'];
+            $current_seo = array(
+                'site_title' => get_post_meta($landing_page_id, '_ez_translate_seo_title', true),
+                'site_description' => get_post_meta($landing_page_id, '_ez_translate_seo_description', true)
+            );
+
+            $backup_seo = array(
+                'site_title' => isset($backup['site_title']) ? $backup['site_title'] : '',
+                'site_description' => isset($backup['site_description']) ? $backup['site_description'] : ''
+            );
+
+            // Add SEO differences
+            if ($current_seo['site_title'] !== $backup_seo['site_title']) {
+                $differences['site_title'] = array(
+                    'current' => $current_seo['site_title'],
+                    'backup' => $backup_seo['site_title']
+                );
+            }
+            if ($current_seo['site_description'] !== $backup_seo['site_description']) {
+                $differences['site_description'] = array(
+                    'current' => $current_seo['site_description'],
+                    'backup' => $backup_seo['site_description']
+                );
+            }
+
+            Logger::debug('SEO metadata comparison', array(
+                'landing_page_id' => $landing_page_id,
+                'current_seo' => $current_seo,
+                'backup_seo' => $backup_seo,
+                'has_differences' => !empty($differences)
+            ));
         }
 
         return $differences;
@@ -544,22 +645,14 @@ class BackupManager
         if (isset($result['landing_page_id']) && $result['landing_page_id'] > 0) {
             $landing_page_id = $result['landing_page_id'];
 
-            // Update SEO data in the landing page
+            // Update SEO data in the landing page using the official method only
             $seo_data = array(
                 'title' => isset($backup_language['site_title']) ? $backup_language['site_title'] : '',
                 'description' => isset($backup_language['site_description']) ? $backup_language['site_description'] : ''
             );
 
             if (!empty($seo_data['title']) || !empty($seo_data['description'])) {
-                // Actualizar directamente los metadatos SEO en la página de destino
-                if (!empty($seo_data['title'])) {
-                    update_post_meta($landing_page_id, '_ez_translate_seo_title', sanitize_text_field($seo_data['title']));
-                }
-                if (!empty($seo_data['description'])) {
-                    update_post_meta($landing_page_id, '_ez_translate_seo_description', sanitize_textarea_field($seo_data['description']));
-                }
-
-                // También usar el método oficial para mantener coherencia
+                // Usar solo el método oficial para actualizar los metadatos SEO
                 $seo_update_result = LanguageManager::update_landing_page_seo($landing_page_id, $seo_data);
 
                 if (is_wp_error($seo_update_result)) {
@@ -638,47 +731,34 @@ class BackupManager
         if ($current_language && !empty($current_language['landing_page_id'])) {
             $landing_page_id = $current_language['landing_page_id'];
 
-            // Update SEO data in the landing page
+            // Always update SEO data from backup, regardless of current values
             $seo_data = array(
                 'title' => isset($backup_language['site_title']) ? $backup_language['site_title'] : '',
                 'description' => isset($backup_language['site_description']) ? $backup_language['site_description'] : ''
             );
 
-            if (!empty($seo_data['title']) || !empty($seo_data['description'])) {
-                // Actualizar directamente los metadatos SEO en la página de destino
-                if (!empty($seo_data['title'])) {
-                    update_post_meta($landing_page_id, '_ez_translate_seo_title', sanitize_text_field($seo_data['title']));
-                }
-                if (!empty($seo_data['description'])) {
-                    update_post_meta($landing_page_id, '_ez_translate_seo_description', sanitize_textarea_field($seo_data['description']));
-                }
+            // Force update SEO metadata
+            update_post_meta($landing_page_id, '_ez_translate_seo_title', $seo_data['title']);
+            update_post_meta($landing_page_id, '_ez_translate_seo_description', $seo_data['description']);
 
-                // También usar el método oficial para mantener coherencia
-                $seo_update_result = LanguageManager::update_landing_page_seo($landing_page_id, $seo_data);
+            // Also update using the official method to maintain consistency
+            $seo_update_result = LanguageManager::update_landing_page_seo($landing_page_id, $seo_data);
 
-                if (is_wp_error($seo_update_result)) {
-                    Logger::warning('Failed to update landing page SEO data from backup', array(
-                        'code' => $language_code,
-                        'landing_page_id' => $landing_page_id,
-                        'error' => $seo_update_result->get_error_message()
-                    ));
-                    // Continue anyway as the language data was updated successfully
-                } else {
-                    Logger::info('Landing page SEO data updated from backup', array(
-                        'code' => $language_code,
-                        'landing_page_id' => $landing_page_id,
-                        'seo_data' => $seo_data
-                    ));
-                }
+            if (is_wp_error($seo_update_result)) {
+                Logger::warning('Failed to update landing page SEO data from backup using official method', array(
+                    'code' => $language_code,
+                    'landing_page_id' => $landing_page_id,
+                    'error' => $seo_update_result->get_error_message()
+                ));
+                // Continue anyway as we've already updated the meta directly
+            } else {
+                Logger::info('Landing page SEO data updated from backup', array(
+                    'code' => $language_code,
+                    'landing_page_id' => $landing_page_id,
+                    'seo_data' => $seo_data
+                ));
             }
         }
-
-        Logger::info('Language updated from backup', array(
-            'code' => $language_code,
-            'name' => $backup_language['name'],
-            'result' => $result,
-            'current_languages' => LanguageManager::get_languages(false)
-        ));
 
         return true;
     }
@@ -737,5 +817,94 @@ class BackupManager
         ));
 
         return $backup_data;
+    }
+
+    private function handle_import_preview()
+    {
+        Logger::info('Starting backup preview generation');
+
+        // Validate file upload
+        if (
+            !isset($_FILES['backup_file']) ||
+            !isset($_FILES['backup_file']['error']) ||
+            $_FILES['backup_file']['error'] !== UPLOAD_ERR_OK
+        ) {
+            $this->add_admin_notice(__('Please select a valid backup file.', 'ez-translate'), 'error');
+            return;
+        }
+
+        // Parse backup file
+        $backup_data = self::parse_backup_file($_FILES['backup_file']);
+
+        if (is_wp_error($backup_data)) {
+            $this->add_admin_notice(
+                sprintf(
+                    /* translators: %s: error message */
+                    __('Failed to parse backup file: %s', 'ez-translate'),
+                    $backup_data->get_error_message()
+                ),
+                'error'
+            );
+            return;
+        }
+
+        // Store backup data in session for later use
+        if (!session_id()) {
+            session_start();
+        }
+        $_SESSION['ez_translate_backup_data'] = $backup_data;
+
+        // Compare with current data
+        $comparison = self::compare_with_current($backup_data);
+
+        // Force check SEO metadata differences
+        foreach ($comparison['languages']['existing'] as &$language) {
+            $current_lang = self::find_language_by_code(LanguageManager::get_languages(false), $language['code']);
+            if ($current_lang) {
+                // Get current SEO data from landing page
+                $landing_page_id = $current_lang['landing_page_id'];
+                $current_seo = array(
+                    'site_title' => get_post_meta($landing_page_id, '_ez_translate_seo_title', true),
+                    'site_description' => get_post_meta($landing_page_id, '_ez_translate_seo_description', true)
+                );
+
+                // Get backup SEO data
+                $backup_seo = array(
+                    'site_title' => $language['backup']['site_title'] ?? '',
+                    'site_description' => $language['backup']['site_description'] ?? ''
+                );
+
+                // Add SEO differences
+                if ($current_seo['site_title'] !== $backup_seo['site_title']) {
+                    $language['differences']['site_title'] = array(
+                        'current' => $current_seo['site_title'],
+                        'backup' => $backup_seo['site_title']
+                    );
+                }
+                if ($current_seo['site_description'] !== $backup_seo['site_description']) {
+                    $language['differences']['site_description'] = array(
+                        'current' => $current_seo['site_description'],
+                        'backup' => $backup_seo['site_description']
+                    );
+                }
+
+                Logger::debug('SEO metadata comparison', array(
+                    'language_code' => $language['code'],
+                    'current_seo' => $current_seo,
+                    'backup_seo' => $backup_seo,
+                    'has_differences' => !empty($language['differences'])
+                ));
+            }
+        }
+
+        // Store comparison data for display
+        $this->backup_comparison = $comparison;
+
+        Logger::info('Backup preview generated successfully', array(
+            'backup_languages' => $comparison['summary']['total_backup_languages'],
+            'new_languages' => $comparison['summary']['new_languages_count'],
+            'updated_languages' => $comparison['summary']['updated_languages_count'],
+            'has_seo_changes' => !empty($comparison['languages']['existing'])
+        ));
     }
 }

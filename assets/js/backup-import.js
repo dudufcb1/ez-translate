@@ -30,7 +30,36 @@ jQuery(document).ready(function($) {
                 if (response.success) {
                     previewContainer.html(response.data.preview_html);
                     backupData = response.data.backup_data;
-                    importContainer.show();
+                    
+                    // Check if there are any changes to import
+                    const hasChanges = response.data.preview_html.includes('changes-preview') || 
+                                     response.data.preview_html.includes('new-language') ||
+                                     response.data.preview_html.includes('default-metadata-changes');
+                    
+                    if (hasChanges) {
+                        importContainer.show();
+                        // Add a message indicating changes were found
+                        previewContainer.prepend(
+                            '<div class="notice notice-info">' +
+                            '<p>Se han detectado cambios en los metadatos. Por favor, revisa los cambios y haz clic en "Confirmar Importación" para proceder.</p>' +
+                            '</div>'
+                        );
+
+                        // Highlight SEO changes
+                        $('.field-change').each(function() {
+                            const fieldName = $(this).find('strong').text().toLowerCase();
+                            if (fieldName.includes('title') || fieldName.includes('description')) {
+                                $(this).addClass('seo-change');
+                            }
+                        });
+                    } else {
+                        importContainer.hide();
+                        previewContainer.prepend(
+                            '<div class="notice notice-warning">' +
+                            '<p>No se detectaron cambios para importar.</p>' +
+                            '</div>'
+                        );
+                    }
                 } else {
                     previewContainer.html(`<div class="notice notice-error"><p>${response.data}</p></div>`);
                 }
@@ -44,27 +73,23 @@ jQuery(document).ready(function($) {
         });
     });
 
-    // Handle backup import
-    $('#ez-translate-import-backup').on('click', function(e) {
-        e.preventDefault();
+    // Handle import button click
+    $('#ez-translate-import-backup').on('click', function() {
         if (!backupData) return;
 
         const selectedLanguages = [];
-        $('input[name="import_languages[]"]:checked').each(function() {
+        $('input[name="selected_languages[]"]:checked').each(function() {
             selectedLanguages.push($(this).val());
         });
 
-        if (selectedLanguages.length === 0) {
-            alert('Por favor, selecciona al menos un idioma para importar.');
-            return;
-        }
+        const importDefaultMetadata = $('#import_default_metadata_checkbox').is(':checked');
 
         const importData = {
             action: 'ez_translate_import_backup',
             nonce: ezTranslateBackup.importNonce,
             backup_data: JSON.stringify(backupData),
             selected_languages: selectedLanguages,
-            import_default_metadata: $('#import_default_metadata').is(':checked')
+            import_default_metadata: importDefaultMetadata
         };
 
         importSpinner.show();
@@ -82,6 +107,7 @@ jQuery(document).ready(function($) {
                     previewContainer.html(`
                         <div class="notice notice-success">
                             <p>${response.data.message}</p>
+                            <p>Los metadatos SEO han sido actualizados correctamente.</p>
                         </div>
                     `);
                     
@@ -100,5 +126,12 @@ jQuery(document).ready(function($) {
                 importSpinner.hide();
             }
         });
+    });
+
+    // Add hover effect for SEO changes
+    $(document).on('mouseenter', '.seo-change', function() {
+        $(this).find('.change-details').show();
+    }).on('mouseleave', '.seo-change', function() {
+        $(this).find('.change-details').hide();
     });
 });
