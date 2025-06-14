@@ -44,6 +44,13 @@ class Admin
     private $backup_comparison = null;
 
     /**
+     * Hook para la página principal de administración
+     *
+     * @var string
+     */
+    private $_page_hook;
+
+    /**
      * Constructor
      *
      * @since 1.0.0
@@ -115,7 +122,7 @@ class Admin
         }
 
         // Add main menu page
-        $page_hook = add_menu_page(
+        $this->_page_hook = add_menu_page(
             esc_html__('EZ Translate', 'ez-translate'),           // Page title
             esc_html__('EZ Translate', 'ez-translate'),           // Menu title
             'manage_options',                             // Capability
@@ -146,7 +153,7 @@ class Admin
         );
 
         Logger::info('Admin menu added successfully', array(
-            'page_hook' => $page_hook,
+            'page_hook' => $this->_page_hook,
             'menu_slug' => self::MENU_SLUG
         ));
     }
@@ -168,7 +175,7 @@ class Admin
         wp_enqueue_style('wp-admin');
 
         // Backup import styles
-        if ($hook_suffix === $this->page_hook) {
+        if ($hook_suffix === $this->_page_hook) {
             wp_enqueue_style(
                 'ez-translate-backup-import',
                 plugins_url('assets/css/backup-import.css', EZ_TRANSLATE_PLUGIN_FILE),
@@ -896,6 +903,116 @@ class Admin
     }
 
     /**
+     * Procesa el formulario de actualización de configuraciones del detector de idioma
+     *
+     * @since 1.0.0
+     * @return void
+     */
+    private function handle_update_detector_settings()
+    {
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
+        if (!isset($_POST['detector_settings']) || !is_array($_POST['detector_settings'])) {
+            $this->add_admin_notice(__('Invalid detector settings data.', 'ez-translate'), 'error');
+            // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
+            Logger::warning('Invalid detector settings data received.', array('post_data' => $_POST));
+            return;
+        }
+
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
+        $raw_settings = isset($_POST['detector_settings']) ? wp_unslash($_POST['detector_settings']) : array();
+        $settings = array();
+        
+        // Asegúrate de que $raw_settings es un array
+        $raw_settings = is_array($raw_settings) ? $raw_settings : array();
+        
+        // Sanitiza los datos
+        foreach ($raw_settings as $key => $value) {
+            // Sanitiza la clave
+            $sanitized_key = sanitize_key($key);
+            
+            // Sanitiza el valor dependiendo del tipo de dato
+            if (is_array($value)) {
+                $settings[$sanitized_key] = array_map('sanitize_text_field', $value);
+            } else {
+                $settings[$sanitized_key] = sanitize_text_field($value);
+            }
+        }
+
+        // Sanitize each setting
+        $settings['enabled'] = isset($raw_settings['enabled']) ? (bool) $raw_settings['enabled'] : false;
+        $settings['detection_method'] = isset($raw_settings['detection_method']) ? sanitize_text_field($raw_settings['detection_method']) : 'browser';
+        $settings['show_notice'] = isset($raw_settings['show_notice']) ? (bool) $raw_settings['show_notice'] : true;
+        $settings['notice_type'] = isset($raw_settings['notice_type']) ? sanitize_text_field($raw_settings['notice_type']) : 'bar';
+        $settings['redirect_method'] = isset($raw_settings['redirect_method']) ? sanitize_text_field($raw_settings['redirect_method']) : 'automatic';
+        $settings['cookie_lifespan'] = isset($raw_settings['cookie_lifespan']) ? absint($raw_settings['cookie_lifespan']) : 30;
+        $settings['excluded_paths'] = isset($raw_settings['excluded_paths']) ? array_map('sanitize_text_field', $raw_settings['excluded_paths']) : array();
+        // Ensure excluded_paths is an array of non-empty strings
+        $settings['excluded_paths'] = array_filter($settings['excluded_paths']);
+
+
+        if (update_option('ez_translate_detector_settings', $settings)) {
+            $this->add_admin_notice(__('Detector settings updated successfully.', 'ez-translate'), 'success');
+            Logger::info('Detector settings updated successfully.', array('settings' => $settings));
+
+            // Clear cache if LanguageDetector class exists
+            if (class_exists('\EZTranslate\LanguageDetector')) {
+                \EZTranslate\LanguageDetector::clear_cache();
+                Logger::info('Language detector cache cleared.');
+            }
+        } else {
+            $this->add_admin_notice(__('Failed to update detector settings or settings unchanged.', 'ez-translate'), 'warning');
+            Logger::warning('Failed to update detector settings or settings unchanged.', array('settings' => $settings));
+        }
+    }
+
+    /**
+     * Procesa el formulario de actualización de mensajes del detector de idioma
+     *
+     * @since 1.0.0
+     * @return void
+     */
+    private function handle_update_detector_messages()
+    {
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
+        if (!isset($_POST['detector_messages']) || !is_array($_POST['detector_messages'])) {
+            $this->add_admin_notice(__('Invalid detector messages data.', 'ez-translate'), 'error');
+            Logger::warning('Invalid detector messages data received.', array('post_data' => $_POST));
+            return;
+        }
+
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
+        $raw_messages = wp_unslash($_POST['detector_messages']);
+        $messages = array();
+
+        // Sanitize each message, allowing HTML for some fields
+        // Example: Iterate through expected languages and message types
+        $installed_languages = \EZTranslate\LanguageManager::get_languages();
+        $default_wp_lang_code = substr(get_locale(), 0, 2);
+        $language_codes = array_column($installed_languages, 'code');
+        if (!in_array($default_wp_lang_code, $language_codes, true)) {
+            $language_codes[] = $default_wp_lang_code;
+        }
+
+
+        foreach ($language_codes as $lang_code) {
+            $safe_lang_code = sanitize_key($lang_code); // Ensure lang_code is safe for array keys
+            if (isset($raw_messages[$safe_lang_code])) {
+                $messages[$safe_lang_code]['notice_message'] = isset($raw_messages[$safe_lang_code]['notice_message']) ? wp_kses_post($raw_messages[$safe_lang_code]['notice_message']) : '';
+                $messages[$safe_lang_code]['confirm_button'] = isset($raw_messages[$safe_lang_code]['confirm_button']) ? sanitize_text_field($raw_messages[$safe_lang_code]['confirm_button']) : '';
+                $messages[$safe_lang_code]['cancel_button'] = isset($raw_messages[$safe_lang_code]['cancel_button']) ? sanitize_text_field($raw_messages[$safe_lang_code]['cancel_button']) : '';
+            }
+        }
+
+        if (update_option('ez_translate_detector_messages', $messages)) {
+            $this->add_admin_notice(__('Detector messages updated successfully.', 'ez-translate'), 'success');
+            Logger::info('Detector messages updated successfully.');
+        } else {
+            $this->add_admin_notice(__('Failed to update detector messages or messages unchanged.', 'ez-translate'), 'warning');
+            Logger::warning('Failed to update detector messages or messages unchanged.');
+        }
+    }
+
+    /**
      * Add admin notice
      *
      * @param string $message Notice message
@@ -1230,88 +1347,7 @@ class Admin
             <!-- Current Languages List -->
             <div class="card" style="max-width: 1200px; width: 100%;">
                 <h2><?php esc_html_e('Current Languages', 'ez-translate'); ?></h2>
-                <?php if (empty($languages)): ?>
-                    <p><?php esc_html_e('No languages configured yet. Add your first language above.', 'ez-translate'); ?></p>
-                <?php else: ?>
-                    <table class="wp-list-table widefat fixed striped ez-translate-languages-table">
-                        <thead>
-                            <tr>
-                                <th scope="col"><?php esc_html_e('Code', 'ez-translate'); ?></th>
-                                <th scope="col"><?php esc_html_e('Name', 'ez-translate'); ?></th>
-                                <th scope="col"><?php esc_html_e('Slug', 'ez-translate'); ?></th>
-                                <th scope="col"><?php esc_html_e('Native Name', 'ez-translate'); ?></th>
-                                <th scope="col"><?php esc_html_e('Flag', 'ez-translate'); ?></th>
-                                <th scope="col"><?php esc_html_e('RTL', 'ez-translate'); ?></th>
-                                <th scope="col"><?php esc_html_e('Landing Page', 'ez-translate'); ?></th>
-                                <th scope="col"><?php esc_html_e('Status', 'ez-translate'); ?></th>
-                                <th scope="col"><?php esc_html_e('Actions', 'ez-translate'); ?></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($languages as $language): ?>
-                                <?php
-                                // Get landing page info for this language
-                                $landing_page = \EZTranslate\LanguageManager::get_landing_page_for_language($language['code']);
-
-                                // Get language data with automatically synchronized SEO data (this updates the database if needed)
-                                $language_with_current_seo = \EZTranslate\LanguageManager::get_language_with_current_seo($language['code']);
-                                ?>
-                                <tr>
-                                    <td><strong><?php echo esc_html($language['code']); ?></strong></td>
-                                    <td><?php echo esc_html($language['name']); ?></td>
-                                    <td><code><?php echo esc_html(isset($language['slug']) ? $language['slug'] : $language['code']); ?></code></td>
-                                    <td><?php echo esc_html(isset($language['native_name']) ? $language['native_name'] : '—'); ?></td>
-                                    <td><?php echo esc_html(isset($language['flag']) ? $language['flag'] : '—'); ?></td>
-                                    <td><?php echo (isset($language['rtl']) && $language['rtl']) ? esc_html__('Yes', 'ez-translate') : esc_html__('No', 'ez-translate'); ?></td>
-                                    <td>
-                                        <?php if ($landing_page): ?>
-                                            <div style="margin-bottom: 5px;">
-                                                <strong><?php echo esc_html($landing_page['title']); ?></strong>
-                                                <br>
-                                                <small style="color: #666;">
-                                                    <?php echo esc_html($landing_page['status']); ?> |
-                                                    <a href="<?php echo esc_url($landing_page['edit_url']); ?>" target="_blank"><?php esc_html_e('Edit', 'ez-translate'); ?></a> |
-                                                    <a href="<?php echo esc_url($landing_page['view_url']); ?>" target="_blank"><?php esc_html_e('View', 'ez-translate'); ?></a>
-                                                </small>
-                                            </div>
-                                            <button type="button" class="button button-small ez-translate-edit-seo-btn"
-                                                data-post-id="<?php echo esc_attr($landing_page['post_id']); ?>"
-                                                data-language="<?php echo esc_attr($language['code']); ?>"
-                                                data-title="<?php echo esc_attr($landing_page['seo_title']); ?>"
-                                                data-description="<?php echo esc_attr($landing_page['seo_description']); ?>">
-                                                <?php esc_html_e('Edit SEO', 'ez-translate'); ?>
-                                            </button>
-                                        <?php else: ?>
-                                            <span style="color: #999;"><?php esc_html_e('No landing page', 'ez-translate'); ?></span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <?php if (isset($language['enabled']) ? $language['enabled'] : true): ?>
-                                            <span class="ez-translate-status-enabled"><?php esc_html_e('Enabled', 'ez-translate'); ?></span>
-                                        <?php else: ?>
-                                            <span class="ez-translate-status-disabled"><?php esc_html_e('Disabled', 'ez-translate'); ?></span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <button type="button" class="button button-small ez-translate-edit-btn"
-                                            data-language='<?php echo esc_attr(json_encode($language_with_current_seo)); ?>'>
-                                            <?php esc_html_e('Edit', 'ez-translate'); ?>
-                                        </button>
-                                        <form method="post" style="display: inline-block;"
-                                            onsubmit="return confirm('<?php esc_attr_e('Are you sure you want to delete this language?', 'ez-translate'); ?>');">
-                                            <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce_delete_' . $language['code']); ?>
-                                            <input type="hidden" name="ez_translate_action" value="delete_language">
-                                            <input type="hidden" name="language_code" value="<?php echo esc_attr($language['code']); ?>">
-                                            <button type="submit" class="button button-small button-link-delete">
-                                                <?php esc_html_e('Delete', 'ez-translate'); ?>
-                                            </button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                <?php endif; ?>
+                <?php $this->render_languages_table($languages); ?>
             </div>
 
             <!-- Landing Pages Repair Section -->
@@ -1523,10 +1559,23 @@ class Admin
                         }
 
                         if ($selected_page_id > 0) {
-                            // Transfer metadata to selected page
-                            $this->transfer_metadata_to_main_landing_page($selected_page_id, $default_metadata, $wp_language_code);
+                            // Directly update post meta for the selected main landing page
+                            update_post_meta($selected_page_id, '_ez_translate_seo_title', $default_metadata['site_title']);
+                            update_post_meta($selected_page_id, '_ez_translate_seo_description', $default_metadata['site_description']);
+                            // Add other relevant meta keys from $default_metadata if needed
+                            // Example: if $default_metadata might contain 'site_keywords'
+                            // if (isset($default_metadata['site_keywords'])) {
+                            //    update_post_meta($selected_page_id, '_ez_translate_seo_keywords', $default_metadata['site_keywords']);
+                            // }
+                            Logger::info('Updated metadata for main landing page.', array(
+                                'page_id' => $selected_page_id,
+                                'metadata_updated' => array(
+                                    '_ez_translate_seo_title' => $default_metadata['site_title'],
+                                    '_ez_translate_seo_description' => $default_metadata['site_description']
+                                )
+                            ));
                             update_option('ez_translate_main_landing_page_id', $selected_page_id);
-                            echo '<div class="notice notice-success"><p>' . esc_html__('Main landing page updated and metadata transferred successfully!', 'ez-translate') . '</p></div>';
+                            echo '<div class="notice notice-success"><p>' . esc_html__('Main landing page updated and metadata applied successfully!', 'ez-translate') . '</p></div>';
                         } else {
                             // No page selected, just remove the option
                             delete_option('ez_translate_main_landing_page_id');
@@ -2396,6 +2445,124 @@ class Admin
     }
 
     /**
+     * Renderiza la tabla de idiomas para la interfaz de administración
+     *
+     * @param array $_languages Array con los datos de los idiomas
+     * 
+     * @since 1.0.0
+     * @return void
+     */
+    public function render_languages_table($_languages)
+    {
+        // Ensure LanguageManager is available
+        if (!class_exists('\EZTranslate\LanguageManager')) {
+            require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/class-ez-translate-language-manager.php';
+        }
+?>
+        <?php if (empty($_languages)) : ?>
+            <p><?php esc_html_e('No languages configured yet. Add your first language above.', 'ez-translate'); ?></p>
+        <?php else : ?>
+            <table class="wp-list-table widefat fixed striped ez-translate-languages-table">
+                <thead>
+                    <tr>
+                        <th scope="col"><?php esc_html_e('Code', 'ez-translate'); ?></th>
+                        <th scope="col"><?php esc_html_e('Name', 'ez-translate'); ?></th>
+                        <th scope="col"><?php esc_html_e('Native Name', 'ez-translate'); ?></th>
+                        <th scope="col"><?php esc_html_e('URL', 'ez-translate'); ?></th>
+                        <th scope="col"><?php esc_html_e('Landing Page', 'ez-translate'); ?></th>
+                        <th scope="col"><?php esc_html_e('Status', 'ez-translate'); ?></th>
+                        <th scope="col"><?php esc_html_e('Actions', 'ez-translate'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($_languages as $language) : ?>
+                        <?php
+                        // Get landing page info for this language
+                        $landing_page = \EZTranslate\LanguageManager::get_landing_page_for_language($language['code']);
+
+                        // Construct the language URL
+                        $current_language_data = \EZTranslate\LanguageManager::get_language($language['code']);
+                        $_slug = '';
+                        if ($current_language_data && isset($current_language_data['slug'])) {
+                            $_slug = $current_language_data['slug'];
+                        } elseif (isset($language['slug'])) { // Fallback if _language itself has slug
+                            $_slug = $language['slug'];
+                        }
+
+                        $language_url = '';
+                        if (!empty($_slug)) {
+                            $language_url = home_url('/' . $_slug . '/');
+                        }
+
+                        // Get language data with automatically synchronized SEO data
+                        $language_with_current_seo = \EZTranslate\LanguageManager::get_language_with_current_seo($language['code']);
+                        ?>
+                        <tr>
+                            <td><strong><?php echo esc_html($language['code']); ?></strong></td>
+                            <td>
+                                <?php echo esc_html(isset($language['flag']) ? $language['flag'] : ''); ?>
+                                <?php echo esc_html($language['name']); ?>
+                            </td>
+                            <td><?php echo esc_html(isset($language['native_name']) ? $language['native_name'] : '—'); ?></td>
+                            <td>
+                                <?php
+                                $display_slug = !empty($_slug) ? $_slug : $language['code'];
+                                if ($language_url) : ?>
+                                    <a href="<?php echo esc_url($language_url); ?>" target="_blank">
+                                        <code><?php echo esc_html($display_slug); ?></code>
+                                    </a>
+                                <?php else : ?>
+                                    <code><?php echo esc_html($display_slug); ?></code>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ($landing_page) : ?>
+                                    <div style="margin-bottom: 5px;">
+                                        <a href="<?php echo esc_url(get_edit_post_link($landing_page['post_id'])); ?>" target="_blank">
+                                            <?php echo esc_html(get_the_title($landing_page['post_id'])); ?>
+                                        </a>
+                                        <br>
+                                        <small style="color: #666;">
+                                            <a href="<?php echo esc_url(get_edit_post_link($landing_page['post_id'])); ?>" target="_blank"><?php esc_html_e('Edit', 'ez-translate'); ?></a> |
+                                            <a href="<?php echo esc_url(get_permalink($landing_page['post_id'])); ?>" target="_blank"><?php esc_html_e('View', 'ez-translate'); ?></a>
+                                        </small>
+                                    </div>
+                                    <button type="button" class="button button-small ez-translate-edit-seo-btn" data-post-id="<?php echo esc_attr($landing_page['post_id']); ?>" data-language="<?php echo esc_attr($language['code']); ?>" data-title="<?php echo esc_attr($landing_page['seo_title']); ?>" data-description="<?php echo esc_attr($landing_page['seo_description']); ?>">
+                                        <?php esc_html_e('Edit SEO', 'ez-translate'); ?>
+                                    </button>
+                                <?php else : ?>
+                                    <span style="color: #999;"><?php esc_html_e('No landing page', 'ez-translate'); ?></span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if (isset($language['enabled']) ? $language['enabled'] : true) : ?>
+                                    <span class="ez-translate-status-enabled"><?php esc_html_e('Enabled', 'ez-translate'); ?></span>
+                                <?php else : ?>
+                                    <span class="ez-translate-status-disabled"><?php esc_html_e('Disabled', 'ez-translate'); ?></span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <button type="button" class="button button-small ez-translate-edit-btn" data-language='<?php echo esc_attr(json_encode($language_with_current_seo)); ?>'>
+                                    <?php esc_html_e('Edit', 'ez-translate'); ?>
+                                </button>
+                                <form method="post" style="display: inline-block;" onsubmit="return confirm('<?php esc_attr_e('Are you sure you want to delete this language?', 'ez-translate'); ?>');">
+                                    <?php wp_nonce_field('ez_translate_admin', 'ez_translate_nonce_delete_' . $language['code']); ?>
+                                    <input type="hidden" name="ez_translate_action" value="delete_language">
+                                    <input type="hidden" name="language_code" value="<?php echo esc_attr($language['code']); ?>">
+                                    <button type="submit" class="button button-small button-link-delete">
+                                        <?php esc_html_e('Delete', 'ez-translate'); ?>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
+    <?php
+    }
+
+    /**
      * Add Landing Page column to pages list
      *
      * @param array $columns Existing columns
@@ -2610,6 +2777,63 @@ class Admin
             }
         </style>
     <?php
+    }
+
+    /**
+     * Transfiere los metadatos de una página de destino específica a la página principal
+     *
+     * @param int   $_source_page_id      ID de la página de origen
+     * @param int   $_destination_page_id ID de la página de destino
+     * @param array $_metadata_keys       Array con las claves de metadatos a transferir
+     * 
+     * @since 1.0.0
+     * @return bool|\WP_Error True en caso de éxito, WP_Error en caso de error
+     */
+    private function transfer_metadata_to_main_landing_page($_source_page_id, $_destination_page_id, $_metadata_keys = array())
+    {
+        $source_page = get_post($_source_page_id);
+        $destination_page = get_post($_destination_page_id);
+
+        if (!$_source_page_id || !$source_page || $source_page->post_type !== 'page') {
+            Logger::error('Invalid source page ID for metadata transfer.', array('source_page_id' => $_source_page_id));
+            return new \WP_Error('invalid_source_page', __('Invalid source page ID provided for metadata transfer.', 'ez-translate'));
+        }
+
+        if (!$destination_page || $destination_page->post_type !== 'page') {
+            Logger::error('Invalid destination page ID for metadata transfer.', array('destination_page_id' => $_destination_page_id));
+            return new \WP_Error('invalid_destination_page', __('Invalid destination page ID provided for metadata transfer.', 'ez-translate'));
+        }
+
+        if (empty($_metadata_keys)) {
+            $_metadata_keys = array(
+                '_ez_translate_seo_title',
+                '_ez_translate_seo_description',
+                '_ez_translate_seo_keywords',
+                '_ez_translate_social_image',
+                '_ez_translate_canonical_url',
+            );
+        }
+
+        $transferred_count = 0;
+        foreach ($_metadata_keys as $meta_key) {
+            $value = get_post_meta($_source_page_id, $meta_key, true);
+            if ($value !== '') { // Also transfer empty strings if that's the stored value, but perhaps skip if not found
+                update_post_meta($_destination_page_id, $meta_key, $value);
+                $transferred_count++;
+            }
+        }
+
+        Logger::info(
+            'Metadata transfer attempt completed.',
+            array(
+                'source_page_id' => $_source_page_id,
+                'destination_page_id' => $_destination_page_id,
+                'metadata_keys' => $_metadata_keys,
+                'transferred_count' => $transferred_count
+            )
+        );
+
+        return true;
     }
 
     /**
@@ -2879,7 +3103,7 @@ class Admin
 
     private function render_backup_preview($comparison)
     {
-        if (empty($comparison['languages']['new']) && empty($comparison['languages']['existing'])) {
+        if (empty($comparison['languages']['new']) && empty($comparison['languages']['existing']) && empty($comparison['default_metadata']['changes'])) {
             echo '<div class="notice notice-info"><p>' . esc_html(__('No changes to import.', 'ez-translate')) . '</p></div>';
             return;
         }
@@ -2893,7 +3117,7 @@ class Admin
                     <?php foreach ($comparison['languages']['new'] as $language) : ?>
                         <li>
                             <label>
-                                <input type="checkbox" name="import_languages[]" value="<?php echo esc_attr($language['code']); ?>" checked>
+                                <input type="checkbox" name="selected_languages[]" value="<?php echo esc_attr($language['code']); ?>" checked>
                                 <?php echo esc_html($language['name']); ?> (<?php echo esc_html($language['code']); ?>)
                             </label>
                         </li>
@@ -2907,16 +3131,16 @@ class Admin
                     <?php foreach ($comparison['languages']['existing'] as $language) : ?>
                         <li>
                             <label>
-                                <input type="checkbox" name="import_languages[]" value="<?php echo esc_attr($language['code']); ?>" checked>
+                                <input type="checkbox" name="selected_languages[]" value="<?php echo esc_attr($language['code']); ?>" checked>
                                 <?php echo esc_html($language['name']); ?> (<?php echo esc_attr($language['code']); ?>)
                             </label>
                             <div class="changes-preview">
                                 <?php foreach ($language['differences'] as $field => $values) : ?>
                                     <div class="field-change">
                                         <strong><?php echo esc_html($field); ?>:</strong>
-                                        <span class="current"><?php echo esc_html($values['current']); ?></span>
+                                        <span class="current"><?php echo esc_html(is_array($values['current']) ? wp_json_encode($values['current']) : $values['current']); ?></span>
                                         →
-                                        <span class="new"><?php echo esc_html($values['backup']); ?></span>
+                                        <span class="new"><?php echo esc_html(is_array($values['backup']) ? wp_json_encode($values['backup']) : $values['backup']); ?></span>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
@@ -2930,7 +3154,7 @@ class Admin
                 <div style="background: #f0f6fc; border-radius: 4px; padding: 15px; margin-bottom: 15px;">
                     <h4><?php esc_html_e('Default Language Metadata Changes', 'ez-translate'); ?></h4>
                     <label style="display: block; margin-bottom: 10px;">
-                        <input type="checkbox" name="import_default_metadata" value="1" checked>
+                        <input type="checkbox" id="import_default_metadata_checkbox" name="import_default_metadata" value="1" checked>
                         <?php esc_html_e('Update default language metadata', 'ez-translate'); ?>
                     </label>
 
@@ -2938,8 +3162,8 @@ class Admin
                         <?php foreach ($comparison['default_metadata']['changes'] as $field => $change): ?>
                             <li>
                                 <strong><?php echo esc_html(ucfirst(str_replace('_', ' ', $field))); ?>:</strong>
-                                <br><span style="color: #d63638;"><?php esc_html_e('Current:', 'ez-translate'); ?> "<?php echo esc_html($change['current']); ?>"</span>
-                                <br><span style="color: #00a32a;"><?php esc_html_e('Backup:', 'ez-translate'); ?> "<?php echo esc_html($change['backup']); ?>"</span>
+                                <br><span style="color: #d63638;"><?php esc_html_e('Current:', 'ez-translate'); ?> "<?php echo esc_html(is_array($change['current']) ? wp_json_encode($change['current']) : $change['current']); ?>"</span>
+                                <br><span style="color: #00a32a;"><?php esc_html_e('Backup:', 'ez-translate'); ?> "<?php echo esc_html(is_array($change['backup']) ? wp_json_encode($change['backup']) : $change['backup']); ?>"</span>
                             </li>
                         <?php endforeach; ?>
                     </ul>
@@ -2948,11 +3172,11 @@ class Admin
 
             <div style="background: #fff; border-radius: 4px; padding: 15px; text-align: center;">
                 <p style="margin-bottom: 15px;"><strong><?php esc_html_e('Ready to import?', 'ez-translate'); ?></strong></p>
-                <button type="submit" class="button button-primary" style="background: #00a32a; margin-right: 10px;">
+                <button type="button" id="ez-translate-confirm-import-button" class="button button-primary" style="background: #00a32a; margin-right: 10px;">
                     <span class="dashicons dashicons-upload" style="margin-right: 5px; vertical-align: middle;"></span>
                     <?php esc_html_e('Confirm Import', 'ez-translate'); ?>
                 </button>
-                <button type="button" class="button" onclick="location.reload();">
+                <button type="button" class="button" onclick="jQuery('#backup-preview-container').html(''); jQuery('#backup_file').val(''); jQuery('#backup-import-container').hide();">
                     <?php esc_html_e('Cancel', 'ez-translate'); ?>
                 </button>
             </div>

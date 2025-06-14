@@ -387,5 +387,21 @@ class LanguageDetector {
         return isset($flags[$code]) ? $flags[$code] : '🌐';
     }
 
+    /**
+     * Clears any caches used by the Language Detector.
+     *
+     * Note: Currently, this method serves as a placeholder as the detector
+     * primarily relies on WordPress's object cache for options, which is
+     * handled by update_option(). If specific caching mechanisms are added
+     * to this class in the future, this method should be updated.
+     *
+     * @since 1.0.0
+     * @return void
+     */
+    public static function clear_cache() {
+        Logger::info('LanguageDetector::clear_cache() called. No specific custom cache to clear at this time.');
+        // Future cache clearing logic would go here, e.g.:
+        // delete_transient('ez_translate_detector_some_cache_key');
+    }
 
 }
