@@ -37,7 +37,7 @@ class Robots {
      */
     public function __construct() {
         $this->init_hooks();
-        Logger::info('Robots class initialized');
+//         Logger::info('Robots class initialized');
     }
 
     /**
@@ -58,7 +58,7 @@ class Robots {
         // Hook into query vars to recognize robots.txt
         add_filter('query_vars', array($this, 'add_robots_query_vars'));
 
-        Logger::info('Robots hooks initialized');
+//         Logger::info('Robots hooks initialized');
     }
 
     /**
@@ -76,11 +76,11 @@ class Robots {
 
         // If robots.txt is disabled, let WordPress handle it normally
         if (!$settings['enabled']) {
-            Logger::debug('Robots.txt generation disabled, letting WordPress handle normally');
+//             Logger::debug('Robots.txt generation disabled, letting WordPress handle normally');
             return;
         }
 
-        Logger::info('Handling robots.txt request directly');
+//         Logger::info('Handling robots.txt request directly');
 
         // Generate content
         $content = $this->generate_robots_content();
@@ -159,17 +159,17 @@ class Robots {
 
         // If robots.txt is disabled, return default output
         if (!$settings['enabled']) {
-            Logger::debug('Robots.txt generation disabled, returning default output');
+//             Logger::debug('Robots.txt generation disabled, returning default output');
             return $output;
         }
 
         // If site is not public, return default WordPress behavior
         if (!$public) {
-            Logger::debug('Site is not public, returning default robots.txt');
+//             Logger::debug('Site is not public, returning default robots.txt');
             return $output;
         }
 
-        Logger::info('Generating dynamic robots.txt content');
+//         Logger::info('Generating dynamic robots.txt content');
 
         // Start with empty content to have full control
         $robots_content = '';
@@ -213,7 +213,7 @@ class Robots {
     private function generate_robots_content() {
         $settings = $this->get_robots_settings();
 
-        Logger::info('Generating robots.txt content internally');
+//         Logger::info('Generating robots.txt content internally');
 
         // Start with empty content to have full control
         $robots_content = '';
@@ -477,7 +477,7 @@ class Robots {
      * @since 1.0.0
      */
     public static function update_robots_settings($new_settings) {
-        Logger::info('Updating robots settings', $new_settings);
+//         Logger::info('Updating robots settings', $new_settings);
 
         // Get current settings
         $current_settings = self::get_robots_settings();

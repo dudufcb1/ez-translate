@@ -63,7 +63,7 @@ class Admin
         $this->init_seo_metadata_admin();
         $this->init_welcome_page();
         $this->init_dashboard_widget();
-        Logger::info('Admin class initialized');
+//         Logger::info('Admin class initialized');
     }
 
     private function ez_translate_recursive_sanitize($data)
@@ -253,7 +253,7 @@ class Admin
 
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified above
         $action = sanitize_text_field(wp_unslash($_POST['ez_translate_action']));
-        Logger::info('Processing form submission', array('action' => $action));
+//         Logger::info('Processing form submission', array('action' => $action));
 
         switch ($action) {
             case 'add_language':
@@ -304,7 +304,7 @@ class Admin
      */
     private function handle_sync_all_languages_seo()
     {
-        Logger::info('Starting manual synchronization of all languages with landing page SEO');
+//         Logger::info('Starting manual synchronization of all languages with landing page SEO');
 
         $sync_results = \EZTranslate\LanguageManager::sync_all_languages_with_landing_seo();
 
@@ -330,7 +330,7 @@ class Admin
             );
         }
 
-        Logger::info('Manual synchronization completed', $sync_results);
+//         Logger::info('Manual synchronization completed', $sync_results);
     }
 
     /**
@@ -340,7 +340,7 @@ class Admin
      */
     private function handle_export_backup()
     {
-        Logger::info('Processing backup export request');
+//         Logger::info('Processing backup export request');
 
         $backup_result = \EZTranslate\BackupManager::generate_backup_file();
 
@@ -387,7 +387,7 @@ class Admin
      */
     private function handle_import_backup()
     {
-        Logger::info('Processing backup import request');
+//         Logger::info('Processing backup import request');
 
         // Ensure session is started for storing backup data
         if (!session_id()) {
@@ -466,7 +466,7 @@ class Admin
             $notice_type = $import_result['summary']['failed_operations'] > 0 ? 'warning' : 'success';
             $this->add_admin_notice($message, $notice_type);
 
-            Logger::info('Backup import completed', $import_result['summary']);
+//             Logger::info('Backup import completed', $import_result['summary']);
         }
 
         // Clear the session data
@@ -480,7 +480,7 @@ class Admin
      */
     private function handle_import_preview()
     {
-        Logger::info('Starting backup preview generation');
+//         Logger::info('Starting backup preview generation');
 
         // Validate file upload
         if (
@@ -810,7 +810,7 @@ class Admin
      */
     private function handle_update_api_settings()
     {
-        Logger::info('Processing API settings update');
+//         Logger::info('Processing API settings update');
 
         // Sanitize input data
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in handle_form_submissions()
@@ -853,7 +853,7 @@ class Admin
      */
     private function handle_repair_landing_pages()
     {
-        Logger::info('Processing landing pages repair');
+//         Logger::info('Processing landing pages repair');
 
         $result = \EZTranslate\LanguageManager::repair_missing_landing_pages();
 
@@ -911,7 +911,7 @@ class Admin
             $this->add_admin_notice(__('All languages already have valid landing pages. No repair needed.', 'ez-translate'), 'info');
         }
 
-        Logger::info('Landing pages repair completed', $result);
+//         Logger::info('Landing pages repair completed', $result);
     }
 
     /**
@@ -964,12 +964,12 @@ class Admin
 
         if (update_option('ez_translate_detector_settings', $settings)) {
             $this->add_admin_notice(__('Detector settings updated successfully.', 'ez-translate'), 'success');
-            Logger::info('Detector settings updated successfully.', array('settings' => $settings));
+//             Logger::info('Detector settings updated successfully.', array('settings' => $settings));
 
             // Clear cache if LanguageDetector class exists
             if (class_exists('\EZTranslate\LanguageDetector')) {
                 \EZTranslate\LanguageDetector::clear_cache();
-                Logger::info('Language detector cache cleared.');
+//                 Logger::info('Language detector cache cleared.');
             }
         } else {
             $this->add_admin_notice(__('Failed to update detector settings or settings unchanged.', 'ez-translate'), 'warning');
@@ -1017,7 +1017,7 @@ class Admin
 
         if (update_option('ez_translate_detector_messages', $messages)) {
             $this->add_admin_notice(__('Detector messages updated successfully.', 'ez-translate'), 'success');
-            Logger::info('Detector messages updated successfully.');
+//             Logger::info('Detector messages updated successfully.');
         } else {
             $this->add_admin_notice(__('Failed to update detector messages or messages unchanged.', 'ez-translate'), 'warning');
             Logger::warning('Failed to update detector messages or messages unchanged.');
@@ -2872,7 +2872,7 @@ class Admin
         // Initialize sitemap admin
         new \EZTranslate\Admin\SitemapAdmin();
 
-        Logger::debug('Sitemap admin initialized');
+//         Logger::debug('Sitemap admin initialized');
     }
 
     /**
@@ -2900,7 +2900,7 @@ class Admin
         if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-seo-metadata-admin.php')) {
             require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-seo-metadata-admin.php';
             new \EZTranslate\Admin\SeoMetadataAdmin();
-            Logger::info('SEO metadata admin initialized');
+//             Logger::info('SEO metadata admin initialized');
         } else {
             Logger::warning('SEO metadata admin file not found');
         }
@@ -2917,7 +2917,7 @@ class Admin
         if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-welcome-page.php')) {
             require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-welcome-page.php';
             new \EZTranslate\Admin\WelcomePage();
-            Logger::info('Welcome page admin initialized');
+//             Logger::info('Welcome page admin initialized');
         } else {
             Logger::warning('Welcome page admin file not found');
         }
@@ -2934,7 +2934,7 @@ class Admin
         if (file_exists(EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-dashboard-widget.php')) {
             require_once EZ_TRANSLATE_PLUGIN_DIR . 'includes/admin/class-ez-translate-dashboard-widget.php';
             new \EZTranslate\Admin\DashboardWidget();
-            Logger::info('Dashboard widget initialized');
+//             Logger::info('Dashboard widget initialized');
         } else {
             Logger::warning('Dashboard widget file not found');
         }

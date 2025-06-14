@@ -33,7 +33,7 @@ class Gutenberg {
 
         // Landing page meta update hooks removed - legacy functionality
 
-        Logger::info('Gutenberg integration initialized');
+//         Logger::info('Gutenberg integration initialized');
     }
 
     /**

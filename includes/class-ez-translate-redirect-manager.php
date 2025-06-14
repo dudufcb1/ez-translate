@@ -40,7 +40,7 @@ class RedirectManager {
     public function __construct() {
         $this->init_database();
         $this->init_hooks();
-        Logger::info('RedirectManager initialized');
+//         Logger::info('RedirectManager initialized');
     }
 
     /**
@@ -61,7 +61,7 @@ class RedirectManager {
         // Update linked redirects when posts change
         add_action('post_updated', array($this, 'update_linked_redirects'), 15, 3);
 
-        Logger::info('RedirectManager hooks initialized');
+//         Logger::info('RedirectManager hooks initialized');
     }
 
     /**

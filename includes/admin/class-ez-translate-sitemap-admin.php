@@ -32,7 +32,7 @@ class SitemapAdmin {
      */
     public function __construct() {
         $this->init_hooks();
-        Logger::debug('SitemapAdmin initialized');
+//         Logger::debug('SitemapAdmin initialized');
     }
 
     /**
@@ -370,7 +370,7 @@ class SitemapAdmin {
                 \EZTranslate\Sitemap\SitemapCache::invalidate('all');
             }
 
-            Logger::info('Sitemap settings updated', $settings);
+//             Logger::info('Sitemap settings updated', $settings);
             
             wp_redirect(add_query_arg(array(
                 'page' => 'ez-translate-sitemap',

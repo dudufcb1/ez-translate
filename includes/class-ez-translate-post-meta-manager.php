@@ -102,7 +102,7 @@ class PostMetaManager
     public function __construct()
     {
         $this->init_hooks();
-        Logger::info('Post Meta Manager initialized');
+//         Logger::info('Post Meta Manager initialized');
     }
 
     /**
@@ -155,7 +155,7 @@ class PostMetaManager
      */
     public function handle_post_delete($post_id)
     {
-        Logger::info('Processing post deletion', array('post_id' => $post_id));
+//         Logger::info('Processing post deletion', array('post_id' => $post_id));
 
         // Log current metadata before deletion
         $metadata = self::get_post_metadata($post_id);
@@ -224,7 +224,7 @@ class PostMetaManager
         $result = update_post_meta($post_id, self::META_LANGUAGE, $language_code);
 
         if ($result) {
-            Logger::info('Post language set', array('post_id' => $post_id, 'language' => $language_code));
+//             Logger::info('Post language set', array('post_id' => $post_id, 'language' => $language_code));
             // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
             // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_value
             // These are logging parameters, not database queries
@@ -266,7 +266,7 @@ class PostMetaManager
         $result = update_post_meta($post_id, self::META_GROUP, $group_id);
 
         if ($result) {
-            Logger::info('Post translation group set', array('post_id' => $post_id, 'group_id' => $group_id));
+//             Logger::info('Post translation group set', array('post_id' => $post_id, 'group_id' => $group_id));
             // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
             // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_value
             // These are logging parameters, not database queries
@@ -301,7 +301,7 @@ class PostMetaManager
         $result = update_post_meta($post_id, self::META_SEO_TITLE, $seo_title);
 
         if ($result) {
-            Logger::info('Post SEO title set', array('post_id' => $post_id, 'seo_title' => $seo_title));
+//             Logger::info('Post SEO title set', array('post_id' => $post_id, 'seo_title' => $seo_title));
             // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
             // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_value
             // These are logging parameters, not database queries
@@ -334,7 +334,7 @@ class PostMetaManager
         $result = update_post_meta($post_id, self::META_SEO_DESCRIPTION, $seo_description);
 
         if ($result) {
-            Logger::info('Post SEO description set', array('post_id' => $post_id, 'seo_description' => $seo_description));
+//             Logger::info('Post SEO description set', array('post_id' => $post_id, 'seo_description' => $seo_description));
             // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
             // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_value
             // These are logging parameters, not database queries
@@ -367,7 +367,7 @@ class PostMetaManager
         $result = update_post_meta($post_id, self::META_OG_TITLE, $og_title);
 
         if ($result) {
-            Logger::info('Post OG title set', array('post_id' => $post_id, 'og_title' => $og_title));
+//             Logger::info('Post OG title set', array('post_id' => $post_id, 'og_title' => $og_title));
             // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
             // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_value
             // These are logging parameters, not database queries
@@ -592,7 +592,7 @@ class PostMetaManager
         }
 
         if ($success) {
-            Logger::info('All multilingual metadata removed', array('post_id' => $post_id));
+//             Logger::info('All multilingual metadata removed', array('post_id' => $post_id));
         } else {
             Logger::error('Some metadata could not be removed', array('post_id' => $post_id));
         }

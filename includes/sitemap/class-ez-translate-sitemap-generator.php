@@ -40,7 +40,7 @@ abstract class SitemapGenerator {
      */
     public function __construct() {
         $this->settings = $this->get_sitemap_settings();
-        Logger::debug('SitemapGenerator initialized', array('type' => get_class($this)));
+//         Logger::debug('SitemapGenerator initialized', array('type' => get_class($this)));
     }
 
     /**

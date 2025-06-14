@@ -32,7 +32,7 @@ class SitemapIndex extends SitemapGenerator {
      * @since 1.0.0
      */
     public function generate($language = '') {
-        Logger::debug('Generating sitemap index');
+//         Logger::debug('Generating sitemap index');
         
         $xml = $this->get_xml_header();
         $xml .= $this->get_sitemapindex_opening();

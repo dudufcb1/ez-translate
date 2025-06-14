@@ -1846,7 +1846,7 @@ class Frontend {
             true
         );
 
-        Logger::debug('Language detector assets enqueued');
+//         Logger::debug('Language detector assets enqueued');
     }
 
     /**

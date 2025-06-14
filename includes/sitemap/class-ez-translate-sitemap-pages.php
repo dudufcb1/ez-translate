@@ -33,7 +33,7 @@ class SitemapPages extends SitemapGenerator {
      * @since 1.0.0
      */
     public function generate($language = '') {
-        Logger::debug('Generating pages sitemap', array('language' => $language));
+//         Logger::debug('Generating pages sitemap', array('language' => $language));
         
         $xml = $this->get_xml_header();
         $xml .= $this->get_urlset_opening();

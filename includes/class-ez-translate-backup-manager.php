@@ -39,7 +39,7 @@ class BackupManager
      */
     public static function export_language_data()
     {
-        Logger::info('Starting language data export');
+//         Logger::info('Starting language data export');
 
         try {
             // Ensure LanguageManager is loaded
@@ -178,7 +178,7 @@ class BackupManager
      */
     public static function compare_with_current($backup_data)
     {
-        Logger::info('Starting backup comparison with current data');
+//         Logger::info('Starting backup comparison with current data');
 
         // Define a default empty comparison structure
         $default_comparison = array(
@@ -312,7 +312,7 @@ class BackupManager
             $comparison['default_metadata']['unchanged'] = true;
         }
 
-        Logger::info('Backup comparison completed', $comparison['summary']);
+//         Logger::info('Backup comparison completed', $comparison['summary']);
 
         return $comparison;
     }
@@ -456,7 +456,7 @@ class BackupManager
      */
     public static function import_language_data($backup_data, $import_options = array())
     {
-        Logger::info('Starting language data import', array('options' => $import_options));
+//         Logger::info('Starting language data import', array('options' => $import_options));
 
         // Ensure LanguageManager is loaded
         if (!class_exists('\EZTranslate\LanguageManager')) {
@@ -562,7 +562,7 @@ class BackupManager
             // Determine overall success
             $results['success'] = $results['summary']['failed_operations'] === 0;
 
-            Logger::info('Language data import completed', $results['summary']);
+//             Logger::info('Language data import completed', $results['summary']);
 
             return $results;
         } catch (\Exception $e) {
@@ -595,7 +595,7 @@ class BackupManager
             return new \WP_Error('metadata_update_failed', __('Failed to update default metadata.', 'ez-translate'));
         }
 
-        Logger::info('Default metadata imported successfully', $sanitized_metadata);
+//         Logger::info('Default metadata imported successfully', $sanitized_metadata);
         return true;
     }
 
@@ -821,7 +821,7 @@ class BackupManager
 
     private function handle_import_preview()
     {
-        Logger::info('Starting backup preview generation');
+//         Logger::info('Starting backup preview generation');
 
         // Validate file upload
         if (

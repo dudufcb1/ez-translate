@@ -42,7 +42,7 @@ class RestAPI {
      */
     public function __construct() {
         add_action('rest_api_init', array($this, 'register_routes'));
-        Logger::info('REST API controller initialized');
+//         Logger::info('REST API controller initialized');
     }
 
     /**
@@ -294,7 +294,7 @@ class RestAPI {
             )
         ));
 
-        Logger::info('REST API routes registered');
+//         Logger::info('REST API routes registered');
     }
 
     /**

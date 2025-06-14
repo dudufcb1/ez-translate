@@ -31,7 +31,7 @@ class CatchAllHandler {
      */
     public function __construct() {
         $this->init_hooks();
-        Logger::info('CatchAllHandler initialized');
+//         Logger::info('CatchAllHandler initialized');
     }
 
     /**
@@ -43,7 +43,7 @@ class CatchAllHandler {
         // Hook into template_redirect to catch 404s before they're displayed
         add_action('template_redirect', array($this, 'handle_404_redirect'), 1);
         
-        Logger::info('CatchAllHandler hooks initialized');
+//         Logger::info('CatchAllHandler hooks initialized');
     }
 
     /**
@@ -67,17 +67,17 @@ class CatchAllHandler {
 
         $current_url = $this->get_current_url();
         
-        Logger::info('CatchAll: Processing 404 for URL', array('url' => $current_url));
+//         Logger::info('CatchAll: Processing 404 for URL', array('url' => $current_url));
 
         // Check if this URL already has a specific redirect
         if ($this->has_specific_redirect($current_url)) {
-            Logger::info('CatchAll: URL has specific redirect, skipping catch-all', array('url' => $current_url));
+//             Logger::info('CatchAll: URL has specific redirect, skipping catch-all', array('url' => $current_url));
             return;
         }
 
         // Check if URL should be excluded from catch-all
         if ($this->should_exclude_url($current_url, $settings)) {
-            Logger::info('CatchAll: URL excluded from catch-all', array('url' => $current_url));
+//             Logger::info('CatchAll: URL excluded from catch-all', array('url' => $current_url));
             return;
         }
 

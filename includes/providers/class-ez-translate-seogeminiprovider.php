@@ -72,7 +72,7 @@ class SeoGeminiProvider implements AISeoProviderInterface {
      */
     public function __construct() {
         $this->api_key = LanguageManager::get_api_key();
-        Logger::debug('SeoGeminiProvider initialized');
+//         Logger::debug('SeoGeminiProvider initialized');
     }
 
     /**

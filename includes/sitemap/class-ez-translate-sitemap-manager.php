@@ -35,7 +35,7 @@ class SitemapManager {
     public function __construct() {
         $this->init_hooks();
         $this->init_cache();
-        Logger::info('SitemapManager initialized');
+//         Logger::info('SitemapManager initialized');
     }
 
     /**
@@ -66,7 +66,7 @@ class SitemapManager {
         // Scheduled rewrite rules flush
         add_action('ez_translate_flush_rewrite_rules', array($this, 'flush_rewrite_rules'));
 
-        Logger::debug('SitemapManager hooks initialized');
+//         Logger::debug('SitemapManager hooks initialized');
     }
 
     /**
@@ -132,7 +132,7 @@ class SitemapManager {
         // Register query vars
         add_filter('query_vars', array($this, 'add_query_vars'));
 
-        Logger::debug('Sitemap rewrite rules registered');
+//         Logger::debug('Sitemap rewrite rules registered');
     }
 
     /**
@@ -265,7 +265,7 @@ class SitemapManager {
         header('X-Robots-Tag: noindex');
         header('Cache-Control: max-age=3600');
         
-        Logger::debug('Sitemap headers set');
+//         Logger::debug('Sitemap headers set');
     }
 
     /**
@@ -351,7 +351,7 @@ class SitemapManager {
      */
     private function generate_taxonomies_sitemap($language = '') {
         // Placeholder - will be implemented in next step
-        Logger::debug('Generating taxonomies sitemap', array('language' => $language));
+//         Logger::debug('Generating taxonomies sitemap', array('language' => $language));
         
         $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
@@ -380,7 +380,7 @@ class SitemapManager {
         // Check if WordPress rewrite system is available
         global $wp_rewrite;
         if (!$wp_rewrite || !is_object($wp_rewrite)) {
-            Logger::debug('wp_rewrite not available yet, skipping rewrite rules check');
+//             Logger::debug('wp_rewrite not available yet, skipping rewrite rules check');
             return;
         }
 
@@ -404,16 +404,16 @@ class SitemapManager {
             // Only flush if we're not in admin and not during AJAX requests
             if (!is_admin() && !wp_doing_ajax()) {
                 flush_rewrite_rules();
-                Logger::info('Rewrite rules flushed for sitemap');
+//                 Logger::info('Rewrite rules flushed for sitemap');
             } else {
                 // Schedule a flush for later
                 if (!wp_next_scheduled('ez_translate_flush_rewrite_rules')) {
                     wp_schedule_single_event(time() + 5, 'ez_translate_flush_rewrite_rules');
-                    Logger::debug('Scheduled rewrite rules flush');
+//                     Logger::debug('Scheduled rewrite rules flush');
                 }
             }
         } else {
-            Logger::debug('Sitemap rewrite rules found and working');
+//             Logger::debug('Sitemap rewrite rules found and working');
         }
     }
 
@@ -458,7 +458,7 @@ class SitemapManager {
         // Invalidate all caches since we don't know the post type at this point
         \EZTranslate\Sitemap\SitemapCache::invalidate('all');
 
-        Logger::debug('Cache invalidated for post deletion', array('post_id' => $post_id));
+//         Logger::debug('Cache invalidated for post deletion', array('post_id' => $post_id));
     }
 
     /**
@@ -472,7 +472,7 @@ class SitemapManager {
         \EZTranslate\Sitemap\SitemapCache::invalidate('taxonomies', 'all');
         \EZTranslate\Sitemap\SitemapCache::invalidate('index');
 
-        Logger::debug('Cache invalidated for term change');
+//         Logger::debug('Cache invalidated for term change');
     }
 
     /**
@@ -482,6 +482,6 @@ class SitemapManager {
      */
     public function flush_rewrite_rules() {
         flush_rewrite_rules();
-        Logger::info('Sitemap rewrite rules flushed');
+//         Logger::info('Sitemap rewrite rules flushed');
     }
 }

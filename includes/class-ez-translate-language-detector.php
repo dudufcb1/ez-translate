@@ -399,7 +399,7 @@ class LanguageDetector {
      * @return void
      */
     public static function clear_cache() {
-        Logger::info('LanguageDetector::clear_cache() called. No specific custom cache to clear at this time.');
+//         Logger::info('LanguageDetector::clear_cache() called. No specific custom cache to clear at this time.');
         // Future cache clearing logic would go here, e.g.:
         // delete_transient('ez_translate_detector_some_cache_key');
     }

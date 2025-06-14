@@ -117,7 +117,7 @@ class LanguageManager {
      * @since 1.0.0
      */
     public static function add_language($language_data, $landing_page_data = null) {
-        Logger::info('Adding new language', array('data' => $language_data, 'auto_create_landing' => empty($landing_page_data)));
+//         Logger::info('Adding new language', array('data' => $language_data, 'auto_create_landing' => empty($landing_page_data)));
 
         // Validate language data
         $validation_result = self::validate_language_data($language_data);
@@ -215,11 +215,11 @@ class LanguageManager {
 
         // Sanitize only the allowed fields for updates
         $sanitized_data = self::sanitize_language_data_for_update($language_data);
-        Logger::info('Sanitized data for update', array('sanitized' => $sanitized_data));
+//         Logger::info('Sanitized data for update', array('sanitized' => $sanitized_data));
 
         // Get current languages
         $languages = self::get_languages(false);
-        Logger::info('Current languages before update', array('count' => count($languages)));
+//         Logger::info('Current languages before update', array('count' => count($languages)));
 
         $language_found = false;
 
@@ -300,7 +300,7 @@ class LanguageManager {
      * @since 1.0.0
      */
     public static function delete_language($code) {
-        Logger::info('Deleting language', array('code' => $code));
+//         Logger::info('Deleting language', array('code' => $code));
 
         if (empty($code)) {
             $error = new \WP_Error('empty_code', __('Language code cannot be empty.', 'ez-translate'));
@@ -355,7 +355,7 @@ class LanguageManager {
                 }
             }
 
-            Logger::info('Language deleted successfully', array('code' => $code));
+//             Logger::info('Language deleted successfully', array('code' => $code));
             Logger::log_db_operation('delete', self::OPTION_NAME, array('code' => $code));
             return true;
         } else {
@@ -714,7 +714,7 @@ class LanguageManager {
             }
         }
 
-        Logger::info('Bulk synchronization completed', $results);
+//         Logger::info('Bulk synchronization completed', $results);
         return $results;
     }
 
@@ -1135,7 +1135,7 @@ class LanguageManager {
      * @since 1.0.0
      */
     public static function update_api_settings($settings) {
-        Logger::info('Updating API settings', array('has_api_key' => !empty($settings['api_key'])));
+//         Logger::info('Updating API settings', array('has_api_key' => !empty($settings['api_key'])));
 
         // Validate input
         if (!is_array($settings)) {
@@ -1256,7 +1256,7 @@ class LanguageManager {
      */
     public static function repair_missing_landing_pages()
     {
-        Logger::info('Starting landing page repair process');
+//         Logger::info('Starting landing page repair process');
 
         $languages = self::get_languages(false);
         $repair_results = array(
@@ -1285,7 +1285,7 @@ class LanguageManager {
             $repair_results['found_missing']++;
             $language_code = $language['code'];
 
-            Logger::info('Attempting to repair language', array('code' => $language_code));
+//             Logger::info('Attempting to repair language', array('code' => $language_code));
 
             // Try to find landing page using bidirectional metadata
             $found_post_id = \EZTranslate\PostMetaManager::find_landing_page_for_language($language_code);
@@ -1384,7 +1384,7 @@ class LanguageManager {
             }
         }
 
-        Logger::info('Landing page repair process completed', $repair_results);
+//         Logger::info('Landing page repair process completed', $repair_results);
 
         return $repair_results;
     }

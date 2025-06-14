@@ -31,7 +31,7 @@ class RedirectAdmin {
      */
     public function __construct() {
         $this->init_hooks();
-        Logger::info('RedirectAdmin initialized');
+//         Logger::info('RedirectAdmin initialized');
     }
 
     /**
@@ -61,7 +61,7 @@ class RedirectAdmin {
         // Admin post handlers
         add_action('admin_post_ez_translate_save_catchall_settings', array($this, 'handle_save_catchall_settings'));
 
-        Logger::info('RedirectAdmin hooks initialized');
+//         Logger::info('RedirectAdmin hooks initialized');
     }
 
     /**

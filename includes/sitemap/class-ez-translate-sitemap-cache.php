@@ -98,7 +98,7 @@ class SitemapCache {
             
             file_put_contents(self::$cache_dir . '.htaccess', $htaccess_content);
             
-            Logger::info('Sitemap cache directory created', array('path' => self::$cache_dir));
+//             Logger::info('Sitemap cache directory created', array('path' => self::$cache_dir));
         }
     }
 

@@ -31,7 +31,7 @@ class RedirectTracker {
      */
     public function __construct() {
         $this->init_hooks();
-        Logger::info('RedirectTracker initialized');
+//         Logger::info('RedirectTracker initialized');
     }
 
     /**
@@ -46,7 +46,7 @@ class RedirectTracker {
         // Custom cron job for checking redirects
         add_action('ez_translate_check_redirects', array($this, 'verify_wordpress_redirects'));
         
-        Logger::info('RedirectTracker hooks initialized');
+//         Logger::info('RedirectTracker hooks initialized');
     }
 
     /**
@@ -57,7 +57,7 @@ class RedirectTracker {
     public function schedule_redirect_verification() {
         if (!wp_next_scheduled('ez_translate_check_redirects')) {
             wp_schedule_event(time(), 'hourly', 'ez_translate_check_redirects');
-            Logger::info('Redirect verification scheduled');
+//             Logger::info('Redirect verification scheduled');
         }
     }
 
@@ -70,7 +70,7 @@ class RedirectTracker {
         $redirects = $this->get_unverified_redirects();
         
         if (empty($redirects)) {
-            Logger::info('No unverified redirects to check');
+//             Logger::info('No unverified redirects to check');
             return;
         }
 
@@ -364,7 +364,7 @@ class RedirectTracker {
             }
         }
 
-        Logger::info('Force check completed', $results);
+//         Logger::info('Force check completed', $results);
         return $results;
     }
 }

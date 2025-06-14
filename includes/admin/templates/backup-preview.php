@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Template for displaying backup preview
  * 
@@ -17,10 +18,12 @@ $comparison = $this->backup_comparison;
 <div class="backup-preview">
     <h3><?php esc_html_e('Backup Preview', 'ez-translate'); ?></h3>
 
-    <?php if (empty($comparison['languages']['new']) && 
-              empty($comparison['languages']['existing']) && 
-              empty($comparison['default_metadata']['changes'])): ?>
-        
+    <?php if (
+        empty($comparison['languages']['new']) &&
+        empty($comparison['languages']['existing']) &&
+        empty($comparison['default_metadata']['changes'])
+    ): ?>
+
         <div class="notice notice-warning">
             <p><?php esc_html_e('No changes detected in the backup file.', 'ez-translate'); ?></p>
         </div>
@@ -31,9 +34,25 @@ $comparison = $this->backup_comparison;
         <div class="summary-section">
             <h4><?php esc_html_e('Summary', 'ez-translate'); ?></h4>
             <ul>
-                <li><?php printf(esc_html__('Total languages in backup: %d', 'ez-translate'), $comparison['summary']['total_backup_languages']); ?></li>
-                <li><?php printf(esc_html__('New languages to create: %d', 'ez-translate'), $comparison['summary']['new_languages_count']); ?></li>
-                <li><?php printf(esc_html__('Languages to update: %d', 'ez-translate'), $comparison['summary']['updated_languages_count']); ?></li>
+
+                <li><?php
+                    printf(
+                        /* translators: %d is the number of languages in the backup */
+                        esc_html__('Total languages in backup: %d', 'ez-translate'),
+                        absint($comparison['summary']['total_backup_languages'])
+                    ); ?></li>
+                <li><?php
+                    printf(
+                        /* translators: %d is the number of new languages to create */
+                        esc_html__('New languages to create: %d', 'ez-translate'),
+                        absint($comparison['summary']['new_languages_count'])
+                    ); ?></li>
+                <li><?php
+                    printf(
+                        /* translators: %d is the number of languages to update */
+                        esc_html__('Languages to update: %d', 'ez-translate'),
+                        absint($comparison['summary']['updated_languages_count'])
+                    ); ?></li>
             </ul>
         </div>
 
@@ -52,8 +71,8 @@ $comparison = $this->backup_comparison;
                                 <div class="language-details">
                                     <strong><?php esc_html_e('SEO Data:', 'ez-translate'); ?></strong>
                                     <ul>
-                                        <li><?php printf(esc_html__('Title: %s', 'ez-translate'), esc_html($language['data']['site_title'] ?? '')); ?></li>
-                                        <li><?php printf(esc_html__('Description: %s', 'ez-translate'), esc_html($language['data']['site_description'] ?? '')); ?></li>
+                                        <li><?php /* translators: %s is the site title */ printf(esc_html__('Title: %s', 'ez-translate'), esc_html($language['data']['site_title'] ?? '')); ?></li>
+                                        <li><?php /* translators: %s is the site description */ printf(esc_html__('Description: %s', 'ez-translate'), esc_html($language['data']['site_description'] ?? '')); ?></li>
                                     </ul>
                                 </div>
                             <?php endif; ?>
@@ -81,12 +100,12 @@ $comparison = $this->backup_comparison;
                                             <strong><?php echo esc_html(ucfirst(str_replace('_', ' ', $field))); ?>:</strong>
                                             <div class="change-details">
                                                 <span class="current">
-                                                    <?php esc_html_e('Current:', 'ez-translate'); ?> 
+                                                    <?php esc_html_e('Current:', 'ez-translate'); ?>
                                                     <?php echo esc_html($values['current']); ?>
                                                 </span>
                                                 <span class="arrow">→</span>
                                                 <span class="new">
-                                                    <?php esc_html_e('New:', 'ez-translate'); ?> 
+                                                    <?php esc_html_e('New:', 'ez-translate'); ?>
                                                     <?php echo esc_html($values['backup']); ?>
                                                 </span>
                                             </div>
@@ -114,12 +133,12 @@ $comparison = $this->backup_comparison;
                             <strong><?php echo esc_html(ucfirst(str_replace('_', ' ', $field))); ?>:</strong>
                             <div class="change-details">
                                 <span class="current">
-                                    <?php esc_html_e('Current:', 'ez-translate'); ?> 
+                                    <?php esc_html_e('Current:', 'ez-translate'); ?>
                                     <?php echo esc_html($values['current']); ?>
                                 </span>
                                 <span class="arrow">→</span>
                                 <span class="new">
-                                    <?php esc_html_e('New:', 'ez-translate'); ?> 
+                                    <?php esc_html_e('New:', 'ez-translate'); ?>
                                     <?php echo esc_html($values['backup']); ?>
                                 </span>
                             </div>
@@ -140,4 +159,4 @@ $comparison = $this->backup_comparison;
         </div>
 
     <?php endif; ?>
-</div> 
+</div>
