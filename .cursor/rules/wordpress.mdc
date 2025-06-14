@@ -1,0 +1,83 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Revisa el siguiente código WordPress y PHP para identificar y corregir cualquier problema de integridad de datos, asegurando que todos los datos se sanitizan correctamente según su origen y destino. Implementa las mejores prácticas de codificación de WordPress y PHP, explicando cada cambio y solicitando feedback para pruebas posteriores.
+
+# Steps
+
+- **Revisión Inicial**: Analiza el código para identificar todas las fuentes de datos y las consultas que se realizan.
+- **Sanitización de Datos**: Asegúrate de que todos los datos se sanitizen correctamente según su origen y destino. Utiliza funciones de sanitización adecuadas como `sanitize_text_field()`, `esc_url()`, `esc_html()`, etc.
+- **Implementación de Mejores Prácticas**: Aplica las mejores prácticas de codificación de WordPress y PHP, como el uso de preparaciones de consultas para evitar inyecciones SQL, la validación de datos de entrada, y la gestión adecuada de errores.
+- **Explicación de Cambios**: Explica al usuario cada cambio realizado, explicando por qué se hizo y solicitando feedback para pruebas posteriores.
+
+# Output Format
+
+El resultado debe ser un informe detallado que incluya:
+
+- **Código Revisado**: El código original con las correcciones implementadas.
+- **Explicación de Cambios**: Una descripción de cada cambio realizado, explicando por qué se hizo y solicitando feedback para pruebas posteriores.
+- **Mejores Prácticas Aplicadas**: Una lista de las mejores prácticas de codificación que se aplicaron.
+
+# Examples
+
+## Example 1
+
+**Input:**
+```php
+function get_user_data($user_id) {
+    global $wpdb;
+    $user_data = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}users WHERE ID = $user_id");
+    return $user_data;
+}
+```
+
+**Output:**
+```php
+function get_user_data($user_id) {
+    global $wpdb;
+    $user_id = intval($user_id); // Sanitize the user ID
+    $user_data = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}users WHERE ID = %d", $user_id));
+    return $user_data;
+}
+```
+
+**Explicación de Cambios:**
+- Se sanitizó el `$user_id` utilizando `intval()` para asegurarse de que sea un entero.
+- Se utilizó `$wpdb->prepare()` para preparar la consulta y evitar inyecciones SQL.
+- Se solicitó feedback para pruebas posteriores.
+
+## Example 2
+
+**Input:**
+```php
+function save_post_data($post_id, $title, $content) {
+    global $wpdb;
+    $wpdb->query("UPDATE {$wpdb->prefix}posts SET post_title = '$title', post_content = '$content' WHERE ID = $post_id");
+}
+```
+
+**Output:**
+```php
+function save_post_data($post_id, $title, $content) {
+    global $wpdb;
+    $post_id = intval($post_id); // Sanitize the post ID
+    $title = sanitize_text_field($title); // Sanitize the title
+    $content = wp_kses_post($content); // Sanitize the content
+    $wpdb->query($wpdb->prepare("UPDATE {$wpdb->prefix}posts SET post_title = %s, post_content = %s WHERE ID = %d", $title, $content, $post_id));
+}
+```
+
+**Explicación de Cambios:**
+- Se sanitizaron `$post_id`, `$title` y `$content` utilizando funciones adecuadas.
+- Se utilizó `$wpdb->prepare()` para preparar la consulta y evitar inyecciones SQL.
+- Se solicitó feedback para pruebas posteriores.
+
+# Notes
+
+- **Sanitización de Datos**: Asegúrate de sanitizar todos los datos de entrada y salida según su contexto.
+- **Preparación de Consultas**: Utiliza siempre `$wpdb->prepare()` para preparar consultas y evitar inyecciones SQL.
+- **Validación de Datos**: Valida los datos de entrada para asegurarte de que cumplen con los requisitos esperados.
+
+- **Gestión de Errores**: Implementa una gestión adecuada de errores para capturar y manejar cualquier problema que pueda surgir durante la ejecución del código.

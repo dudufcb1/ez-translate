@@ -25,6 +25,11 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Start output buffering to prevent header issues
+if (!defined('DOING_AJAX') && !defined('DOING_CRON')) {
+    ob_start();
+}
+
 // Define plugin constants
 define('EZ_TRANSLATE_VERSION', '1.1.2');
 define('EZ_TRANSLATE_PLUGIN_FILE', __FILE__);

@@ -201,7 +201,11 @@ class LanguageManager {
      * @since 1.0.0
      */
     public static function update_language($code, $language_data) {
-        Logger::info('Updating language', array('code' => $code, 'data' => $language_data));
+        Logger::info('Updating language', array(
+            'code' => $code, 
+            'data' => $language_data,
+            'debug_backtrace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3)
+        ));
 
         if (empty($code)) {
             $error = new \WP_Error('empty_code', __('Language code cannot be empty.', 'ez-translate'));
@@ -211,19 +215,23 @@ class LanguageManager {
 
         // Sanitize only the allowed fields for updates
         $sanitized_data = self::sanitize_language_data_for_update($language_data);
+        Logger::info('Sanitized data for update', array('sanitized' => $sanitized_data));
 
         // Get current languages
         $languages = self::get_languages(false);
+        Logger::info('Current languages before update', array('count' => count($languages)));
+
         $language_found = false;
 
         // Find and update the language
         foreach ($languages as $index => $language) {
             if (isset($language['code']) && $language['code'] === $code) {
                 // For updates, preserve critical fields and only allow safe changes
-                // Preserve: code, slug, landing_page_id (immutable for data integrity)
-                // Allow: enabled, site_name, site_title, site_description, native_name, flag, rtl
-
                 $updated_language = $language; // Start with existing data
+                Logger::info('Found language to update', array(
+                    'code' => $code,
+                    'old_data' => $language
+                ));
 
                 // Apply only the sanitized allowed fields
                 foreach ($sanitized_data as $key => $value) {
@@ -232,6 +240,10 @@ class LanguageManager {
 
                 $languages[$index] = $updated_language;
                 $language_found = true;
+                Logger::info('Language data updated', array(
+                    'code' => $code,
+                    'updated_data' => $updated_language
+                ));
                 break;
             }
         }
@@ -243,18 +255,39 @@ class LanguageManager {
         }
 
         // Save to database
+        Logger::info('Attempting to save languages to database', array(
+            'languages_count' => count($languages),
+            'option_name' => self::OPTION_NAME
+        ));
+        
         $result = update_option(self::OPTION_NAME, $languages);
 
         if ($result) {
             // Clear cache
             delete_transient(self::CACHE_KEY);
             
-            Logger::info('Language updated successfully', array('code' => $code, 'new_data' => $language_data));
+            Logger::info('Language updated successfully', array(
+                'code' => $code, 
+                'new_data' => $language_data,
+                'update_result' => $result
+            ));
             Logger::log_db_operation('update', self::OPTION_NAME, $language_data);
+
+            // Verify the update
+            $updated_languages = get_option(self::OPTION_NAME);
+            Logger::info('Verifying update', array(
+                'retrieved_languages' => $updated_languages !== false,
+                'languages_count' => is_array($updated_languages) ? count($updated_languages) : 'not an array'
+            ));
+
             return true;
         } else {
             $error = new \WP_Error('save_failed', __('Failed to save updated language to database.', 'ez-translate'));
-            Logger::error('Failed to save updated language', array('code' => $code, 'data' => $language_data));
+            Logger::error('Failed to save updated language', array(
+                'code' => $code, 
+                'data' => $language_data,
+                'current_option' => get_option(self::OPTION_NAME)
+            ));
             return $error;
         }
     }
